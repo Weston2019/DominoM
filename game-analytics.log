@@ -1,1 +1,29 @@
-ÿþ
+ÿþ{"timestamp":"2025-08-18T16:39:05.338Z","eventType":"room_created","roomId":"Sala-1","targetScore":70}
+{"timestamp":"2025-08-18T16:39:05.340Z","eventType":"player_join","playerName":"Jugador 1","roomId":"Sala-1","displayName":"lk","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0"}
+{"timestamp":"2025-08-18T16:39:32.622Z","eventType":"player_join","playerName":"Jugador 2","roomId":"Sala-1","displayName":"Da","userAgent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"}
+{"timestamp":"2025-08-18T16:39:49.770Z","eventType":"player_join","playerName":"Jugador 3","roomId":"Sala-1","displayName":"fv","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0"}
+{"timestamp":"2025-08-18T16:39:56.651Z","eventType":"player_join","playerName":"Jugador 4","roomId":"Sala-1","displayName":"kk","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0"}
+{"timestamp":"2025-08-18T16:40:09.526Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 1","tile":{"left":6,"right":6},"position":"right"}
+{"timestamp":"2025-08-18T16:40:14.959Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 3","tile":{"left":6,"right":2},"position":"right"}
+{"timestamp":"2025-08-18T16:40:18.941Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 2","tile":{"left":2,"right":3},"position":"right"}
+{"timestamp":"2025-08-18T16:40:33.678Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 4","tile":{"left":0,"right":6},"position":"left"}
+{"timestamp":"2025-08-18T16:40:39.901Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 1","tile":{"left":3,"right":6},"position":"right"}
+{"timestamp":"2025-08-18T16:40:46.959Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 3","tile":{"left":2,"right":0},"position":"left"}
+{"timestamp":"2025-08-18T16:40:54.742Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 2","tile":{"left":2,"right":2},"position":"left"}
+{"timestamp":"2025-08-18T16:41:30.578Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 4","tile":{"left":6,"right":5},"position":"right"}
+{"timestamp":"2025-08-18T16:41:34.858Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 1","tile":{"left":4,"right":2},"position":"left"}
+{"timestamp":"2025-08-18T16:41:39.694Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 3","tile":{"left":5,"right":2},"position":"right"}
+{"timestamp":"2025-08-18T16:41:44.902Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 2","tile":{"left":3,"right":4},"position":"left"}
+{"timestamp":"2025-08-18T16:41:56.075Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 4","tile":{"left":1,"right":3},"position":"left"}
+{"timestamp":"2025-08-18T16:42:03.497Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 1","tile":{"left":2,"right":1},"position":"right"}
+{"timestamp":"2025-08-18T16:42:07.908Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 3","tile":{"left":1,"right":1},"position":"right"}
+{"timestamp":"2025-08-18T16:42:11.871Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 2","tile":{"left":1,"right":6},"position":"right"}
+{"timestamp":"2025-08-18T16:42:17.669Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 4","tile":{"left":5,"right":1},"position":"left"}
+{"timestamp":"2025-08-18T16:42:22.243Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 1","tile":{"left":6,"right":4},"position":"right"}
+{"timestamp":"2025-08-18T16:42:31.826Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 3","tile":{"left":4,"right":1},"position":"right"}
+{"timestamp":"2025-08-18T16:42:35.844Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 2","tile":{"left":3,"right":5},"position":"left"}
+{"timestamp":"2025-08-18T16:42:45.177Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 1","tile":{"left":3,"right":3},"position":"left"}
+{"timestamp":"2025-08-18T16:42:50.790Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 3","tile":{"left":1,"right":0},"position":"right"}
+{"timestamp":"2025-08-18T16:43:03.756Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 2","tile":{"left":0,"right":3},"position":"left"}
+{"timestamp":"2025-08-18T16:43:08.114Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 4","tile":{"left":0,"right":5},"position":"right"}
+{"timestamp":"2025-08-18T16:43:19.831Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 3","tile":{"left":5,"right":4},"position":"right"}
