@@ -1,0 +1,396 @@
+/* ================= GLOBAL MOBILE STYLES ================= */
+@media (max-width: 900px) {
+
+  /* ===== GLOBAL NON-GAME RULES ===== */
+  /* Paste your original non-game mobile styles here */
+  /* Examples — replace with your actual rules */
+  
+  body {@media (max-width: 900px) {
+  #lobby-container {
+    display: block; /* Ensure it's visible */
+  }
+}
+
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  button {
+    font-size: 1rem;
+    padding: 8px 12px;
+  }
+
+  /* Chat styles */
+  #chat-container {
+    font-size: 0.9rem;
+  }
+
+  /* Lobby / avatar selection styles */
+  #avatar-selection {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+}
+#rules-button-wrapper-mobile {
+  margin: 12px auto;
+  text-align: center;@media (min-width: 901px) {
+  #rules-button-wrapper-mobile {
+    display: none !important;
+  }
+}
+
+}
+
+.rules-button {
+  display: inline-block;
+  padding: 10px 14px;
+  font-size: 16px;
+  background-color: #f5f5f5;
+  border: 2px solid #333;
+  border-radius: 8px;
+  color: #222;
+  cursor: pointer;
+}
+
+/* ================= MOBILE LAYOUT FOR GAME PAGE ================= */
+@media (max-width: 900px) {
+
+  /* ===== FIXED GAME AREA ===== */
+  #game-ui #canvas-container,
+  #game-ui .player-display-board {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
+    background: #000;
+  }
+
+  /* Board height */
+  #game-ui #canvas-container {
+    height: 60vh;
+  }
+
+  /* Hand height */
+  #game-ui .player-display-board {
+    top: 60vh;
+    height: 20vh;
+  }
+
+  /* ===== SCROLLABLE SECTION ===== */
+  #game-ui .game-ui-main {
+    margin-top: 80vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 150vh;
+  }
+
+  /* ===== PLAYERS CONTAINER ===== */
+  #game-ui #players-container {
+  position: relative; /* reference for absolute children */
+  width: 100%;
+  height: 100%; /* match the board area */
+}
+
+
+  /* Base player display style */
+  #game-ui .player-display {
+    flex: 0 0 25%;
+    max-width: 30%;
+    box-sizing: border-box;
+    position: absolute;
+  }  
+
+  /* ===== INDIVIDUAL PLAYER POSITIONS ===== */
+
+@media (max-width: 600px) {
+#player-display-left,
+#player-display-right {
+   /* height: 95px !important;  */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    overflow: visible;
+    padding: 4px 0 !important;
+    }
+  }
+  #game-ui #player-display-top {
+        top: 1px !important;
+        left: 70% !important;
+        width: 175px;
+        height: 40px;
+        transform: translateX(-50%) !important;
+    }
+
+  #game-ui #player-display-right {
+        top: 81% !important;
+        right: 0px !important;
+        width: 82px;
+        height: 95px;
+        position: absolute;
+        transform: translateY(-50%) !important;
+    }
+
+  #game-ui #player-display-bottom {
+        bottom: 8px !important;
+        width: 175px;
+        left: 25% !important;
+        transform: translateX(-50%) !important;
+    }
+
+  #game-ui #player-display-left {
+        top: 81% !important;
+        left: 0;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        height: 95px !important;
+        width: 80px !important;
+        position: absolute;
+        transform: translateY(-50%) !important
+    }
+/* Make left and right player display vertical on mobile */
+   
+#player-display-left .tiny-domino,
+    #player-display-right .tiny-domino {
+        width: 7px !important;
+        height: 12px !important;
+        margin: 0 0.25px !important;
+    }
+
+  /* ===== EXTRAS ORDER & SPACING ===== */
+
+@media (max-width: 900px) {
+    #scoreboard {
+        padding: 4px 8px 4px 8px !important;
+        font-size: 11px !important;
+        max-width: 110px !important;
+        min-width: 80px !important;
+        height: auto !important;
+        overflow: hidden !important;
+        background: #222 !important;
+        color: #fff !important;
+        top:-15px;
+    }
+    
+
+}
+
+  #game-ui #matches-won-container {
+    order: 2;
+    position: absolute;
+    top: 420px;
+    left:55%;
+  }
+
+  #game-ui #restart-game-container {
+  position: absolute;
+  top: 580px;
+  right: 5%;
+}
+
+  #game-ui #chat-container {
+    order: 4;
+    position: absolute;
+    top: 420px;
+    width: 50%;
+  }
+
+/* Mobile landscape layout for points table */
+
+@media screen and (max-width: 768px) and (orientation: landscape) {
+  #points-table-container {
+    position: absolute;
+    top: 420px;
+    right: 28px;
+    z-index: 9999;
+    padding: 12px 16px;         /* More breathing room */
+    min-height: 140px;          /* Taller container */
+    font-size: 14px;
+    background: rgba(139, 117, 86, 0.95); /* Slightly richer gold tone */
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border: 1px solid #8B7556;
+    display: block;
+  }
+
+  .points-title {
+    font-size: 16px;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #A0926B;
+    color: #F0F0F0;
+  }
+
+  .points-content {
+    font-size: 13px;
+    line-height: 1.4;
+    color: #E0E0E0;
+  }
+}
+
+
+  .points-title {
+    font-size: 16px;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #A0926B;
+    color: #F0F0F0;
+  }
+
+  .points-content {
+    font-size: 14px;
+    color: #E0E0E0;
+  }
+
+#scroll-panel,
+#orientation-warning {
+  display: none;
+}
+@media (max-width: 900px) {
+  #scroll-panel {
+    display: block;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: #f9f9f9;
+    padding: 10px;
+    z-index: 10;
+  }
+  #orientation-warning {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background: #ffdddd;
+    color: #333;
+    padding: 10px;
+    text-align: center;
+    z-index: 9999;
+  }
+}
+#rules-button-wrapper-mobile {
+  position: absolute;
+  top: 480px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+}
+
+#rules-button-wrapper-mobile .rules-button {
+  font-size: 14px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background-color: #eee;
+  border: 1px solid #ccc;
+}
+
+
+.rules-button {
+  display: inline-block;
+  width: 40%;
+  margin: 8px 0;
+  padding: 10px 14px;
+  font-size: 16px;
+  background-color: #f5f5f5;
+  border: 2px solid #333;
+  border-radius: 8px;
+  color: #222;
+  cursor: pointer;
+}
+@media (min-width: 901px) {
+  #rules-button-wrapper-mobile {
+    display: none !important;
+  }
+}
+
+
+}
+#orientation-warning {
+  display: none;
+}
+@media screen and (max-width: 768px) and (orientation: landscape) {
+  #game-area {
+    position: relative;
+    width: 100%;
+    min-height: 600px;
+    max-height: 100vh;
+    overflow-y: auto;
+    display: block;
+    box-sizing: border-box;
+  }
+}
+
+@media screen and (orientation: portrait) {
+  body.in-game #orientation-warning {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #333;
+    color: #fff;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    z-index: 99999;
+    text-align: center;
+    padding: 20px;
+  }
+
+  body.in-game #game-area {
+    display: none;
+  }
+}
+
+
+  @media (max-width: 900px) {
+    #game-buttons {
+        position: absolute !important;
+        left: 60% !important;
+        transform: translateX(-50%) !important;
+        bottom: 77px !important; /* Just above the player's hand */
+        width: auto !important;
+        z-index: 20 !important;
+    }
+}
+#game-buttons button {
+        font-size: 0.9em !important;
+        padding: 4px 8px !important;
+        margin: 2px !important;
+    }
+
+
+@media screen and (max-width: 768px) and (orientation: landscape) {
+  #ui-divider {
+    width: 100%;
+    height: 2px;
+    background-color: #A0926B;
+    margin: 70px 0;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    display: block;
+    border: none; /* Remove debug border once confirmed */
+  }
+}
+
+  /* ===== RESPONSIVE FALLBACK ===== */
+  @media (max-width: 500px) {
+    #game-ui .player-display {
+      flex: 0 0 45%;
+      max-width: 45%;
+    }
+  }
+
+  /* ===== SAFETY RESET ===== */
+  html, body {
+    height: auto;
+    overflow-y: auto;
+  }
+

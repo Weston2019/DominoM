@@ -1,0 +1,42 @@
+[
+  {
+    "id": "1755986462628",
+    "suggestion": "working at last",
+    "timestamp": "2025-08-23T22:01:02.614Z",
+    "userAgent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36 Edg/139.0.0.0",
+    "language": "en-US",
+    "ip": "::1"
+  },
+  {
+    "id": "1755988821297",
+    "suggestion": "hola probando",
+    "timestamp": "2025-08-23T22:40:21.291Z",
+    "userAgent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36 Edg/139.0.0.0",
+    "language": "en-US",
+    "ip": "::1"
+  },
+  {
+    "id": "1755988821300",
+    "suggestion": "hola probando",
+    "timestamp": "2025-08-23T22:40:21.293Z",
+    "userAgent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36 Edg/139.0.0.0",
+    "language": "en-US",
+    "ip": "::1"
+  },
+  {
+    "id": "1755989632760",
+    "suggestion": "Hola qué bien que funciona",
+    "timestamp": "2025-08-23T22:53:53.655Z",
+    "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
+    "language": "en-US",
+    "ip": "::ffff:192.168.0.141"
+  },
+  {
+    "id": "1755989632763",
+    "suggestion": "Hola qué bien que funciona",
+    "timestamp": "2025-08-23T22:53:53.655Z",
+    "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
+    "language": "en-US",
+    "ip": "::ffff:192.168.0.141"
+  }
+]

@@ -50,19 +50,6 @@ const io = socketIo(server);
 app.use(express.static(__dirname));
 
 // =============================================================================
-// == ENSURE REQUIRED DIRECTORIES EXIST ON SERVER STARTUP                    ==
-// =============================================================================
-
-// Create avatars directory if it doesn't exist
-const iconsDir = path.join(__dirname, 'assets', 'icons');
-if (!fs.existsSync(iconsDir)) {
-    fs.mkdirSync(iconsDir, { recursive: true });
-    console.log(`🚀 [STARTUP] Created avatars directory: ${iconsDir}`);
-} else {
-    console.log(`✅ [STARTUP] Avatars directory exists: ${iconsDir}`);
-}
-
-// =============================================================================
 // == GLOBAL VARIABLES & GAME STATE MANAGEMENT                                ==
 // =============================================================================
 
@@ -656,17 +643,19 @@ io.on('connection', (socket) => {
             
             // Assign default avatar based on player name if no avatar was provided
             if (avatarData === null) {
-                // For now, always use emoji avatars as defaults since image files are unreliable
-                // Users can upload custom avatars which will work properly
-                const match = availableSlot.name.match(/\d+/);
-                const playerNumber = match ? match[0] : '1';
+                // First try player-specific avatar (e.g., "da_avatar.jpg")
+                // Try both lowercase and proper case versions
+                const lowerCaseName = displayName.toLowerCase();
+                const properCaseName = displayName.charAt(0).toUpperCase() + displayName.slice(1).toLowerCase();
                 
-                // Use distinctive emoji based on slot
-                const emojiMap = { '1': '🎯', '2': '🎲', '3': '🎮', '4': '🏆' };
-                const slotEmoji = emojiMap[playerNumber] || '👤';
+                const playerSpecificAvatar = `${lowerCaseName}_avatar.jpg`;
+                const properCaseAvatar = `${properCaseName}_avatar.jpg`;
+                const playerNumber = availableSlot.name.split(' ')[1]; // Extract number from "Jugador X"
+                const slotAvatar = `jugador${playerNumber}_avatar.jpg`;
                 
-                avatarData = { type: 'emoji', data: slotEmoji };
-                console.log(`[AVATAR] Using reliable emoji ${slotEmoji} for ${displayName} (${availableSlot.name})`);
+                // Use player-specific avatar (try lowercase first, then proper case, then slot-based)
+                avatarData = { type: 'file', data: playerSpecificAvatar };
+                // // console.log(`[DEFAULT AVATAR] Assigned ${playerSpecificAvatar} to ${displayName} in slot ${availableSlot.name} (fallback: ${properCaseAvatar} or ${slotAvatar})`);
             }
             
             availableSlot.avatar = avatarData;
@@ -1094,16 +1083,9 @@ app.post('/save-avatar', express.json({ limit: '1mb' }), (req, res) => {
     const imageType = matches[1]; // jpg, png, etc.
     const imageBuffer = Buffer.from(matches[2], 'base64');
     
-    // Create avatars directory structure if it doesn't exist
-    const iconsDir = path.join(__dirname, 'assets', 'icons');
-    if (!fs.existsSync(iconsDir)) {
-        fs.mkdirSync(iconsDir, { recursive: true });
-        console.log(`📁 Created avatars directory: ${iconsDir}`);
-    }
-    
-    // Create the filename using exact case provided by user
+    // Create the filename (always save as .jpg for consistency)
     const filename = `${playerName}_avatar.jpg`;
-    const filepath = path.join(iconsDir, filename);
+    const filepath = path.join(__dirname, 'assets', 'icons', filename);
     
     // Save the file
     fs.writeFile(filepath, imageBuffer, (err) => {
@@ -1112,32 +1094,9 @@ app.post('/save-avatar', express.json({ limit: '1mb' }), (req, res) => {
             return res.status(500).json({ error: 'Failed to save avatar file' });
         }
         
-        console.log(`✅ Avatar saved: ${filename}`);
+        // console.log(`✅ Avatar saved as file: ${filename}`);
         res.json({ success: true, filename: filename });
     });
-});
-
-// Debug endpoint to list avatar files (remove after testing)
-app.get('/debug/avatars', (req, res) => {
-    const fs = require('fs');
-    const path = require('path');
-    
-    try {
-        const iconsDir = path.join(__dirname, 'assets', 'icons');
-        const files = fs.readdirSync(iconsDir);
-        const avatarFiles = files.filter(file => file.endsWith('_avatar.jpg'));
-        
-        res.json({ 
-            success: true, 
-            avatarFiles: avatarFiles.sort(),
-            iconsDir: iconsDir 
-        });
-    } catch (error) {
-        res.json({ 
-            success: false, 
-            error: error.message 
-        });
-    }
 });
 
 // Endpoint to submit suggestions

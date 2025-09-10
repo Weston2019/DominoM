@@ -50,19 +50,6 @@ const io = socketIo(server);
 app.use(express.static(__dirname));
 
 // =============================================================================
-// == ENSURE REQUIRED DIRECTORIES EXIST ON SERVER STARTUP                    ==
-// =============================================================================
-
-// Create avatars directory if it doesn't exist
-const iconsDir = path.join(__dirname, 'assets', 'icons');
-if (!fs.existsSync(iconsDir)) {
-    fs.mkdirSync(iconsDir, { recursive: true });
-    console.log(`🚀 [STARTUP] Created avatars directory: ${iconsDir}`);
-} else {
-    console.log(`✅ [STARTUP] Avatars directory exists: ${iconsDir}`);
-}
-
-// =============================================================================
 // == GLOBAL VARIABLES & GAME STATE MANAGEMENT                                ==
 // =============================================================================
 
@@ -656,17 +643,48 @@ io.on('connection', (socket) => {
             
             // Assign default avatar based on player name if no avatar was provided
             if (avatarData === null) {
-                // For now, always use emoji avatars as defaults since image files are unreliable
-                // Users can upload custom avatars which will work properly
-                const match = availableSlot.name.match(/\d+/);
-                const playerNumber = match ? match[0] : '1';
+                const fs = require('fs');
+                const path = require('path');
                 
-                // Use distinctive emoji based on slot
-                const emojiMap = { '1': '🎯', '2': '🎲', '3': '🎮', '4': '🏆' };
-                const slotEmoji = emojiMap[playerNumber] || '👤';
+                // Get list of actual avatar files
+                const iconsDir = path.join(__dirname, 'assets', 'icons');
+                let actualAvatarFile = null;
                 
-                avatarData = { type: 'emoji', data: slotEmoji };
-                console.log(`[AVATAR] Using reliable emoji ${slotEmoji} for ${displayName} (${availableSlot.name})`);
+                try {
+                    const files = fs.readdirSync(iconsDir);
+                    const avatarFiles = files.filter(file => file.endsWith('_avatar.jpg'));
+                    
+                    // Look for exact match (case-insensitive) - this handles user-created avatars with any case
+                    const targetName = displayName.toLowerCase();
+                    
+                    actualAvatarFile = avatarFiles.find(file => {
+                        const fileBaseName = file.replace('_avatar.jpg', '').toLowerCase();
+                        return fileBaseName === targetName;
+                    });
+                    
+                    if (actualAvatarFile) {
+                        console.log(`[AVATAR] Found file: ${actualAvatarFile} for ${displayName}`);
+                    } else {
+                        // Fallback to slot-based avatar
+                        const playerNumber = availableSlot.name.split(' ')[1];
+                        const slotAvatar = `jugador${playerNumber}_avatar.jpg`;
+                        actualAvatarFile = slotAvatar;
+                        console.log(`[AVATAR] Using slot avatar: ${slotAvatar} for ${displayName}`);
+                    }
+                } catch (error) {
+                    console.error('[AVATAR] Error reading icons directory:', error);
+                    // Fallback to old logic
+                    const playerNumber = availableSlot.name.split(' ')[1];
+                    actualAvatarFile = `jugador${playerNumber}_avatar.jpg`;
+                }
+                
+                // Safety check to prevent null avatar data
+                if (!actualAvatarFile) {
+                    console.log(`[AVATAR ERROR] actualAvatarFile is null! Falling back to jugador1_avatar.jpg`);
+                    actualAvatarFile = 'jugador1_avatar.jpg';
+                }
+                
+                avatarData = { type: 'file', data: actualAvatarFile };
             }
             
             availableSlot.avatar = avatarData;
@@ -1094,16 +1112,9 @@ app.post('/save-avatar', express.json({ limit: '1mb' }), (req, res) => {
     const imageType = matches[1]; // jpg, png, etc.
     const imageBuffer = Buffer.from(matches[2], 'base64');
     
-    // Create avatars directory structure if it doesn't exist
-    const iconsDir = path.join(__dirname, 'assets', 'icons');
-    if (!fs.existsSync(iconsDir)) {
-        fs.mkdirSync(iconsDir, { recursive: true });
-        console.log(`📁 Created avatars directory: ${iconsDir}`);
-    }
-    
     // Create the filename using exact case provided by user
     const filename = `${playerName}_avatar.jpg`;
-    const filepath = path.join(iconsDir, filename);
+    const filepath = path.join(__dirname, 'assets', 'icons', filename);
     
     // Save the file
     fs.writeFile(filepath, imageBuffer, (err) => {

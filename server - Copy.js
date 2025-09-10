@@ -1,6 +1,6 @@
 
 // =============================================================================
-// == server.js          DominoM  -  August 27 by DAM Productions              ==
+// == server.js          Domino4  -  August 6 by DAM Productions              ==
 // =============================================================================
 const express = require('express');
 const http = require('http');
@@ -50,19 +50,6 @@ const io = socketIo(server);
 app.use(express.static(__dirname));
 
 // =============================================================================
-// == ENSURE REQUIRED DIRECTORIES EXIST ON SERVER STARTUP                    ==
-// =============================================================================
-
-// Create avatars directory if it doesn't exist
-const iconsDir = path.join(__dirname, 'assets', 'icons');
-if (!fs.existsSync(iconsDir)) {
-    fs.mkdirSync(iconsDir, { recursive: true });
-    console.log(`🚀 [STARTUP] Created avatars directory: ${iconsDir}`);
-} else {
-    console.log(`✅ [STARTUP] Avatars directory exists: ${iconsDir}`);
-}
-
-// =============================================================================
 // == GLOBAL VARIABLES & GAME STATE MANAGEMENT                                ==
 // =============================================================================
 
@@ -110,7 +97,7 @@ function findOrCreateRoom(playerName = null) {
             if (wasInThisRoom) {
                 const connectedCount = room.jugadores.filter(p => p.isConnected).length;
                 if (connectedCount < 4) {
-                    // // console.log(`[ROOM PRIORITY] ${playerName} returning to previous room: ${roomId}`);
+                    console.log(`[ROOM PRIORITY] ${playerName} returning to previous room: ${roomId}`);
                     return room;
                 }
             }
@@ -129,7 +116,7 @@ function findOrCreateRoom(playerName = null) {
     const newRoomId = `Sala-${nextRoomId++}`;
     const newRoom = createGameRoom(newRoomId);
     gameRooms.set(newRoomId, newRoom);
-    // // console.log(`[ROOM SYSTEM] Created new room: ${newRoomId}`);
+    console.log(`[ROOM SYSTEM] Created new room: ${newRoomId}`);
     
     // Track room creation for analytics
     analytics.trackRoomCreated(newRoomId, 70).catch(err => 
@@ -190,16 +177,7 @@ function createNewGameState() {
         gameBlocked: false // Flag to indicate blocked game state
     };
 }
-function showSystemMessage(message, type = 'info') {
-    const messagesDiv = document.getElementById('chat-messages');
-    if (!messagesDiv) return;
-    const msg = document.createElement('p');
-    msg.innerHTML = `<b>System:</b> ${message}`;
-    msg.style.color = type === 'error' ? '#ff4444' : (type === 'success' ? '#44ff44' : '#ffaa00');
-    msg.style.fontWeight = 'bold';
-    messagesDiv.appendChild(msg);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
+
 
 // =============================================================================
 // == CORE GAME UTILITY FUNCTIONS                                             ==
@@ -257,27 +235,16 @@ function broadcastGameState(room) {
         tileCount: room.gameState.hands[p.name] ? room.gameState.hands[p.name].length : 0,
         avatar: p.avatar || { type: 'emoji', data: '👤' }
     }));
-    
-    // Debug: Log avatar data being sent
-    // // console.log('[BROADCAST] Avatar data for each player:');
-    room.gameState.jugadoresInfo.forEach(p => {
-        // // console.log(`  ${p.displayName} (${p.name}): ${p.avatar.type} - ${p.avatar.data}`);
-    });
-    
     const stateToSend = { ...room.gameState };
     stateToSend.readyPlayers = Array.from(room.gameState.readyPlayers);
     stateToSend.roomId = room.roomId; // Add room info
     stateToSend.targetScore = room.targetScore || 70; // Always include targetScore
     const { hands, ...finalState } = stateToSend;
 
-    // // console.log(`[BROADCAST] Sending gameState to ${room.jugadores.filter(p => p.isConnected).length} players in ${room.roomId}`);
-    // // console.log(`[BROADCAST] GameState: initialized=${finalState.gameInitialized}, currentTurn=${finalState.currentTurn}, firstMove=${finalState.isFirstMove}`);
-
     // Emit only to players in this room
     room.jugadores.forEach(player => {
         if (player.isConnected && player.socketId) {
             io.to(player.socketId).emit('gameState', finalState);
-            // // console.log(`[BROADCAST] Emitted gameState to ${player.name} (${player.socketId})`);
         }
     });
 }
@@ -293,13 +260,10 @@ function dealHands(room) {
     let dominoesPool = generateDominoes();
     shuffleArray(dominoesPool);
     const connectedPlayers = room.jugadores.filter(p => p.isConnected);
-    // // console.log(`[DEAL-HANDS] Dealing to ${connectedPlayers.length} players in ${room.roomId}`);
     connectedPlayers.forEach(player => {
         room.gameState.hands[player.name] = dominoesPool.splice(0, 7);
-        // // console.log(`[DEAL-HANDS] Dealt ${room.gameState.hands[player.name].length} tiles to ${player.name}`);
         if (player.socketId) {
             io.to(player.socketId).emit('playerHand', room.gameState.hands[player.name]);
-            // // console.log(`[DEAL-HANDS] Emitted playerHand to ${player.name} (${player.socketId})`);
         }
     });
 }
@@ -344,7 +308,6 @@ function nextTurn(room) {
  */
 function initializeRound(room) {
     room.gameState.gameInitialized = true;
-    room.gameState.isInitializing = false; // Reset initialization flag
     room.gameState.isFirstMove = true;
     room.gameState.board = [];
     room.gameState.leftEnd = null;
@@ -386,7 +349,7 @@ function initializeRound(room) {
         // After tied blocked game: find who has double 6
         const double6Holder = findDouble6Holder(room);
         room.gameState.currentTurn = double6Holder || room.gameState.lastWinner || room.gameState.seating[0] || "Jugador 1";
-        // // console.log(`[TIE RULE] Double 6 holder ${room.gameState.currentTurn} starts the round and can play any tile.`);
+        console.log(`[TIE RULE] Double 6 holder ${room.gameState.currentTurn} starts the round and can play any tile.`);
     } else {
         room.gameState.currentTurn = room.gameState.lastWinner && connectedPlayerNames.includes(room.gameState.lastWinner) ? room.gameState.lastWinner : (room.gameState.seating[0] || "Jugador 1");
         room.gameState.isAfterTiedBlockedGame = false;
@@ -540,7 +503,7 @@ function checkRoundEnd(room) {
 io.on('connection', (socket) => {
 
     socket.on('setPlayerName', async (data) => {
-        // // console.log('🎯 Received setPlayerName data:', data);
+        console.log('🎯 Received setPlayerName data:', data);
 
         // Handle both old string format and new object format
         let displayName, avatarData, roomId, targetScore;
@@ -552,7 +515,7 @@ io.on('connection', (socket) => {
             targetScore = 70;
         } else if (data.avatar === null) {
             displayName = data.name.trim().substring(0, 12);
-            avatarData = null; // Will be assigned based on player slot
+            avatarData = { type: 'file', data: displayName };
             roomId = data.roomId || null;
             targetScore = data.targetScore || 70;
         } else {
@@ -562,7 +525,7 @@ io.on('connection', (socket) => {
             targetScore = data.targetScore || 70;
         }
 
-        // // console.log('🎯 Processed - Name:', displayName, 'Avatar:', avatarData, 'Room:', roomId, 'TargetScore:', targetScore);
+        console.log('🎯 Processed - Name:', displayName, 'Avatar:', avatarData, 'Room:', roomId, 'TargetScore:', targetScore);
 
         if (!displayName) return;
 
@@ -577,38 +540,19 @@ io.on('connection', (socket) => {
                 reconnectingPlayer.isConnected = true;
                 if (typeof data === 'object' && data.avatar) {
                     reconnectingPlayer.avatar = data.avatar;
-                    // // console.log(`[RECONNECT] ${displayName} reconnected to ${rid} with updated avatar ${data.avatar.type === 'emoji' ? data.avatar.data : 'custom'}.`);
+                    console.log(`[RECONNECT] ${displayName} reconnected to ${rid} with updated avatar ${data.avatar.type === 'emoji' ? data.avatar.data : 'custom'}.`);
                 } else {
-                    // // console.log(`[RECONNECT] ${displayName} reconnected to ${rid} with existing avatar ${reconnectingPlayer.avatar ? (reconnectingPlayer.avatar.type === 'emoji' ? reconnectingPlayer.avatar.data : reconnectingPlayer.avatar.type + ':' + reconnectingPlayer.avatar.data) : 'default'}.`);
+                    console.log(`[RECONNECT] ${displayName} reconnected to ${rid} with existing avatar ${reconnectingPlayer.avatar ? (reconnectingPlayer.avatar.type === 'emoji' ? reconnectingPlayer.avatar.data : 'custom') : 'default'}.`);
                 }
                 socket.jugadorName = reconnectingPlayer.name;
                 socket.roomId = rid;
                 socket.join(rid);
-                
-                const connectedCount = room.jugadores.filter(p => p.isConnected).length;
-                socket.emit('playerAssigned', {
-                    playerName: reconnectingPlayer.name,
-                    isRoomFull: connectedCount >= 4
-                });
-                
+                socket.emit('playerAssigned', reconnectingPlayer.name);
                 if (room.gameState.gameInitialized) {
                     const playerHand = room.gameState.hands[reconnectingPlayer.name];
                     io.to(socket.id).emit('playerHand', playerHand);
                 }
-                
-                // Send playerCount update after reconnection
-                const updatedConnectedCount = room.jugadores.filter(p => p.isConnected).length;
-                io.to(room.roomId).emit('playerCount', { 
-                    count: updatedConnectedCount, 
-                    roomFull: updatedConnectedCount >= 4 
-                });
-                // // console.log(`[RECONNECT] Emitted playerCount update: ${updatedConnectedCount} players, roomFull: ${updatedConnectedCount >= 4}`);
-                
                 broadcastGameState(room);
-                // Emit playerReconnected to all players in the room
-                io.to(room.roomId).emit('playerReconnected', {
-                    playerName: reconnectingPlayer.name
-                });
                 reconnectedToRoom = room;
                 break;
             }
@@ -622,7 +566,7 @@ io.on('connection', (socket) => {
                 // Create new room with this id
                 const newRoom = createGameRoom(roomId);
                 gameRooms.set(roomId, newRoom);
-                // // console.log(`[ROOM SYSTEM] Created new room by user: ${roomId}`);
+                console.log(`[ROOM SYSTEM] Created new room by user: ${roomId}`);
             }
             room = gameRooms.get(roomId);
         } else {
@@ -653,36 +597,12 @@ io.on('connection', (socket) => {
             availableSlot.socketId = socket.id;
             availableSlot.isConnected = true;
             availableSlot.assignedName = displayName;
-            
-            // Assign default avatar based on player name if no avatar was provided
-            if (avatarData === null) {
-                // For now, always use emoji avatars as defaults since image files are unreliable
-                // Users can upload custom avatars which will work properly
-                const match = availableSlot.name.match(/\d+/);
-                const playerNumber = match ? match[0] : '1';
-                
-                // Use distinctive emoji based on slot
-                const emojiMap = { '1': '🎯', '2': '🎲', '3': '🎮', '4': '🏆' };
-                const slotEmoji = emojiMap[playerNumber] || '👤';
-                
-                avatarData = { type: 'emoji', data: slotEmoji };
-                console.log(`[AVATAR] Using reliable emoji ${slotEmoji} for ${displayName} (${availableSlot.name})`);
-            }
-            
             availableSlot.avatar = avatarData;
             socket.jugadorName = availableSlot.name;
             socket.roomId = room.roomId;
             socket.join(room.roomId);
-            
-            let currentConnectedCount = room.jugadores.filter(p => p.isConnected).length;
-            
-            // Send player assignment with room status
-            socket.emit('playerAssigned', {
-                playerName: availableSlot.name,
-                isRoomFull: currentConnectedCount >= 4
-            });
-            
-            // // console.log(`[NEW PLAYER] ${displayName} connected as ${availableSlot.name} in ${room.roomId} with avatar ${avatarData.type === 'emoji' ? avatarData.data : avatarData.type + ':' + avatarData.data}.`);
+            socket.emit('playerAssigned', availableSlot.name);
+            console.log(`[NEW PLAYER] ${displayName} connected as ${availableSlot.name} in ${room.roomId} with avatar ${avatarData.type === 'emoji' ? avatarData.data : 'custom'}.`);
 
             // Track player join for analytics
             await analytics.trackPlayerJoin(
@@ -693,57 +613,9 @@ io.on('connection', (socket) => {
             );
 
             const connectedCount = room.jugadores.filter(p => p.isConnected).length;
-            
-            // Send player count update for waiting message management
-            io.to(room.roomId).emit('playerCount', { 
-                count: connectedCount, 
-                roomFull: connectedCount >= 4 
-            });
-            
-            if (connectedCount === 4 && !room.gameState.gameInitialized && !room.gameState.endRoundMessage && !room.gameState.matchOver && !room.gameState.isInitializing) {
-                // // console.log(`[AUTO-START] Conditions met - starting game for ${room.roomId}`);
-                room.gameState.isInitializing = true; // Prevent multiple simultaneous initializations
-                // First broadcast gameState with 4 players so clients can hide waiting messages
-                broadcastGameState(room);
-                // Give clients a moment to process the 4-player state
-                setTimeout(() => {
-                    // // console.log(`[AUTO-START] Initializing round for ${room.roomId}`);
-                    room.gameState.isFirstRoundOfMatch = true;
-                    initializeRound(room);
-                }, 100);
+            if (connectedCount === 4 && !room.gameState.gameInitialized && !room.gameState.endRoundMessage && !room.gameState.matchOver) {
+                initializeRound(room);
             } else {
-                // // console.log(`[AUTO-START] Conditions NOT met for ${room.roomId}:`, {
-                // connectedCount,
-                //  gameInitialized: room.gameState.gameInitialized,
-                //  endRoundMessage: room.gameState.endRoundMessage,
-                //   matchOver: room.gameState.matchOver,
-                //isInitializing: room.gameState.isInitializing
-                //  });
-                
-                // If game is already initialized, check if this player needs tiles
-                if (room.gameState.gameInitialized) {
-                    // // // console.log(`[RECONNECT] Checking if ${availableSlot.name} needs tiles in initialized game`);
-                    // // console.log(`[RECONNECT] Current hands for ${availableSlot.name}:`, room.gameState.hands[availableSlot.name]);
-                    
-                    if (!room.gameState.hands[availableSlot.name] || room.gameState.hands[availableSlot.name].length === 0) {
-                        // // console.log(`[RECONNECT] Dealing tiles to ${availableSlot.name} who rejoined initialized game`);
-                        
-                        // Generate fresh dominoes and deal to this player only
-                        let dominoesPool = generateDominoes();
-                        shuffleArray(dominoesPool);
-                        room.gameState.hands[availableSlot.name] = dominoesPool.splice(0, 7);
-                        
-                        // Send tiles to this specific player
-                        socket.emit('playerHand', room.gameState.hands[availableSlot.name]);
-                        // // console.log(`[RECONNECT] Dealt ${room.gameState.hands[availableSlot.name].length} tiles to ${availableSlot.name}`);
-                    } else {
-                        // // console.log(`[RECONNECT] ${availableSlot.name} already has ${room.gameState.hands[availableSlot.name].length} tiles`);
-                        // Send existing tiles to the reconnecting player
-                        socket.emit('playerHand', room.gameState.hands[availableSlot.name]);
-                        // // console.log(`[RECONNECT] Resent existing ${room.gameState.hands[availableSlot.name].length} tiles to ${availableSlot.name}`);
-                    }
-                }
-                
                 broadcastGameState(room);
             }
         } else {
@@ -784,7 +656,7 @@ io.on('connection', (socket) => {
                 return socket.emit('gameError', { message: 'Primera ficha debe ser 6|6!' });
             } else if (room.gameState.isAfterTiedBlockedGame) {
                 // After tied blocked game: player with double 6 can play any tile
-                // // console.log(`[TIE RULE] ${player} playing any tile after tied blocked game: ${tile.left}|${tile.right}`);
+                console.log(`[TIE RULE] ${player} playing any tile after tied blocked game: ${tile.left}|${tile.right}`);
             }
             const firstTile = hand[tileIndex];
             room.gameState.board.push(firstTile);
@@ -919,7 +791,7 @@ socket.on('voiceMessage', async (data) => {
         const player = room.jugadores.find(p => p.socketId === socket.id);
         if (!player) return;
 
-        // // console.log(`[RESTART GAME] ${player.assignedName || player.name} initiated game restart in ${room.roomId}.`);
+        console.log(`[RESTART GAME] ${player.assignedName || player.name} initiated game restart in ${room.roomId}.`);
         
         // Reset all game state while keeping connected players
         const connectedPlayers = room.jugadores.filter(p => p.isConnected);
@@ -973,70 +845,6 @@ socket.on('voiceMessage', async (data) => {
             });
         }
     });
-
-    socket.on('leaveGame', (data) => {
-        // console.log(`[LEAVE GAME] Received leaveGame event from socket ${socket.id}`);
-        // console.log(`[LEAVE GAME] Data received:`, data);
-        // console.log(`[LEAVE GAME] Player ${data.playerName} (${data.playerId}) requesting to leave room ${data.roomCode}`);
-        
-        const room = gameRooms.get(data.roomCode);
-        if (!room) {
-            // console.log('[LEAVE GAME] Room not found in gameRooms');
-            // console.log('[LEAVE GAME] Available rooms:', Array.from(gameRooms.keys()));
-            socket.emit('leaveGameResponse', { success: false, message: 'Room not found' });
-            return;
-        }
-
-        const playerSlot = room.jugadores.find(p => p.socketId === socket.id);
-        if (!playerSlot) {
-            // console.log('[LEAVE GAME] Player not found in room');
-            socket.emit('leaveGameResponse', { success: false, message: 'Player not found in room' });
-            return;
-        }
-
-        // Mark player as disconnected
-        playerSlot.socketId = null;
-        playerSlot.isConnected = false;
-        room.gameState.readyPlayers.delete(playerSlot.name);
-
-        // console.log(`[LEAVE GAME] ${playerSlot.name} (${playerSlot.assignedName}) left room ${room.roomId}`);
-
-        // Notify all players in the room (including disconnected ones)
-        room.jugadores.forEach(p => {
-            if (p.socketId) {
-                io.to(p.socketId).emit('playerLeft', {
-                    playerName: playerSlot.assignedName || playerSlot.name,
-                    remainingPlayers: room.jugadores.filter(j => j.isConnected).length
-                });
-            }
-        });
-
-        // Send success response to leaving player
-        socket.emit('leaveGameResponse', { 
-            success: true, 
-            message: 'Successfully left the game',
-            redirect: true
-        });
-
-        // Clean up room if empty
-        const connectedPlayers = room.jugadores.filter(p => p.isConnected);
-        const connectedCount = connectedPlayers.length;
-        if (connectedCount === 0) {
-            // console.log(`[CLEANUP] Room ${room.roomId} is empty, removing...`);
-            gameRooms.delete(room.roomId);
-        } else {
-            // Update room state for remaining players
-            connectedPlayers.forEach(p => {
-                if (p.socketId) {
-                    io.to(p.socketId).emit('gameStateUpdate', {
-                        jugadoresInfo: room.gameState.jugadoresInfo,
-                        currentPlayer: room.gameState.currentPlayer,
-                        gamePhase: room.gameState.gamePhase
-                    });
-                }
-            });
-        }
-    });
     
     socket.on('disconnect', () => {
         const room = findPlayerRoom(socket.id);
@@ -1044,26 +852,19 @@ socket.on('voiceMessage', async (data) => {
         
         const playerSlot = room.jugadores.find(p => p.socketId === socket.id);
         if (playerSlot) {
-            // console.log(`[DISCONNECTED] ${playerSlot.name} (${playerSlot.assignedName}) from ${room.roomId}.`);
+            console.log(`[DISCONNECTED] ${playerSlot.name} (${playerSlot.assignedName}) from ${room.roomId}.`);
             playerSlot.socketId = null;
             playerSlot.isConnected = false;
             room.gameState.readyPlayers.delete(playerSlot.name);
             
             const connectedCount = room.jugadores.filter(p => p.isConnected).length;
-            
-            // Send updated player count for waiting message management
-            io.to(room.roomId).emit('playerCount', { 
-                count: connectedCount, 
-                roomFull: connectedCount >= 4 
-            });
-            
             if (connectedCount < 4 && room.gameState.gameInitialized) {
                 // If a player disconnects mid-game, pause or handle accordingly
-                // console.log(`[SERVER] A player disconnected mid-game in ${room.roomId}. Pausing.`);
+                console.log(`[SERVER] A player disconnected mid-game in ${room.roomId}. Pausing.`);
                 // For now, we just update clients. A more robust solution could pause the turn timer.
                 broadcastGameState(room);
             } else if (connectedCount === 0) {
-                // console.log(`[SERVER] All players disconnected from ${room.roomId}. Removing room.`);
+                console.log(`[SERVER] All players disconnected from ${room.roomId}. Removing room.`);
                 gameRooms.delete(room.roomId);
             } else {
                 broadcastGameState(room);
@@ -1094,16 +895,9 @@ app.post('/save-avatar', express.json({ limit: '1mb' }), (req, res) => {
     const imageType = matches[1]; // jpg, png, etc.
     const imageBuffer = Buffer.from(matches[2], 'base64');
     
-    // Create avatars directory structure if it doesn't exist
-    const iconsDir = path.join(__dirname, 'assets', 'icons');
-    if (!fs.existsSync(iconsDir)) {
-        fs.mkdirSync(iconsDir, { recursive: true });
-        console.log(`📁 Created avatars directory: ${iconsDir}`);
-    }
-    
-    // Create the filename using exact case provided by user
+    // Create the filename (always save as .jpg for consistency)
     const filename = `${playerName}_avatar.jpg`;
-    const filepath = path.join(iconsDir, filename);
+    const filepath = path.join(__dirname, 'assets', 'icons', filename);
     
     // Save the file
     fs.writeFile(filepath, imageBuffer, (err) => {
@@ -1112,32 +906,9 @@ app.post('/save-avatar', express.json({ limit: '1mb' }), (req, res) => {
             return res.status(500).json({ error: 'Failed to save avatar file' });
         }
         
-        console.log(`✅ Avatar saved: ${filename}`);
+        console.log(`✅ Avatar saved as file: ${filename}`);
         res.json({ success: true, filename: filename });
     });
-});
-
-// Debug endpoint to list avatar files (remove after testing)
-app.get('/debug/avatars', (req, res) => {
-    const fs = require('fs');
-    const path = require('path');
-    
-    try {
-        const iconsDir = path.join(__dirname, 'assets', 'icons');
-        const files = fs.readdirSync(iconsDir);
-        const avatarFiles = files.filter(file => file.endsWith('_avatar.jpg'));
-        
-        res.json({ 
-            success: true, 
-            avatarFiles: avatarFiles.sort(),
-            iconsDir: iconsDir 
-        });
-    } catch (error) {
-        res.json({ 
-            success: false, 
-            error: error.message 
-        });
-    }
 });
 
 // Endpoint to submit suggestions
@@ -1188,8 +959,8 @@ app.post('/submit-suggestion', express.json({ limit: '1mb' }), (req, res) => {
         // Write back to file
         fs.writeFileSync(filename, JSON.stringify(suggestions, null, 2));
         
-        // console.log(`📝 New suggestion saved: ${suggestionData.id}`);
-        // console.log(`💡 Suggestion preview: "${suggestion.substring(0, 50)}${suggestion.length > 50 ? '...' : ''}"`);
+        console.log(`📝 New suggestion saved: ${suggestionData.id}`);
+        console.log(`💡 Suggestion preview: "${suggestion.substring(0, 50)}${suggestion.length > 50 ? '...' : ''}"`);
         
         // Track suggestion for analytics if available
         if (analytics && analytics.trackSuggestion) {
@@ -1247,7 +1018,7 @@ app.get('/suggestions', (req, res) => {
         <!DOCTYPE html>
         <html>
         <head>
-            <title>DominoM - Buzón de Sugerencias</title>
+            <title>Domino4 - Buzón de Sugerencias</title>
             <meta charset="UTF-8">
             <style>
                 body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
@@ -1261,7 +1032,7 @@ app.get('/suggestions', (req, res) => {
         </head>
         <body>
             <div class="header">
-                <h1>🎯 DominoM - Buzón de Sugerencias</h1>
+                <h1>🎯 Domino4 - Buzón de Sugerencias</h1>
                 <p>Feedback y sugerencias de los usuarios</p>
             </div>
             
@@ -1312,7 +1083,7 @@ app.get('/suggestions', (req, res) => {
 setInterval(async () => {
     try {
         const dailyStats = analytics.getDailySummary();
-        // console.log('📊 Daily Stats:', dailyStats);
+        console.log('📊 Daily Stats:', dailyStats);
     } catch (error) {
         console.error('Analytics daily stats error:', error);
     }
@@ -1322,7 +1093,7 @@ setInterval(async () => {
 setInterval(async () => {
     try {
         const quickStats = await analytics.getQuickStats();
-        // console.log('📊 Hourly Update:', quickStats.today);
+        console.log('📊 Hourly Update:', quickStats.today);
     } catch (error) {
         console.error('Analytics hourly stats error:', error);
     }

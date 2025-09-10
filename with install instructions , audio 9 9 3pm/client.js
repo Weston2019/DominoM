@@ -12,11 +12,11 @@ let socket;
 let myJugadorName;
 let myPlayerHand = [];
 let gameState = {};
-let avatarCache = {}; // Cache to prevent repeated avatar loading attempts
 let selectedTileIndex = null;
 let messageDisplay = { text: '', time: 0 };
 let tileSound;
 let lastPlayedHighlight = { tile: null, timestamp: 0 };
+let avatarCache = {};
 let dialogShownTimestamp = 0;
 let passSound;
 let winSound;
@@ -1627,9 +1627,6 @@ function setupLobby() {
                         }
                         // console.log('⚠️ Enter name to save avatar as permanent file');
                     }
-                    
-                    // CLEAR FILE INPUT to reset "Seleccionar Archivo" text
-                    event.target.value = '';
                 };
                 img.src = e.target.result;
             };
@@ -3648,190 +3645,88 @@ function showMessage(text) {
 function getPlayerIcon(imgElement, displayName, internalPlayerName) {
     if (!internalPlayerName) return; 
     
-    // AGGRESSIVE MOBILE FIX: Multiple detection methods and debugging
-    const userAgent = navigator.userAgent;
-    const isMobileUA = /iPhone|iPad|iPod|Android|Mobile|Phone|Tablet/i.test(userAgent);
-    const isMobileWidth = window.innerWidth <= 950; // Lowered threshold for testing
-    const isTouchDevice = 'ontouchstart' in window;
-    const isMobileBrowser = isMobileUA || isMobileWidth || isTouchDevice;
+    // Create a unique key for this player
+    const playerKey = `${displayName}_${internalPlayerName}`;
     
-    console.log('🔍 MOBILE DEBUG:', {
-        userAgent: userAgent.substring(0, 50),
-        isMobileUA,
-        isMobileWidth,
-        isTouchDevice,
-        isMobileBrowser,
-        hostname: window.location.hostname
-    });
-    
-    if (isMobileBrowser && !window.location.hostname.includes('localhost')) {
-        console.log('📱🚨 FORCING EMOJI AVATAR for mobile:', displayName);
-        const avatarDiv = imgElement.parentElement;
-        if (avatarDiv) {
-            // Clear any existing content and set emoji
-            avatarDiv.innerHTML = '';
-            avatarDiv.textContent = '�'; // Changed to phone emoji to confirm mobile detection
-            avatarDiv.style.fontSize = '24px';
-            avatarDiv.style.color = '#0066CC'; // Blue color to stand out
-            avatarDiv.style.display = 'flex';
-            avatarDiv.style.alignItems = 'center';
-            avatarDiv.style.justifyContent = 'center';
-            avatarDiv.title = 'Mobile Mode Active'; // Tooltip
+    // If we've already processed this player, use the cached result
+    if (avatarCache[playerKey]) {
+        if (avatarCache[playerKey].src) {
+            imgElement.src = avatarCache[playerKey].src;
+            imgElement.style.opacity = '1';
+        } else {
+            imgElement.style.opacity = '0';
         }
-        // Hide the image element completely
-        imgElement.style.display = 'none';
-        imgElement.remove();
         return;
     }
     
+    // Initialize cache entry
+    avatarCache[playerKey] = { src: null, processed: false, attemptIndex: 0 };
+    
     // Create multiple filename variations to try
-    const baseVariations = [
+    const avatarVariations = [
         `assets/icons/${displayName}_avatar.jpg`,           // Original case
-        `assets/icons/${displayName.toLowerCase()}_avatar.jpg`, // All lowercase  
+        `assets/icons/${displayName.toLowerCase()}_avatar.jpg`, // All lowercase
         `assets/icons/${displayName.toUpperCase()}_avatar.jpg`, // All uppercase
         `assets/icons/${displayName.charAt(0).toUpperCase() + displayName.slice(1).toLowerCase()}_avatar.jpg` // Title case
     ];
     
-    // Add cache-busting for mobile browsers
-    const isMobileDevice = window.innerWidth <= 900 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    const cacheBuster = isMobileDevice ? `?v=${Date.now()}` : '';
-    const avatarVariations = baseVariations.map(url => url + cacheBuster);
-    
-    console.log(`🔍 Testing avatar variations for ${displayName}:`, avatarVariations);
-    console.log(`📱 Mobile check: innerWidth=${window.innerWidth}, userAgent=${navigator.userAgent.includes('Mobile')}`);
-    console.log(`🌐 Hostname: ${window.location.hostname}`);
-    console.log(`🚫 Cache buster: ${cacheBuster} (mobile: ${isMobileDevice})`);
-    
     const match = internalPlayerName.match(/\d+/);
     const playerNumber = match ? match[0] : 'default';
-    const defaultAvatarSrc = `assets/icons/jugador${playerNumber}_avatar.jpg${cacheBuster}`;
+    const defaultAvatarSrc = `assets/icons/jugador${playerNumber}_avatar.jpg`;
     
-    let attemptIndex = 0;
-    
-    // Enhanced Safari Detection with debug logging
-    const browserUserAgent = navigator.userAgent;
-    const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(userAgent) || window.innerWidth <= 900;
-    const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
-    const isSafariMobile = (isSafari && isMobile) || isIOS; // More aggressive detection
-    
-    // MOBILE EMERGENCY FALLBACK: If mobile browser, skip file loading and use emoji directly
-    if (isMobile && !window.location.hostname.includes('localhost')) {
-        console.log(`📱🚨 MOBILE EMERGENCY: Skipping file avatars, using emoji for ${displayName}`);
-        avatarDiv.textContent = '👤';
-        avatarDiv.style.fontSize = '24px';
-        avatarDiv.style.color = '#666';
-        return;
-    }
-    
-    console.log(`🔍 Browser Detection:`, {
-        userAgent,
-        isSafari,
-        isMobile,
-        isIOS,
-        isSafariMobile,
-        innerWidth: window.innerWidth
-    });
-    
-    if (isSafariMobile) {
-        console.log(`🍎� SAFARI MOBILE DETECTED - Using special handling`);
-        
-        // For Safari Mobile, use a completely different approach
-        // Set up the image properties first
-        imgElement.style.opacity = '0';
-        imgElement.style.transition = 'opacity 0.3s';
-        
-        // Create a preloader image to test if the avatar exists
-        const testImage = new Image();
-        
-        const loadAvatar = (srcToTry) => {
-            return new Promise((resolve, reject) => {
-                const tempImg = new Image();
-                tempImg.onload = () => resolve(srcToTry);
-                tempImg.onerror = () => reject();
-                tempImg.src = srcToTry;
-            });
-        };
-        
-        // Try each avatar variation in sequence for Safari
-        const tryAvatarsSequentially = async () => {
-            for (let i = 0; i < avatarVariations.length; i++) {
-                try {
-                    console.log(`🍎 Safari trying: ${avatarVariations[i]}`);
-                    const workingSrc = await loadAvatar(avatarVariations[i]);
-                    console.log(`🍎✅ Safari found working avatar: ${workingSrc}`);
-                    imgElement.src = workingSrc;
-                    imgElement.style.opacity = '1';
-                    return;
-                } catch (e) {
-                    console.log(`🍎❌ Safari failed: ${avatarVariations[i]}`);
-                }
-            }
-            
-            // If all custom avatars failed, try default
-            try {
-                console.log(`🍎 Safari trying default: ${defaultAvatarSrc}`);
-                await loadAvatar(defaultAvatarSrc);
-                imgElement.src = defaultAvatarSrc;
-                imgElement.style.opacity = '1';
-                console.log(`🍎✅ Safari loaded default: ${defaultAvatarSrc}`);
-            } catch (e) {
-                console.log(`🍎❌ Safari even default failed, using emoji`);
-                const avatarDiv = imgElement.parentElement;
-                if (avatarDiv) {
-                    avatarDiv.textContent = '👤';
-                    avatarDiv.style.fontSize = '24px';
-                    imgElement.remove();
-                }
-            }
-        };
-        
-        // Start the Safari-specific loading
-        tryAvatarsSequentially();
-        return;
-    }
-    
-    // Function to try the next avatar variation (for non-Safari browsers)
+    // Function to try the next avatar variation
     const tryNextAvatar = () => {
-        if (attemptIndex < avatarVariations.length) {
-            const currentSrc = avatarVariations[attemptIndex];
-            console.log(`🔍 Trying variation ${attemptIndex + 1}/${avatarVariations.length}: ${currentSrc}`);
-            imgElement.src = currentSrc;
-            attemptIndex++;
+        const currentAttempt = avatarCache[playerKey].attemptIndex;
+        
+        if (currentAttempt < avatarVariations.length) {
+            avatarCache[playerKey].attemptIndex++;
+            imgElement.src = avatarVariations[currentAttempt];
         } else {
             // All custom variations failed, try default
-            console.log(`🔍 All variations failed, trying default: ${defaultAvatarSrc}`);
             imgElement.src = defaultAvatarSrc;
         }
     };
     
-    // Set up error handling before setting the source (for non-Safari browsers)
+    // Set up error handling before setting the source
     imgElement.onerror = function() {
-        console.log(`❌ MOBILE DEBUG - Failed to load: ${this.src}`);
-        console.log(`❌ MOBILE DEBUG - Complete: ${this.complete}, Width: ${this.naturalWidth}, Height: ${this.naturalHeight}`);
-        console.log(`❌ MOBILE DEBUG - UserAgent: ${navigator.userAgent}`);
-        console.log(`❌ MOBILE DEBUG - Inner width: ${window.innerWidth}`);
+        const currentAttempt = avatarCache[playerKey].attemptIndex - 1;
         
         // If we're still trying custom avatar variations
-        if (attemptIndex <= avatarVariations.length) {
+        if (currentAttempt < avatarVariations.length - 1) {
             tryNextAvatar();
+        } else if (this.src === defaultAvatarSrc) {
+            // Even default failed, cache the failure and hide the image
+            avatarCache[playerKey].src = null;
+            avatarCache[playerKey].processed = true;
+            this.style.opacity = '0';
+            this.onerror = null;
         } else {
-            // Even default failed, remove the image element and use emoji
-            console.log(`❌ All avatar attempts failed for ${displayName}, using emoji`);
-            const avatarDiv = this.parentElement;
-            if (avatarDiv) {
-                avatarDiv.textContent = '👤';
-                avatarDiv.style.fontSize = '24px';
-                this.remove();
-            }
+            // Try default avatar
+            this.src = defaultAvatarSrc;
         }
     };
     
     imgElement.onload = function() {
-        console.log(`✅ SUCCESS! Avatar loaded: ${this.src}`);
+        // Cache the successful source
+        avatarCache[playerKey].src = this.src;
+        avatarCache[playerKey].processed = true;
+        this.style.opacity = '1';
+        this.onload = null;
     };
     
-    // Start with the first variation (for non-Safari browsers)
+    // Mobile-friendly: Also check if image loads before onload fires
+    const checkLoaded = () => {
+        if (imgElement.complete && imgElement.naturalWidth > 0) {
+            avatarCache[playerKey].src = imgElement.src;
+            avatarCache[playerKey].processed = true;
+            imgElement.style.opacity = '1';
+        }
+    };
+    
+    // Check after a brief delay
+    setTimeout(checkLoaded, 50);
+    
+    // Start with the first variation
     tryNextAvatar();
 }
 
@@ -3926,7 +3821,12 @@ function updatePlayersUI() {
         
         // Mobile-specific styling for better compatibility
         if (window.innerWidth <= 900) {
-            // Use default CSS styling - don't override
+            avatarDiv.style.width = '40px';
+            avatarDiv.style.height = '40px';
+            avatarDiv.style.borderRadius = '50%';
+            avatarDiv.style.display = 'flex';
+            avatarDiv.style.alignItems = 'center';
+            avatarDiv.style.justifyContent = 'center';
         }
         
         // PRIORITY SYSTEM for avatar display:
@@ -3941,65 +3841,137 @@ function updatePlayersUI() {
             img.style.width = '40px';
             img.style.height = '40px';
             img.style.borderRadius = '50%';
+            img.style.opacity = '0'; // Start invisible but not hidden
+            img.style.transition = 'opacity 0.3s ease';
             avatarDiv.appendChild(img);
             
-            // Use original getPlayerIcon function for all cases - this was working!
-            getPlayerIcon(img, playerData.displayName, playerData.name);
+            // If server provided specific avatar filename, use it directly with fallbacks
+            if (playerData.avatar.data && playerData.avatar.data.includes('_avatar.jpg')) {
+                // Extract the name part from the filename for case variations
+                const originalFilename = playerData.avatar.data;
+                const nameMatch = originalFilename.match(/^(.+)_avatar\.jpg$/);
+                
+                if (nameMatch) {
+                    const baseName = nameMatch[1];
+                    
+                    // Create case variations like in getPlayerIcon
+                    const avatarVariations = [
+                        `assets/icons/${originalFilename}?t=${Date.now()}`,  // Original as provided by server + cache bust
+                        `assets/icons/${baseName}_avatar.jpg?t=${Date.now()}`,           // Original case + cache bust
+                        `assets/icons/${baseName.toLowerCase()}_avatar.jpg?t=${Date.now()}`, // All lowercase + cache bust
+                        `assets/icons/${baseName.toUpperCase()}_avatar.jpg?t=${Date.now()}`, // All uppercase + cache bust
+                        `assets/icons/${baseName.charAt(0).toUpperCase() + baseName.slice(1).toLowerCase()}_avatar.jpg?t=${Date.now()}` // Title case + cache bust
+                    ];
+                    
+                    let currentAttempt = 0;
+                    
+                    const tryNextVariation = () => {
+                        if (currentAttempt < avatarVariations.length) {
+                            const avatarPath = avatarVariations[currentAttempt];
+                            img.src = avatarPath;
+                            console.log(`🔍 Trying avatar variation ${currentAttempt + 1}/${avatarVariations.length} for ${playerData.displayName}:`, avatarPath);
+                            currentAttempt++;
+                        } else {
+                            // All variations failed, use default emoji
+                            avatarDiv.textContent = '👤';
+                            avatarDiv.style.fontSize = '24px';
+                            img.remove();
+                        }
+                    };
+                    
+                    // Mobile-friendly loading with shorter timeout
+                    const showAvatar = () => {
+                        img.style.opacity = '1';
+                    };
+                    
+                    img.onload = showAvatar;
+                    
+                    // Force show after short delay for mobile compatibility
+                    setTimeout(() => {
+                        if (img.style.opacity === '0' && img.complete && img.naturalWidth > 0) {
+                            showAvatar();
+                        }
+                    }, 50);
+                    
+                    img.onerror = function() {
+                        tryNextVariation();
+                    };
+                    
+                    // Start with the first variation
+                    tryNextVariation();
+                    
+                    // Mobile timeout for fallback to emoji if all images fail
+                    setTimeout(() => {
+                        if (img.style.opacity === '0') {
+                            avatarDiv.textContent = '👤';
+                            avatarDiv.style.fontSize = '24px';
+                            img.remove();
+                        }
+                    }, 1500);
+                    
+                } else {
+                    // Fallback to original logic if filename doesn't match expected pattern
+                    const avatarPath = `assets/icons/${playerData.avatar.data}`;
+                    img.src = avatarPath;
+                    console.log('🔍 Loading avatar file (fallback) for', playerData.displayName, ':', avatarPath);
+                    
+                    const showAvatar = () => {
+                        img.style.opacity = '1';
+                    };
+                    
+                    img.onload = showAvatar;
+                    
+                    setTimeout(() => {
+                        if (img.style.opacity === '0' && img.complete) {
+                            showAvatar();
+                        }
+                    }, 100);
+                    
+                    img.onerror = function() {
+                        avatarDiv.textContent = '👤';
+                        avatarDiv.style.fontSize = '24px';
+                        img.remove();
+                    };
+                    
+                    // MOBILE FIX: Additional timeout for fallback case
+                    setTimeout(() => {
+                        if (img.style.opacity === '0') {
+                            avatarDiv.textContent = '👤';
+                            avatarDiv.style.fontSize = '24px';
+                            img.remove();
+                        }
+                    }, 1000);
+                }
+                
+                // Fallback: If still not visible after reasonable time, show default
+                setTimeout(() => {
+                    if (img.style.opacity === '0') {
+                        avatarDiv.textContent = '👤';
+                        avatarDiv.style.fontSize = '24px';
+                        img.remove();
+                        // console.log('🔄 Avatar timeout - using default for', playerData.displayName);
+                    }
+                }, 2000);
+            } else {
+                // Use the old system for custom avatar names
+                getPlayerIcon(img, playerData.displayName, playerData.name);
+            }
+            
+            // Mobile-friendly timeout for old system
+            setTimeout(() => {
+                if (img.style.opacity === '0') {
+                    // File failed to load or load event didn't fire, use default emoji
+                    avatarDiv.textContent = '👤';
+                    avatarDiv.style.fontSize = '24px';
+                    img.remove();
+                    // console.log('⚠️ Avatar file timeout - using default for', playerData.displayName);
+                }
+            }, 2000);
         } else if (playerData.avatar && playerData.avatar.type === 'custom') {
             // Custom uploaded avatar
             avatarDiv.classList.add('custom-avatar');
-            
-            // MOBILE FIX: Check if mobile and use emoji instead
-            const isMobileUA = /iPhone|iPad|iPod|Android|Mobile|Phone|Tablet/i.test(navigator.userAgent);
-            const isMobileWidth = window.innerWidth <= 900;
-            const isTouchDevice = 'ontouchstart' in window;
-            const isMobileBrowser = isMobileUA || isMobileWidth || isTouchDevice;
-            
-            if (isMobileBrowser && !window.location.hostname.includes('localhost')) {
-                console.log('📱🚨 MOBILE: Skipping custom avatar, using emoji for', playerData.displayName);
-                avatarDiv.textContent = '📱';
-                avatarDiv.style.fontSize = '24px';
-                avatarDiv.style.color = '#0066CC';
-                return;
-            }
-            
             const customImg = document.createElement('img');
-            
-            // Safari mobile detection for custom avatars
-            const userAgent = navigator.userAgent;
-            const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
-            const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
-            const isSafariMobile = (isSafari && /iPhone|iPad|iPod|Android/i.test(userAgent)) || isIOS;
-            
-            if (isSafariMobile) {
-                console.log(`🍎📱 CUSTOM AVATAR - Safari mobile detected for ${playerData.displayName}`);
-                console.log(`🍎 Avatar data length: ${playerData.avatar.data.length}`);
-                
-                // For Safari mobile, set up image differently
-                customImg.style.opacity = '0';
-                customImg.style.transition = 'opacity 0.3s';
-                
-                customImg.onload = function() {
-                    console.log(`🍎✅ Custom avatar loaded successfully for ${playerData.displayName}`);
-                    this.style.opacity = '1';
-                };
-                
-                customImg.onerror = function() {
-                    console.log(`🍎❌ Custom avatar failed for ${playerData.displayName}, using fallback`);
-                    avatarDiv.textContent = '👤';
-                    avatarDiv.style.fontSize = '24px';
-                    this.remove();
-                };
-                
-                // Set source after event handlers for Safari
-                setTimeout(() => {
-                    customImg.src = playerData.avatar.data;
-                }, 10);
-            } else {
-                // Non-Safari browsers: direct assignment
-                customImg.src = playerData.avatar.data;
-            }
-            
+            customImg.src = playerData.avatar.data;
             customImg.alt = `${playerData.displayName} avatar`;
             customImg.style.width = '40px';
             customImg.style.height = '40px';

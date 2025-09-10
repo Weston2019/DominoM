@@ -1,341 +1,43 @@
 // =============================================================================
-// == FINAL LABELED client.js    DominoM - August 27 by DAM Productions        ==
+// == FINAL LABELED client.js    Domino4 - August 11 by DAM Productions        ==
 // =============================================================================
 // This file handles all client-side logic, including rendering the game with
 // p5.js, communicating with the server via Socket.IO, and managing user input.
 // =============================================================================
 
 
-// GLOBAL VARIABLE DECLARATIONS
-let isSpanish = false;
-let socket;
-let myJugadorName;
-let myPlayerHand = [];
-let gameState = {};
-let avatarCache = {}; // Cache to prevent repeated avatar loading attempts
-let selectedTileIndex = null;
-let messageDisplay = { text: '', time: 0 };
-let tileSound;
-let lastPlayedHighlight = { tile: null, timestamp: 0 };
-let dialogShownTimestamp = 0;
-let passSound;
-let winSound;
-let waitingSound;
-let playerPointsWon = {};
-let previousTeamScores = { teamA: 0, teamB: 0 };
-let isAnimating = false;
-let animatingTile = null;
-let animationStartTime = 0;
-let animationDuration = 1000;
-let animationPauseDuration = 500;
-
-// =============================================================================
-// == PWA AUTO-INSTALL PROMPT FOR MOBILE                                      ==
-// =============================================================================
-
-let deferredPrompt;
-
-// Listen for the beforeinstallprompt event
-window.addEventListener('beforeinstallprompt', (e) => {
-    console.log('🎯 beforeinstallprompt event fired!');
-    // Prevent the mini-infobar from appearing on mobile
-    e.preventDefault();
-    // Stash the event so it can be triggered later
-    deferredPrompt = e;
-    window.deferredPrompt = e; // Also make it globally accessible
-    // Show our custom install banner
-    showInstallBanner();
-});
-
-// Also listen for any errors
-window.addEventListener('error', (e) => {
-    console.log('PWA Error:', e.message);
-});
-
-// Check PWA criteria on page load
-window.addEventListener('load', () => {
-    setTimeout(() => {
-        console.log('=== PWA Status Check ===');
-        console.log('Location:', window.location.href);
-        console.log('Protocol:', location.protocol);
-        console.log('Service Worker registered:', 'serviceWorker' in navigator);
-        console.log('beforeinstallprompt fired:', !!deferredPrompt);
-        console.log('Mobile width:', window.innerWidth <= 768);
-        
-        // Check if already installed
-        if (window.matchMedia('(display-mode: standalone)').matches) {
-            console.log('✅ App is already installed and running in standalone mode');
-        } else {
-            // If no beforeinstallprompt after 3 seconds, show fallback banner for localhost/iOS
-            if (!deferredPrompt && (location.hostname === 'localhost' || /iPad|iPhone|iPod/.test(navigator.userAgent))) {
-                console.log('🍎 Showing iOS/localhost fallback install banner');
-                showFallbackInstallBanner();
-            }
-        }
-    }, 3000); // Wait 3 seconds for beforeinstallprompt
-});
-
-function showInstallBanner() {
-    // Only show on mobile devices
-    if (window.innerWidth <= 768 && !localStorage.getItem('installBannerDismissed')) {
-        const banner = document.createElement('div');
-        banner.id = 'install-banner';
-        banner.style.cssText = `
-            position: fixed; 
-            top: 0; 
-            left: 0; 
-            right: 0; 
-            z-index: 10000;
-            background: linear-gradient(135deg, #4CAF50, #45a049);
-            color: white; 
-            padding: 12px; 
-            text-align: center;
-            font-family: Arial, sans-serif; 
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            animation: slideDown 0.3s ease-out;
-        `;
-        
-        banner.innerHTML = `
-            <div style="display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px;">
-                <span style="font-size: 14px; font-weight: 500;">🎲 Install Domino Game for the best experience!</span>
-                <div>
-                    <button onclick="installApp()" style="
-                        background: white; 
-                        color: #4CAF50; 
-                        border: none; 
-                        padding: 8px 16px; 
-                        border-radius: 20px; 
-                        cursor: pointer; 
-                        font-weight: bold;
-                        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-                    ">Install</button>
-                    <button onclick="dismissBanner()" style="
-                        background: transparent; 
-                        color: white; 
-                        border: 1px solid white; 
-                        padding: 6px 12px; 
-                        margin-left: 8px; 
-                        border-radius: 15px; 
-                        cursor: pointer;
-                    ">Maybe later</button>
-                </div>
-            </div>
-        `;
-        
-        // Add CSS animation
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideDown {
-                from { transform: translateY(-100%); }
-                to { transform: translateY(0); }
-            }
-        `;
-        document.head.appendChild(style);
-        
-        document.body.appendChild(banner);
-        
-        // Auto-dismiss after 10 seconds if user doesn't interact
-        setTimeout(() => {
-            if (document.getElementById('install-banner')) {
-                dismissBanner();
-            }
-        }, 10000);
-    }
-}
-
-// Fallback install banner for iOS Safari and localhost testing
-function showFallbackInstallBanner() {
-    if (window.innerWidth <= 768 && !localStorage.getItem('installBannerDismissed')) {
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        const banner = document.createElement('div');
-        banner.id = 'install-banner';
-        banner.style.cssText = `
-            position: fixed; 
-            top: 0; 
-            left: 0; 
-            right: 0; 
-            z-index: 10000;
-            background: linear-gradient(135deg, #FF6B35, #F7931E);
-            color: white; 
-            padding: 16px; 
-            text-align: center;
-            font-family: Arial, sans-serif; 
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-            animation: slideDown 0.5s ease-out;
-            border-bottom: 3px solid #fff;
-        `;
-        
-        if (isIOS) {
-            banner.innerHTML = `
-                <div style="max-width: 350px; margin: 0 auto;">
-                    <div style="font-size: 16px; font-weight: bold; margin-bottom: 12px;">
-                        🎲 ${window.lang ? window.lang.t('pwa_install_title') : '¡Instala DominoM para la Mejor Experiencia!'}
-                    </div>
-                    <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px; margin-bottom: 12px;">
-                        <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">📱 ${window.lang ? window.lang.t('pwa_install_steps') : 'Instalación en 3 Pasos Fáciles:'}</div>
-                        <div style="font-size: 13px; line-height: 1.4; text-align: left;">
-                            <div style="margin-bottom: 6px;"><strong>1.</strong> ${window.lang ? window.lang.t('pwa_step_1') : 'Toca el botón <strong>Compartir ↗️</strong> abajo'}</div>
-                            <div style="margin-bottom: 6px;"><strong>2.</strong> ${window.lang ? window.lang.t('pwa_step_2') : 'Desliza y toca <strong>"Añadir a Pantalla de Inicio"</strong>'}</div>
-                            <div><strong>3.</strong> ${window.lang ? window.lang.t('pwa_step_3') : 'Toca <strong>"Añadir"</strong> para confirmar'}</div>
-                        </div>
-                    </div>
-                    <div style="font-size: 12px; opacity: 0.9; margin-bottom: 12px;">
-                        ✨ ${window.lang ? window.lang.t('pwa_benefits') : '¡Pantalla completa, carga más rápida y funciona sin internet!'}
-                    </div>
-                    <button onclick="dismissBanner()" style="
-                        background: rgba(255,255,255,0.2); 
-                        color: white; 
-                        border: 2px solid white; 
-                        padding: 8px 16px; 
-                        border-radius: 20px; 
-                        cursor: pointer;
-                        font-size: 13px;
-                        font-weight: 600;
-                    ">${window.lang ? window.lang.t('pwa_later_button') : 'Lo haré después'}</button>
-                </div>
-            `;
-        } else {
-            banner.innerHTML = `
-                <div style="max-width: 350px; margin: 0 auto;">
-                    <div style="font-size: 16px; font-weight: bold; margin-bottom: 8px;">
-                        🎲 ${window.lang ? window.lang.t('pwa_android_title') : '¡Instala la App DominoM!'}
-                    </div>
-                    <div style="font-size: 13px; margin-bottom: 12px;">
-                        ${window.lang ? window.lang.t('pwa_android_instruction') : 'Busca el botón "Instalar" en el menú de tu navegador o barra de direcciones'}
-                    </div>
-                    <button onclick="dismissBanner()" style="
-                        background: transparent; 
-                        color: white; 
-                        border: 1px solid white; 
-                        padding: 6px 12px; 
-                        border-radius: 15px; 
-                        cursor: pointer;
-                        font-size: 12px;
-                    ">${window.lang ? window.lang.t('pwa_got_it') : 'Entendido'}</button>
-                </div>
-            `;
-        }
-        
-        document.body.appendChild(banner);
-        
-        // Auto-dismiss after 20 seconds for fallback banner (longer for instructions)
-        setTimeout(() => {
-            if (document.getElementById('install-banner')) {
-                dismissBanner();
-            }
-        }, 20000);
-    }
-}
-
-// Install the app when user clicks install
-window.installApp = function() {
-    if (deferredPrompt) {
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then((result) => {
-            if (result.outcome === 'accepted') {
-                console.log('User accepted the install prompt');
-            } else {
-                console.log('User dismissed the install prompt');
-            }
-            deferredPrompt = null;
-            dismissBanner();
-        });
-    }
-};
-
-// Dismiss the install banner
-window.dismissBanner = function() {
-    const banner = document.getElementById('install-banner');
-    if (banner) {
-        banner.style.animation = 'slideDown 0.3s ease-out reverse';
-        setTimeout(() => {
-            banner.remove();
-        }, 300);
-    }
-    // Remember user dismissed it for this session
-    localStorage.setItem('installBannerDismissed', 'true');
-};
-
-// Listen for app installed event
-window.addEventListener('appinstalled', (evt) => {
-    console.log('Domino game was installed');
-    dismissBanner();
-});
-
-// Clear the dismiss flag when app is actually installed
-window.addEventListener('beforeunload', () => {
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-        localStorage.removeItem('installBannerDismissed');
-    }
-});
-
-// =============================================================================
-let animationStartPos = { x: 0, y: 0 };
-let animationEndPos = { x: 0, y: 0 };
-let animationProgress = 0;
-let animatingPlayerName = null;
-let mediaRecorder;
-let audioChunks = [];
-let isRecording = false;
-
-// FUNCTION DECLARATIONS
+// Fetch and display available rooms in the sign-in page
 function fetchAndShowRooms() {
-    fetch('/active-rooms')
-        .then(res => res.json())
-        .then(data => {
-            const container = document.getElementById('available-rooms');
-            if (!container) return;
-            if (!data.rooms || data.rooms.length === 0) {
-                container.innerHTML = `<span style="color:#888;">${window.lang.t('no_active_rooms')}</span>`;
-                return;
-            }
-            container.innerHTML = `<b>${window.lang.t('available_rooms')}</b> ` + data.rooms.map(room => {
-                const isFull = room.connectedCount >= 4;
-                const roomLabel = room.roomId.replace(' ', '-');
-                if (isFull) {
-                    return `<span class="room-chip room-full" data-room="${room.roomId}" style="background:#888;color:#fff;opacity:0.5;cursor:not-allowed;pointer-events:none;">${roomLabel} (${window.lang.t('room_full')})</span>`;
-                } else {
-                    return `<span class="room-chip" data-room="${room.roomId}">${roomLabel} (${room.connectedCount}/4)</span>`;
-                }
-            }).join(' ');
-            // Add click handler to fill room input
-            Array.from(container.getElementsByClassName('room-chip')).forEach(el => {
-                if (!el.classList.contains('room-full')) {
-                    el.onclick = function() {
-                        const roomId = this.getAttribute('data-room');
-                        // console.log('🔍 ROOM DEBUG - Room chip clicked, roomId:', roomId);
-            
-                        const input = document.getElementById('room-input');
-                        if (input) {
-                            input.value = roomId;
-                            // console.log('🔍 ROOM DEBUG - Room input set to:', input.value);
-                        }
-                    };
-                }
-            });
-        });
-}
-
-function setupButtonListeners() {
-        if (typeof setupGameButtons === 'function') {
-                setupGameButtons();
+  fetch('/active-rooms')
+    .then(res => res.json())
+    .then(data => {
+      const container = document.getElementById('available-rooms');
+      if (!container) return;
+      if (!data.rooms || data.rooms.length === 0) {
+        container.innerHTML = `<span style="color:#888;">${window.lang.t('no_active_rooms')}</span>`;
+        return;
+      }
+      container.innerHTML = `<b>${window.lang.t('available_rooms')}</b> ` + data.rooms.map(room => {
+        const isFull = room.connectedCount >= 4;
+        const roomLabel = room.roomId.replace(' ', '-');
+        if (isFull) {
+          return `<span class="room-chip room-full" data-room="${room.roomId}" style="background:#888;color:#fff;opacity:0.5;cursor:not-allowed;pointer-events:none;">${roomLabel} (${window.lang.t('room_full')})</span>`;
+        } else {
+          return `<span class="room-chip" data-room="${room.roomId}">${roomLabel} (${room.connectedCount}/4)</span>`;
         }
-}
-
-// Listen for player reconnected event (custom event from server)
-document.addEventListener('DOMContentLoaded', function() {
-        fetchAndShowRooms();
-        if (typeof socket !== 'undefined' && socket) {
-                socket.on('playerReconnected', (data) => {
-                        showSystemMessage(isSpanish ?
-                                `${data.playerName} ha vuelto a conectarse` :
-                                `${data.playerName} has reconnected`, 'success');
-                        if (typeof waitingSound !== 'undefined' && waitingSound && waitingSound.isLoaded()) {
-                                waitingSound.play();
-                        }
-                });
+      }).join(' ');
+      // Add click handler to fill room input
+      Array.from(container.getElementsByClassName('room-chip')).forEach(el => {
+        if (!el.classList.contains('room-full')) {
+          el.onclick = function() {
+            const input = document.getElementById('room-input');
+            if (input) input.value = this.getAttribute('data-room');
+          };
         }
-});
+      });
+    });
+}
+document.addEventListener('DOMContentLoaded', fetchAndShowRooms);
 
 
 // =============================================================================
@@ -355,10 +57,6 @@ class LanguageManager {
                 // Game Actions
                 'your_turn': 'Su turno',
                 'waiting_for_others': 'Esperando por los demás...',
-                'waiting_for_players': 'Esperando que se conecten 4 jugadores para comenzar...',
-                'all_players_connected': 'Todos los jugadores conectados. Iniciando juego...',
-                'players_connected': 'jugadores conectados',
-                'connecting': 'Conectando...',
                 'start_new_hand': 'Empezar Mano Nueva',
                 'start_new_match': 'Jugar Match Nuevo',
                 'pass_turn': 'Pasar',
@@ -395,7 +93,6 @@ class LanguageManager {
                 
                 // HTML Interface Elements
                 'suggestions_box': 'Buzón de Sugerencias',
-                'suggestions_box_short': 'Buzón',
                 'close_suggestions': 'Cerrar Sugerencias',
                 'help_us_improve': 'Ayúdanos a Mejorar',
                 'share_ideas_placeholder': 'Comparte tus ideas, sugerencias o reporta problemas...',
@@ -408,7 +105,7 @@ class LanguageManager {
                 'send': 'Enviar',
                 'cancel': 'Cancelar',
                 'create_profile': 'Crear Su Perfil',
-                'game_rules': 'DominoM - Reglas del Juego',
+                'game_rules': 'Domino4 - Reglas del Juego',
                 'select_avatar': 'Seleccione Su Avatar',
                 'upload_own_image': 'O Suba Su Propia Imagen',
                 'select_file': 'Seleccionar Archivo',
@@ -418,9 +115,6 @@ class LanguageManager {
                 'enter_game': 'Entrar al Juego',
                 'clear_saved_profile': 'Borrar Perfil Guardado',
                 'restart_game': 'Reiniciar Juego',
-                'leave_game': 'Salir del Juego',
-                'leave_game_short': 'Salir',
-                'leave_game_confirm': '¿Estás seguro de que quieres salir de este juego?',
                 'left': 'Izquierda',
                 'right': 'Derecha',
                 'step': 'Paso',
@@ -429,7 +123,7 @@ class LanguageManager {
                 'close': 'Cerrar',
                 
                 // Game Rules (Spanish)
-                'game_rules_title': 'DominoM - Reglas del Juego',
+                'game_rules_title': 'Domino4 - Reglas del Juego',
                 'rule_1': 'El juego es para 4 jugadores en equipos de 2.',
                 'rule_2': 'El juego empieza cuando los 4 jugadores esten inscritos',
                 'rule_3': 'El juego se encarga de rotar las parejas despues de cada match',
@@ -448,18 +142,6 @@ class LanguageManager {
                 'team_score': 'Marcador de Equipos',
                 'match_score': 'Puntuación del Match',
                 'matches_won': 'Matches Ganados',
-                
-                // PWA Install Banner (Spanish)
-                'pwa_install_title': '¡Instala DominoM para la Mejor Experiencia!',
-                'pwa_install_steps': 'Instalación en 3 Pasos Fáciles:',
-                'pwa_step_1': 'Toca el botón <strong>Compartir ↗️</strong> abajo',
-                'pwa_step_2': 'Desliza y toca <strong>"Añadir a Pantalla de Inicio"</strong>',
-                'pwa_step_3': 'Toca <strong>"Añadir"</strong> para confirmar',
-                'pwa_benefits': '¡Pantalla completa, carga más rápida y funciona sin internet!',
-                'pwa_later_button': 'Lo haré después',
-                'pwa_android_title': '¡Instala la App DominoM!',
-                'pwa_android_instruction': 'Busca el botón "Instalar" en el menú de tu navegador o barra de direcciones',
-                'pwa_got_it': 'Entendido',
                 'current_match': 'Match Actual',
                 'wins': 'Victorias',
                 'tiles': 'Fichas',
@@ -477,10 +159,6 @@ class LanguageManager {
                 // Game Actions
                 'your_turn': 'Your turn',
                 'waiting_for_others': 'Waiting for others...',
-                'waiting_for_players': 'Waiting for 4 players to connect to start...',
-                'all_players_connected': 'All players connected. Starting game...',
-                'players_connected': 'players connected',
-                'connecting': 'Connecting...',
                 'start_new_hand': 'Start New Hand',
                 'start_new_match': 'Play New Match',
                 'pass_turn': 'Pass',
@@ -529,7 +207,6 @@ class LanguageManager {
                 
                 // HTML Interface Elements
                 'suggestions_box': 'Suggestions Box',
-                'suggestions_box_short': 'Suggestions',
                 'close_suggestions': 'Close Suggestions',
                 'help_us_improve': 'Help Us Improve',
                 'share_ideas_placeholder': 'Share your ideas, suggestions or report problems...',
@@ -542,7 +219,7 @@ class LanguageManager {
                 'send': 'Send',
                 'cancel': 'Cancel',
                 'create_profile': 'Create Your Profile',
-                'game_rules': 'DominoM - Game Rules',
+                'game_rules': 'Domino4 - Game Rules',
                 'select_avatar': 'Select Your Avatar',
                 'upload_own_image': 'Or Upload Your Own Image',
                 'select_file': 'Select File',
@@ -552,9 +229,6 @@ class LanguageManager {
                 'enter_game': 'Enter Game',
                 'clear_saved_profile': 'Clear Saved Profile',
                 'restart_game': 'Restart Game',
-                'leave_game': 'Leave Game',
-                'leave_game_short': 'Leave',
-                'leave_game_confirm': 'Are you sure you want to leave this game?',
                 'left': 'Left',
                 'right': 'Right',
                 'step': 'Pass',
@@ -563,7 +237,7 @@ class LanguageManager {
                 'close': 'Close',
                 
                 // Game Rules (English)
-                'game_rules_title': 'DominoM - Game Rules',
+                'game_rules_title': 'Domino4 - Game Rules',
                 'rule_1': 'The game is for 4 players in teams of 2.',
                 'rule_2': 'The game starts when all 4 players are registered',
                 'rule_3': 'The game rotates team partnerships after each match',
@@ -588,18 +262,6 @@ class LanguageManager {
                 'scores': 'Scores',
                 'match': 'Match',
                 'games_won': 'GAMES WON',
-                
-                // PWA Install Banner (English)
-                'pwa_install_title': 'Install DominoM for the Best Experience!',
-                'pwa_install_steps': 'Quick 3-Step Install:',
-                'pwa_step_1': 'Tap the <strong>Share button ↗️</strong> at the bottom',
-                'pwa_step_2': 'Scroll down and tap <strong>"Add to Home Screen"</strong>',
-                'pwa_step_3': 'Tap <strong>"Add"</strong> to confirm',
-                'pwa_benefits': 'Get fullscreen gameplay, faster loading, and work offline!',
-                'pwa_later_button': "I'll do it later",
-                'pwa_android_title': 'Install DominoM App!',
-                'pwa_android_instruction': 'Look for the "Install" button in your browser menu or address bar',
-                'pwa_got_it': 'Got it',
                 'waiting_game_data': 'Waiting for game data...'
             }
         };
@@ -654,9 +316,6 @@ class LanguageManager {
 
     // Update all text elements in the DOM
     updateAllText() {
-        // Update elements with data-translate attributes
-        this.updateDataTranslateElements();
-        
         // Update specific game UI elements
         this.updateGameUI();
 
@@ -664,94 +323,6 @@ class LanguageManager {
         document.dispatchEvent(new CustomEvent('languageChanged', { 
             detail: { language: this.currentLanguage } 
         }));
-    }
-
-    // Update elements with data-translate attributes
-    updateDataTranslateElements() {
-        // Update all elements with data-translate attribute
-        const translateElements = document.querySelectorAll('[data-translate]');
-        translateElements.forEach(element => {
-            const key = element.getAttribute('data-translate');
-            if (key) {
-                element.textContent = this.t(key);
-            }
-        });
-
-        // Update all elements with data-translate-placeholder attribute
-        const placeholderElements = document.querySelectorAll('[data-translate-placeholder]');
-        placeholderElements.forEach(element => {
-            const key = element.getAttribute('data-translate-placeholder');
-            if (key) {
-                element.placeholder = this.t(key);
-            }
-        });
-
-        // Force update specific suggestion box elements that might not be caught by data-translate
-        this.updateSuggestionBoxElements();
-    }
-
-    // Update suggestion box elements specifically
-    updateSuggestionBoxElements() {
-        // Update desktop suggestion box button
-        const desktopToggleBtn = document.getElementById('toggle-suggestion-btn');
-        if (desktopToggleBtn) {
-            const span = desktopToggleBtn.querySelector('[data-translate]');
-            if (span) {
-                span.textContent = this.t('suggestions_box');
-            }
-        }
-
-        // Update mobile suggestion box button
-        const mobileToggleBtn = document.getElementById('stubborn-toggle-btn');
-        if (mobileToggleBtn) {
-            const span = mobileToggleBtn.querySelector('[data-translate]');
-            if (span) {
-                span.textContent = this.t('suggestions_box_short');
-            }
-        }
-
-        // Update all send buttons
-        const sendBtns = ['submit-suggestion-btn', 'stubborn-send-btn'];
-        sendBtns.forEach(btnId => {
-            const btn = document.getElementById(btnId);
-            if (btn) {
-                const span = btn.querySelector('[data-translate]');
-                if (span) {
-                    span.textContent = this.t('send');
-                }
-            }
-        });
-
-        // Update all close/cancel buttons
-        const closeBtns = ['cancel-suggestion-btn', 'stubborn-close-btn'];
-        closeBtns.forEach(btnId => {
-            const btn = document.getElementById(btnId);
-            if (btn) {
-                const span = btn.querySelector('[data-translate]');
-                if (span) {
-                    const key = btnId.includes('cancel') ? 'cancel' : 'close';
-                    span.textContent = this.t(key);
-                }
-            }
-        });
-
-        // Update titles
-        const titles = ['stubborn-title'];
-        titles.forEach(titleId => {
-            const title = document.getElementById(titleId);
-            if (title) {
-                title.textContent = this.t('help_us_improve');
-            }
-        });
-
-        // Update textareas
-        const textareas = ['suggestion-text', 'stubborn-text'];
-        textareas.forEach(textareaId => {
-            const textarea = document.getElementById(textareaId);
-            if (textarea) {
-                textarea.placeholder = this.t('share_ideas_placeholder');
-            }
-        });
     }
 
     // Update dynamic game UI elements
@@ -892,8 +463,11 @@ class LanguageManager {
             }
         });
 
-        // Update scoreboard - no longer need to translate "Scores" since we removed it
+        // Update scoreboard
         const scoreboardDiv = document.getElementById('scoreboard');
+        if (scoreboardDiv && scoreboardDiv.innerHTML.includes('Scores')) {
+            scoreboardDiv.innerHTML = scoreboardDiv.innerHTML.replace(/Scores/g, window.lang.t('scores'));
+        }
         if (scoreboardDiv && scoreboardDiv.innerHTML.includes('Equipo')) {
             scoreboardDiv.innerHTML = scoreboardDiv.innerHTML
                 .replace(/Equipo A/g, window.lang.t('team') + ' A')
@@ -1035,125 +609,110 @@ class LanguageManager {
 // Create global language manager instance
 window.lang = new LanguageManager();
 
-// Initialize translations on page load
-document.addEventListener('DOMContentLoaded', function() {
-    // Update all translatable elements after DOM is loaded
-    window.lang.updateAllText();
-    
-    // Add event listeners for suggestion box toggles to update translations
-    const setupSuggestionBoxListeners = () => {
-        // Desktop suggestion box
-        const desktopToggle = document.getElementById('toggle-suggestion-btn');
-        if (desktopToggle) {
-            desktopToggle.addEventListener('click', () => {
-                setTimeout(() => window.lang.updateSuggestionBoxElements(), 100);
-            });
-        }
-        
-        // Mobile suggestion box
-        const mobileToggle = document.getElementById('stubborn-toggle-btn');
-        if (mobileToggle) {
-            mobileToggle.addEventListener('click', () => {
-                setTimeout(() => window.lang.updateSuggestionBoxElements(), 100);
-            });
-            mobileToggle.addEventListener('touchstart', () => {
-                setTimeout(() => window.lang.updateSuggestionBoxElements(), 100);
-            });
-        }
-    };
-    
-    setupSuggestionBoxListeners();
-    
-    // Also setup listeners after any potential DOM changes
-    const observer = new MutationObserver(() => {
-        setupSuggestionBoxListeners();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-});
-
 // =============================================================================
 // == GLOBAL VARIABLES & STATE MANAGEMENT                                     ==
 // =============================================================================
-// ...existing code...
-// Define clearAllPointsData to prevent ReferenceError
+
+let socket; // The main WebSocket connection object to the server.
+let myJugadorName; // The internal name assigned to this client (e.g., "Jugador 1").
+let myPlayerHand = []; // An array holding the domino objects for this player.
+let gameState = {}; // A comprehensive object reflecting the current state of the game from the server.
+let selectedTileIndex = null; // The index of the domino tile the player has clicked on in their hand.
+let messageDisplay = { text: '', time: 0 }; // An object to manage temporary messages shown to the player.
+let tileSound; // A variable to hold the sound played when a tile is placed.
+let lastPlayedHighlight = { tile: null, timestamp: 0 }; // NEW: For the highlight effect.
+let avatarCache = {}; // Cache to prevent repeated avatar loading attempts
+let dialogShownTimestamp = 0; // Prevent dialog from being hidden too quickly
+let passSound; // Sound played when a player passes their turn
+let winSound; // Sound played when a player wins the hand (domino)
+let playerPointsWon = {}; // Track points won by each player across matches
+let previousTeamScores = { teamA: 0, teamB: 0 }; // Track previous match scores for point calculation
+
+// ========= SIMPLE ANIMATION SYSTEM =========
+let isAnimating = false; // Is there currently a tile animation playing
+let animatingTile = null; // The tile being animated
+let animationStartTime = 0; // When the animation started
+let animationDuration = 1000; // Animation length in milliseconds (1 second)
+let animationPauseDuration = 500; // Pause at center for 0.5 seconds
+let animationStartPos = { x: 0, y: 0 }; // Where the tile starts
+let animationEndPos = { x: 0, y: 0 }; // Where the tile ends
+let animationProgress = 0; // Current animation progress (0-1)
+let animatingPlayerName = null; // Track which player's move is being animated
+
+// Function to save points to localStorage as backup
+function savePointsToLocalStorage() {
+    try {
+        const pointsData = {
+            playerPointsWon: playerPointsWon,
+            previousTeamScores: previousTeamScores,
+            timestamp: Date.now()
+        };
+        localStorage.setItem('domino_game_points', JSON.stringify(pointsData));
+        console.log('💾 Points saved to localStorage as backup');
+    } catch (error) {
+        console.warn('⚠️ Failed to save points to localStorage:', error);
+    }
+}
+
+// Function to restore points from localStorage on reconnection
+function restorePointsFromLocalStorage() {
+    try {
+        const saved = localStorage.getItem('domino_game_points');
+        if (saved) {
+            const pointsData = JSON.parse(saved);
+            // Only restore if the data is recent (within last hour)
+            if (pointsData.timestamp && (Date.now() - pointsData.timestamp) < 3600000) {
+                playerPointsWon = pointsData.playerPointsWon || {};
+                previousTeamScores = pointsData.previousTeamScores || { teamA: 0, teamB: 0 };
+                console.log('🔄 Points restored from localStorage backup:', playerPointsWon);
+                return true;
+            } else {
+                console.log('⚠️ Stored points data too old, starting fresh');
+            }
+        }
+    } catch (error) {
+        console.warn('⚠️ Failed to restore points from localStorage:', error);
+    }
+    return false;
+}
+
+// Function to completely clear all points data (for game restart)
 function clearAllPointsData() {
+    console.log('🗑️ Clearing all points data...');
+    
     // Clear local tracking
     playerPointsWon = {};
     previousTeamScores = { teamA: 0, teamB: 0 };
+    
     // Clear localStorage backup
     try {
         localStorage.removeItem('domino_game_points');
+        console.log('🗑️ Cleared points data from localStorage');
     } catch (error) {
         console.warn('⚠️ Failed to clear points from localStorage:', error);
     }
+    
     // Update points table to show zeros immediately
     if (window.updatePointsTableContent) {
         setTimeout(() => {
             window.updatePointsTableContent();
         }, 100);
     }
-}
-
-// Function to show the waiting for players message
-function showWaitingForPlayersMessage() {
-    const waitingDiv = document.getElementById('waiting-for-players');
-    const messageText = document.getElementById('waiting-message-text');
-
-   
-    if (waitingDiv && messageText) {
-        // Update text with localized messages
-        messageText.textContent = window.lang.t('waiting_for_players');
-        
-        // Force show with !important to override any CSS
-        waitingDiv.style.setProperty('display', 'block', 'important');
-        waitingDiv.style.setProperty('visibility', 'visible', 'important');
-        waitingDiv.style.setProperty('opacity', '1', 'important');
-        waitingDiv.style.setProperty('z-index', '10000', 'important');
-   
-       
-    } else {
-        console.error('❌ Could not show waiting message - missing elements');
-    }
-}
-
-// Function to hide the waiting for players message
-function hideWaitingForPlayersMessage() {
-    const waitingDiv = document.getElementById('waiting-for-players');
-    if (waitingDiv) {
-        waitingDiv.style.setProperty('display', 'none', 'important');
-        // console.log('✅ Hiding waiting for players message - game ready to start');
-    }
-}
-
-// Function to update the player count display
-function updatePlayerCountDisplay(playerCount) {
-    const playerCountText = document.getElementById('player-count-text');
-    const messageText = document.getElementById('waiting-message-text');
     
-    // console.log('🔍 COUNT DEBUG - updatePlayerCountDisplay called with:', playerCount);
-    // console.log('🔍 COUNT DEBUG - Elements found:', {
-    //   playerCountText: !!playerCountText,
-    //   messageText: !!messageText
-    //});
-    
-    if (playerCountText && messageText) {
-        if (playerCount >= 4) {
-            // All players connected, waiting for game to initialize
-            playerCountText.textContent = `4/4 ${window.lang.t('players_connected')}`;
-            messageText.textContent = window.lang.t('all_players_connected');
-            // console.log('🔍 COUNT DEBUG - Set to 4/4 players');
-        } else {
-            // Still waiting for more players
-            playerCountText.textContent = `${playerCount}/4 ${window.lang.t('players_connected')}`;
-            messageText.textContent = window.lang.t('waiting_for_players');
-            // console.log('🔍 COUNT DEBUG - Set to', playerCount, '/4 players');
-        }
-        
-        
-    } else {
-        console.error('❌ Could not update player count - missing elements');
-    }
+    console.log('✅ All points data cleared successfully');
 }
+
+// Add global function for manual clearing (accessible from browser console)
+window.clearGamePoints = function() {
+    console.log('🛠️ Manual points clear requested');
+    clearAllPointsData();
+    alert(window.lang.t('points_cleared'));
+};
+
+// Voice chat variables
+let mediaRecorder;
+let audioChunks = [];
+let isRecording = false;
 
 
 // =============================================================================
@@ -1167,27 +726,17 @@ function preload() {
     soundFormats('mp3');
     
     // Load sounds with error handling
-    tileSound = undefined;
-    try {
-        tileSound = loadSound('assets/sounds/tile_place.mp3', 
-            () => {},
-            (error) => console.error('❌ Failed to load tile sound:', error)
-        );
-    } catch (e) {
-        console.error('❌ tileSound load error:', e);
-    }
+    tileSound = loadSound('assets/sounds/tile_place.mp3', 
+        () => console.log('✅ Tile sound loaded successfully'),
+        (error) => console.error('❌ Failed to load tile sound:', error)
+    );
     passSound = loadSound('assets/sounds/pass_turn.mp3',
-        () => // console.log('✅ Pass sound loaded successfully'),
+        () => console.log('✅ Pass sound loaded successfully'),
         (error) => console.error('❌ Failed to load pass sound:', error)
-    );
+    ); 
     winSound = loadSound('assets/sounds/win_bell.mp3',
-        () => // console.log('✅ Waiting sound loaded successfully'),
-        (error) => console.error('❌ Failed to load waiting sound:', error)
-    );
-    
-    waitingSound = loadSound('assets/sounds/waiting_bell.mp3',
-        () => // console.log('✅ Waiting sound loaded successfully'),
-        (error) => console.error('❌ Failed to load waiting sound:', error)
+        () => console.log('✅ Win sound loaded successfully'),
+        (error) => console.error('❌ Failed to load win sound:', error)
     );
 }
 /**
@@ -1220,23 +769,17 @@ function setup() {
     // Only add language selector if we're in the lobby
     const lobby = document.getElementById('lobby-container');
     if (lobby && lobby.style.display !== 'none') {
-        if (window.lang && typeof window.lang.createLanguageSelector === 'function') {
-            const selector = window.lang.createLanguageSelector();
-            document.body.appendChild(selector);
-        }
+        const selector = window.lang.createLanguageSelector();
+        document.body.appendChild(selector);
         
         // Listen for language changes and update dynamic content
         document.addEventListener('languageChanged', () => {
             fetchAndShowRooms(); // Refresh room list with new language
-            if (window.lang && typeof window.lang.updateGameUI === 'function') {
-                window.lang.updateGameUI(); // Update UI elements
-            }
+            window.lang.updateGameUI(); // Update UI elements
         });
         
         // Apply initial translations
-        if (window.lang && typeof window.lang.updateGameUI === 'function') {
-            window.lang.updateGameUI();
-        }
+        window.lang.updateGameUI();
     }
     
     setupLobby();
@@ -1249,12 +792,12 @@ function setupAudio() {
     
     const initializeAudio = () => {
         if (!audioInitialized) {
-            // console.log('🔊 Initializing audio context...');
+            console.log('🔊 Initializing audio context...');
             
             // Initialize audio context
             if (getAudioContext().state === 'suspended') {
                 userStartAudio().then(() => {
-                    // console.log('✅ Audio context started');
+                    console.log('✅ Audio context started');
                     setSoundVolumes();
                 }).catch(err => console.error('❌ Failed to start audio context:', err));
             } else {
@@ -1276,21 +819,17 @@ function setupAudio() {
 function setSoundVolumes() {
     // Set volume levels after sounds are loaded
     setTimeout(() => {
-        if (typeof tileSound !== 'undefined' && tileSound && tileSound.isLoaded()) {
+        if (tileSound && tileSound.isLoaded()) {
             tileSound.setVolume(0.7);
-            // console.log('🔊 Tile sound volume set');
+            console.log('🔊 Tile sound volume set');
         }
-        if (typeof passSound !== 'undefined' && passSound && passSound.isLoaded()) {
+        if (passSound && passSound.isLoaded()) {
             passSound.setVolume(0.8);
-            // console.log('🔊 Pass sound volume set');
+            console.log('🔊 Pass sound volume set');
         }
-        if (typeof winSound !== 'undefined' && winSound && winSound.isLoaded()) {
+        if (winSound && winSound.isLoaded()) {
             winSound.setVolume(0.9);
-            // console.log('🔊 Win sound volume set');
-        }
-        if (typeof waitingSound !== 'undefined' && waitingSound && waitingSound.isLoaded()) {
-            waitingSound.setVolume(0.9);
-            // console.log('🔊 Win sound volume set');
+            console.log('🔊 Win sound volume set');
         }
     }, 500);
 }
@@ -1310,11 +849,11 @@ function draw() {
         updateMatchesWon();
         
         // Ensure points table exists during active gameplay
-        if (!document.getElementById('points-table-container') && typeof gameState !== 'undefined' && gameState.jugadoresInfo && gameState.jugadoresInfo.length > 0) {
+        if (!document.getElementById('points-table-container') && gameState.jugadoresInfo && gameState.jugadoresInfo.length > 0) {
             createPointsTableNow();
         }
         
-        if (typeof gameState !== 'undefined' && gameState.board && gameState.board.length > 0) {
+        if (gameState.board && gameState.board.length > 0) {
             drawBoard();
         }
         if (myPlayerHand) drawHand();
@@ -1401,21 +940,21 @@ function setupLobby() {
     nameInput.value = '';
     nameInput.defaultValue = '';
     nameInput.setAttribute('value', '');
-    // console.log('✅ Cleared name input field');
+    console.log('✅ Cleared name input field');
     
     // Force clear any cached form data multiple times
     setTimeout(() => {
         nameInput.value = '';
         nameInput.defaultValue = '';
         nameInput.setAttribute('value', '');
-        // console.log('✅ Double-cleared name input field');
+        console.log('✅ Double-cleared name input field');
     }, 100);
     
     setTimeout(() => {
         nameInput.value = '';
         nameInput.defaultValue = '';
         nameInput.setAttribute('value', '');
-        // console.log('✅ Triple-cleared name input field');
+        console.log('✅ Triple-cleared name input field');
     }, 300);
     
     // Load saved avatar from localStorage (but NOT the name - keep it empty)
@@ -1441,7 +980,7 @@ function setupLobby() {
         const avatarFilePath = `assets/icons/${currentName}_avatar.jpg`;
         
         testImg.onload = function() {
-            // console.log('✅ Found avatar file for', currentName);
+            console.log('✅ Found avatar file for', currentName);
             // Don't use localStorage - user has their own avatar file
             selectedAvatar = null;
             customAvatarData = null;
@@ -1449,7 +988,7 @@ function setupLobby() {
         };
         
         testImg.onerror = function() {
-            // console.log('ℹ️ No avatar file found for', currentName, ', using localStorage or default');
+            console.log('ℹ️ No avatar file found for', currentName, ', using localStorage or default');
             // PRIORITY 2: Restore saved avatar from localStorage
             if (savedAvatar) {
                 try {
@@ -1460,7 +999,7 @@ function setupLobby() {
                         // Show preview
                         customAvatarPreview.innerHTML = `<img src="${customAvatarData}" alt="Custom Avatar">`;
                         customAvatarPreview.style.display = 'block';
-                        // console.log('Restored custom avatar from localStorage');
+                        console.log('Restored custom avatar from localStorage');
                     } else {
                         selectedAvatar = avatarData.data;
                         customAvatarData = null;
@@ -1470,10 +1009,10 @@ function setupLobby() {
                                 opt.classList.add('selected');
                             }
                         });
-                        // console.log('Restored emoji avatar from localStorage:', selectedAvatar);
+                        console.log('Restored emoji avatar from localStorage:', selectedAvatar);
                     }
                 } catch (e) {
-                    // console.log('Could not restore saved avatar, using default');
+                    console.log('Could not restore saved avatar, using default');
                     useDefaultAvatar();
                 }
             } else {
@@ -1492,7 +1031,7 @@ function setupLobby() {
                     selectedAvatar = null;
                     customAvatarPreview.innerHTML = `<img src="${customAvatarData}" alt="Custom Avatar">`;
                     customAvatarPreview.style.display = 'block';
-                    // console.log('Restored custom avatar from localStorage');
+                    console.log('Restored custom avatar from localStorage');
                 } else {
                     selectedAvatar = avatarData.data;
                     customAvatarData = null;
@@ -1501,10 +1040,10 @@ function setupLobby() {
                             opt.classList.add('selected');
                         }
                     });
-                    // console.log('Restored emoji avatar from localStorage:', selectedAvatar);
+                    console.log('Restored emoji avatar from localStorage:', selectedAvatar);
                 }
             } catch (e) {
-                // console.log('Could not restore saved avatar, using default');
+                console.log('Could not restore saved avatar, using default');
                 useDefaultAvatar();
             }
         } else {
@@ -1517,7 +1056,7 @@ function setupLobby() {
         const defaultOption = document.querySelector('[data-avatar="🎯"]');
         if (defaultOption) {
             defaultOption.classList.add('selected');
-            // console.log('Set default target emoji avatar');
+            console.log('Set default target emoji avatar');
         }
     }
     
@@ -1527,13 +1066,13 @@ function setupLobby() {
     setupSuggestionBox();
     
     // Setup STUBBORN mobile suggestion box
-    // console.log('🎯 Setting up STUBBORN mobile suggestion box...');
+    console.log('🎯 Setting up STUBBORN mobile suggestion box...');
     setupStubbornBox();
     
     // Handle avatar selection from grid
     avatarOptions.forEach(option => {
         option.addEventListener('click', () => {
-            // console.log('Avatar option clicked:', option.dataset.avatar);
+            console.log('Avatar option clicked:', option.dataset.avatar);
             // Remove selected class from all options
             avatarOptions.forEach(opt => opt.classList.remove('selected'));
             // Add selected class to clicked option
@@ -1542,14 +1081,14 @@ function setupLobby() {
             selectedAvatar = option.dataset.avatar;
             customAvatarData = null; // Clear custom avatar if emoji selected
             customAvatarPreview.style.display = 'none';
-            // console.log('✅ Avatar updated to:', selectedAvatar);
+            console.log('✅ Avatar updated to:', selectedAvatar);
             
             // Save to localStorage
             localStorage.setItem('domino_player_avatar', JSON.stringify({
                 type: 'emoji',
                 data: selectedAvatar
             }));
-            // console.log('✅ Avatar saved to localStorage');
+            console.log('✅ Avatar saved to localStorage');
         });
     });
     
@@ -1605,7 +1144,7 @@ function setupLobby() {
                     // Show preview
                     customAvatarPreview.innerHTML = `<img src="${customAvatarData}" alt="Custom Avatar">`;
                     customAvatarPreview.style.display = 'block';
-                    // console.log('Custom avatar uploaded and compressed');
+                    console.log('Custom avatar uploaded and compressed');
                     
                     // Save to localStorage
                     localStorage.setItem('domino_player_avatar', JSON.stringify({
@@ -1625,11 +1164,8 @@ function setupLobby() {
                             statusDiv.style.color = 'orange';
                             statusDiv.style.fontWeight = 'bold';
                         }
-                        // console.log('⚠️ Enter name to save avatar as permanent file');
+                        console.log('⚠️ Enter name to save avatar as permanent file');
                     }
-                    
-                    // CLEAR FILE INPUT to reset "Seleccionar Archivo" text
-                    event.target.value = '';
                 };
                 img.src = e.target.result;
             };
@@ -1643,12 +1179,6 @@ function setupLobby() {
         const roomId = roomInput.value.trim();
         const targetScoreSelect = document.getElementById('target-score');
         const targetScore = targetScoreSelect ? parseInt(targetScoreSelect.value, 10) : 70;
-        
-        // console.log('🔍 ROOM DEBUG - submitName called');
-        // console.log('🔍 ROOM DEBUG - Room input value:', roomId);
-        // console.log('🔍 ROOM DEBUG - Player name:', name);
-        // console.log('🔍 ROOM DEBUG - Target score:', targetScore);
-        
         if (name) {
             // Hide lobby and show game UI immediately
             const lobby = document.getElementById('lobby-container');
@@ -1662,17 +1192,17 @@ function setupLobby() {
             const testImg = new Image();
             const avatarFilePath = `assets/icons/${name}_avatar.jpg`;
             testImg.onload = function() {
-                // console.log('🎯 PRIORITY 1: Found avatar file for', name, '- using file (ignoring localStorage)');
-                connectToServer(name, { type: 'file', data: null }, roomId, targetScore); 
+                console.log('🎯 PRIORITY 1: Found avatar file for', name, '- using file (ignoring localStorage)');
+                connectToServer(name, null, roomId, targetScore); 
             };
             testImg.onerror = function() {
-                // console.log('ℹ️ No avatar file for', name, '- checking localStorage and selections');
+                console.log('ℹ️ No avatar file for', name, '- checking localStorage and selections');
                 // PRIORITY 2: Use selected avatar (custom upload or emoji)
                 const avatarData = {
                     type: customAvatarData ? 'custom' : 'emoji',
                     data: customAvatarData || selectedAvatar
                 };
-                // console.log('PRIORITY 2: Using selected avatar:', avatarData);
+                console.log('PRIORITY 2: Using selected avatar:', avatarData);
                 connectToServer(name, avatarData, roomId, targetScore); 
             };
             // Always test for the file first
@@ -1680,34 +1210,16 @@ function setupLobby() {
         }
     };
     
-
     // Handle button click
-    setNameBtn.addEventListener('click', () => {
-        // console.log('🔍 ROOM DEBUG - Button clicked, calling submitName()');
-        submitName();
-    });
-
-    // Play waitingSound when newRoundBtn is clicked
-    const newRoundBtn = document.getElementById('newRoundBtn');
-    if (newRoundBtn) {
-        newRoundBtn.addEventListener('click', () => {
-            if (typeof waitingSound !== 'undefined' && waitingSound && waitingSound.isLoaded()) {
-                waitingSound.play();
-            }
-        });
-    }
+    setNameBtn.addEventListener('click', submitName);
     
     // Handle clear profile button
     const clearProfileBtn = document.getElementById('clear-profile-btn');
     if (clearProfileBtn) {
         clearProfileBtn.addEventListener('click', () => {
-            // Clear ALL game-related localStorage
+            // Clear localStorage
             localStorage.removeItem('domino_player_name');
             localStorage.removeItem('domino_player_avatar');
-            localStorage.removeItem('domino_game_points');
-            // Keep language preference - don't remove 'domino_game_language'
-            
-            // console.log('🧹 Comprehensive profile clear - all cached data removed');
             
             // Reset form
             nameInput.value = '';
@@ -1728,7 +1240,7 @@ function setupLobby() {
                 profileStatus.style.display = 'none';
             }
             
-            // console.log('Profile cleared - large avatar data removed');
+            console.log('Profile cleared - large avatar data removed');
             nameInput.focus();
         });
     }
@@ -1736,26 +1248,27 @@ function setupLobby() {
     // Add emergency function to clear large avatar data
     window.clearLargeAvatarData = () => {
         localStorage.removeItem('domino_player_avatar');
-        // console.log('Large avatar data cleared from localStorage');
+        console.log('Large avatar data cleared from localStorage');
         location.reload();
     };
     
     // Function to save avatar as permanent file
     function saveAvatarAsFile(playerName, avatarData) {
-        // Save avatar for uppercase initials
         fetch('/save-avatar', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                playerName: playerName.toUpperCase(),
+                playerName: playerName,
                 avatarData: avatarData
             })
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                console.log('✅ Avatar saved as permanent file:', data.filename);
+                
                 // Show success message to user
                 const statusDiv = document.getElementById('profile-status');
                 if (statusDiv) {
@@ -1763,7 +1276,10 @@ function setupLobby() {
                     statusDiv.style.color = 'green';
                     statusDiv.style.fontWeight = 'bold';
                 }
+                
+                // Clear localStorage since we now have a file
                 localStorage.removeItem('domino_player_avatar');
+                console.log('🗑️ Cleared localStorage - using file instead');
             } else {
                 console.error('❌ Failed to save avatar file:', data.error);
             }
@@ -1771,31 +1287,11 @@ function setupLobby() {
         .catch(error => {
             console.error('❌ Error saving avatar file:', error);
         });
-
-        // Save avatar for lowercase initials
-        fetch('/save-avatar', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                playerName: playerName.toLowerCase(),
-                avatarData: avatarData
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            // Optionally handle response for lowercase file
-        })
-        .catch(error => {
-            console.error('❌ Error saving avatar file (lowercase):', error);
-        });
     }
     
     // Handle Enter key press
     nameInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
-            // console.log('🔍 ROOM DEBUG - Enter key pressed, calling submitName()');
             submitName();
         }
     });
@@ -1808,6 +1304,7 @@ function setupLobby() {
         }
     });
 }
+
 /**
  * Sets up the suggestion box functionality in the lobby.
  */
@@ -1830,10 +1327,10 @@ function setupSuggestionBox() {
         if (isHidden) {
             suggestionBox.classList.remove('hidden');
             suggestionText.focus();
-            toggleBtn.textContent = `🔙 ${window.lang.t('close_suggestions')}`;
+            toggleBtn.textContent = '🔙 Cerrar Sugerencias';
         } else {
             suggestionBox.classList.add('hidden');
-            toggleBtn.textContent = `💡 ${window.lang.t('suggestions_box')}`;
+            toggleBtn.textContent = '💡 Buzón de Sugerencias';
             // Clear form when closing
             suggestionText.value = '';
             statusDiv.textContent = '';
@@ -1844,7 +1341,7 @@ function setupSuggestionBox() {
     // Cancel button
     cancelBtn.addEventListener('click', () => {
         suggestionBox.classList.add('hidden');
-        toggleBtn.textContent = `💡 ${window.lang.t('suggestions_box')}`;
+        toggleBtn.textContent = '💡 Buzón de Sugerencias';
         suggestionText.value = '';
         statusDiv.textContent = '';
         statusDiv.className = '';
@@ -1855,20 +1352,20 @@ function setupSuggestionBox() {
         const suggestion = suggestionText.value.trim();
         
         if (!suggestion) {
-            statusDiv.textContent = `⚠️ ${window.lang.t('please_write_suggestion')}`;
+            statusDiv.textContent = '⚠️ Por favor escribe una sugerencia';
             statusDiv.className = 'error';
             return;
         }
         
         if (suggestion.length < 10) {
-            statusDiv.textContent = `⚠️ ${window.lang.t('suggestion_too_short')}`;
+            statusDiv.textContent = '⚠️ La sugerencia debe tener al menos 10 caracteres';
             statusDiv.className = 'error';
             return;
         }
         
         // Disable submit button and show loading
         submitBtn.disabled = true;
-        statusDiv.textContent = `📤 ${window.lang.t('sending_suggestion')}`;
+        statusDiv.textContent = '📤 Enviando sugerencia...';
         statusDiv.className = 'loading';
         
         try {
@@ -1888,24 +1385,24 @@ function setupSuggestionBox() {
             const result = await response.json();
             
             if (result.success) {
-                statusDiv.textContent = `✅ ${window.lang.t('suggestion_sent')}`;
+                statusDiv.textContent = '✅ ¡Sugerencia enviada! Gracias por tu ayuda';
                 statusDiv.className = 'success';
                 suggestionText.value = '';
                 
                 // Auto-close after 3 seconds
                 setTimeout(() => {
                     suggestionBox.classList.add('hidden');
-                    toggleBtn.textContent = `💡 ${window.lang.t('suggestions_box')}`;
+                    toggleBtn.textContent = '💡 Buzón de Sugerencias';
                     statusDiv.textContent = '';
                     statusDiv.className = '';
                 }, 3000);
             } else {
-                statusDiv.textContent = `❌ ${window.lang.t('suggestion_error')}`;
+                statusDiv.textContent = '❌ Error al enviar. Inténtalo más tarde';
                 statusDiv.className = 'error';
             }
         } catch (error) {
             console.error('Error submitting suggestion:', error);
-            statusDiv.textContent = `❌ ${window.lang.t('connection_error')}`;
+            statusDiv.textContent = '❌ Error de conexión. Inténtalo más tarde';
             statusDiv.className = 'error';
         } finally {
             submitBtn.disabled = false;
@@ -1930,7 +1427,7 @@ function setupSuggestionBox() {
 
 // STUBBORN Mobile Suggestion Box - Simple and Direct
 function setupStubbornBox() {
-    // console.log('💪 STUBBORN: Setting up mobile suggestion box...');
+    console.log('💪 STUBBORN: Setting up mobile suggestion box...');
     
     const toggleBtn = document.getElementById('stubborn-toggle-btn');
     const container = document.getElementById('stubborn-container');
@@ -1945,13 +1442,13 @@ function setupStubbornBox() {
     const sendText = document.getElementById('stubborn-send-text');
     const closeText = document.getElementById('stubborn-close-text');
     
-    // console.log('💪 STUBBORN elements check:');
-    // console.log('- Toggle:', !!toggleBtn);
-    // console.log('- Container:', !!container);
-    // console.log('- Text:', !!textArea);
-    // console.log('- Send:', !!sendBtn);
-    // console.log('- Close:', !!closeBtn);
-    // console.log('- Status:', !!status);
+    console.log('💪 STUBBORN elements check:');
+    console.log('- Toggle:', !!toggleBtn);
+    console.log('- Container:', !!container);
+    console.log('- Text:', !!textArea);
+    console.log('- Send:', !!sendBtn);
+    console.log('- Close:', !!closeBtn);
+    console.log('- Status:', !!status);
     
     if (!toggleBtn || !container) {
         console.error('💪 STUBBORN: Essential elements missing!');
@@ -1982,16 +1479,16 @@ function setupStubbornBox() {
     
     // Toggle button click
     toggleBtn.addEventListener('click', () => {
-        // console.log('💪 STUBBORN: Toggle clicked!');
+        console.log('💪 STUBBORN: Toggle clicked!');
         const isHidden = container.style.display === 'none';
         container.style.display = isHidden ? 'block' : 'none';
-        // console.log('💪 STUBBORN: Container now', isHidden ? 'SHOWN' : 'HIDDEN');
+        console.log('💪 STUBBORN: Container now', isHidden ? 'SHOWN' : 'HIDDEN');
     });
     
     // Close button click
     if (closeBtn) {
         closeBtn.addEventListener('click', () => {
-            // console.log('💪 STUBBORN: Close clicked!');
+            console.log('💪 STUBBORN: Close clicked!');
             container.style.display = 'none';
             if (textArea) textArea.value = '';
             if (status) status.textContent = '';
@@ -2001,7 +1498,7 @@ function setupStubbornBox() {
     // Send button click
     if (sendBtn) {
         sendBtn.addEventListener('click', async () => {
-            // console.log('💪 STUBBORN: Send clicked!');
+            console.log('💪 STUBBORN: Send clicked!');
             const text = textArea ? textArea.value.trim() : '';
             
             if (!text) {
@@ -2075,11 +1572,11 @@ function setupStubbornBox() {
         });
     }
     
-    // console.log('💪 STUBBORN: Setup complete!');
+    console.log('💪 STUBBORN: Setup complete!');
 }
 
 function setupMobileSuggestionBox() {
-    // console.log('=== Setting up Mobile Suggestion Box ===');
+    console.log('=== Setting up Mobile Suggestion Box ===');
     const toggleBtn = document.getElementById('toggle-suggestion-btn-mobile');
     const suggestionBox = document.getElementById('mobile-suggestion-box');
     const suggestionText = document.getElementById('mobile-suggestion-text');
@@ -2087,13 +1584,13 @@ function setupMobileSuggestionBox() {
     const cancelBtn = document.getElementById('mobile-cancel-suggestion-btn');
     const statusDiv = document.getElementById('mobile-suggestion-status');
     
-    // console.log('Mobile suggestion elements found:');
-    // console.log('- Toggle button:', toggleBtn);
-    // console.log('- Suggestion box:', suggestionBox);
-    // console.log('- Text area:', suggestionText);
-    // console.log('- Submit button:', submitBtn);
-    // console.log('- Cancel button:', cancelBtn);
-    // console.log('- Status div:', statusDiv);
+    console.log('Mobile suggestion elements found:');
+    console.log('- Toggle button:', toggleBtn);
+    console.log('- Suggestion box:', suggestionBox);
+    console.log('- Text area:', suggestionText);
+    console.log('- Submit button:', submitBtn);
+    console.log('- Cancel button:', cancelBtn);
+    console.log('- Status div:', statusDiv);
     
     if (!toggleBtn) {
         console.error('Mobile toggle button not found!');
@@ -2153,23 +1650,23 @@ function setupMobileSuggestionBox() {
         const newCancelBtn = document.getElementById('mobile-cancel-suggestion-btn');
         const newStatusDiv = document.getElementById('mobile-suggestion-status');
         
-        // console.log('Elements after creation:');
-        // console.log('- Text area:', newSuggestionText);
-        // console.log('- Submit button:', newSubmitBtn);
-        // console.log('- Cancel button:', newCancelBtn);
-        // console.log('- Status div:', newStatusDiv);
+        console.log('Elements after creation:');
+        console.log('- Text area:', newSuggestionText);
+        console.log('- Submit button:', newSubmitBtn);
+        console.log('- Cancel button:', newCancelBtn);
+        console.log('- Status div:', newStatusDiv);
     }
     
-    // console.log('Mobile suggestion box setup successful');
+    console.log('Mobile suggestion box setup successful');
     
     // Toggle suggestion box visibility
     toggleBtn.addEventListener('click', () => {
-        // console.log('Mobile suggestion toggle clicked!');
-        // console.log('Current suggestion box display:', suggestionBox.style.display);
-        // console.log('Suggestion box computed style:', window.getComputedStyle(suggestionBox).display);
+        console.log('Mobile suggestion toggle clicked!');
+        console.log('Current suggestion box display:', suggestionBox.style.display);
+        console.log('Suggestion box computed style:', window.getComputedStyle(suggestionBox).display);
         
         const isHidden = suggestionBox.style.display === 'none' || !suggestionBox.style.display;
-        // console.log('Is hidden:', isHidden);
+        console.log('Is hidden:', isHidden);
         
         if (isHidden) {
             suggestionBox.style.display = 'block';
@@ -2185,7 +1682,7 @@ function setupMobileSuggestionBox() {
             // Use fallback text if translation function not available
             const closeText = (window.lang && window.lang.t) ? window.lang.t('close_suggestions') : 'Cerrar';
             toggleBtn.textContent = `🔙 ${closeText}`;
-            // console.log('Suggestion box opened');
+            console.log('Suggestion box opened');
         } else {
             suggestionBox.style.display = 'none';
             
@@ -2198,7 +1695,7 @@ function setupMobileSuggestionBox() {
             const currentStatusDiv = document.getElementById('mobile-suggestion-status');
             if (currentSuggestionText) currentSuggestionText.value = '';
             if (currentStatusDiv) currentStatusDiv.textContent = '';
-            // console.log('Suggestion box closed');
+            console.log('Suggestion box closed');
         }
     });
     
@@ -2285,14 +1782,14 @@ window.testMobileSuggestion = function() {
     const box = document.getElementById('mobile-suggestion-box');
     if (box) {
         box.style.display = box.style.display === 'none' ? 'block' : 'none';
-        // console.log('Mobile suggestion box toggled, display:', box.style.display);
+        console.log('Mobile suggestion box toggled, display:', box.style.display);
     } else {
-        // console.log('Mobile suggestion box not found');
+        console.log('Mobile suggestion box not found');
     }
 };
 
 function setupMobileSuggestionBoxGame() {
-    // console.log('=== Setting up Mobile Suggestion Box Game ===');
+    console.log('=== Setting up Mobile Suggestion Box Game ===');
     const toggleBtn = document.getElementById('toggle-suggestion-btn-mobile-game');
     const suggestionBox = document.getElementById('mobile-suggestion-box-game');
     const suggestionText = document.getElementById('mobile-suggestion-text-game');
@@ -2300,13 +1797,13 @@ function setupMobileSuggestionBoxGame() {
     const cancelBtn = document.getElementById('mobile-cancel-suggestion-btn-game');
     const statusDiv = document.getElementById('mobile-suggestion-status-game');
     
-    // console.log('Mobile suggestion game elements found:');
-    // console.log('- Toggle button:', toggleBtn);
-    // console.log('- Suggestion box:', suggestionBox);
-    // console.log('- Text area:', suggestionText);
-    // console.log('- Submit button:', submitBtn);
-    // console.log('- Cancel button:', cancelBtn);
-    // console.log('- Status div:', statusDiv);
+    console.log('Mobile suggestion game elements found:');
+    console.log('- Toggle button:', toggleBtn);
+    console.log('- Suggestion box:', suggestionBox);
+    console.log('- Text area:', suggestionText);
+    console.log('- Submit button:', submitBtn);
+    console.log('- Cancel button:', cancelBtn);
+    console.log('- Status div:', statusDiv);
     
     if (!toggleBtn) {
         console.error('Mobile game toggle button not found!');
@@ -2320,30 +1817,30 @@ function setupMobileSuggestionBoxGame() {
     
     if (!suggestionText || !submitBtn || !cancelBtn || !statusDiv) {
         console.warn('Some mobile game suggestion box elements not found - will create them');
-        // console.log('Missing elements:');
-        // console.log('- suggestionText:', !!suggestionText);
-        // console.log('- submitBtn:', !!submitBtn);
-        // console.log('- cancelBtn:', !!cancelBtn);
-        // console.log('- statusDiv:', !!statusDiv);
+        console.log('Missing elements:');
+        console.log('- suggestionText:', !!suggestionText);
+        console.log('- submitBtn:', !!submitBtn);
+        console.log('- cancelBtn:', !!cancelBtn);
+        console.log('- statusDiv:', !!statusDiv);
         
         // Don't return early - continue with just the toggle button
         // return;
     }
     
-    // console.log('Mobile suggestion box game setup successful');
+    console.log('Mobile suggestion box game setup successful');
     
     // Toggle suggestion box visibility
     toggleBtn.addEventListener('click', () => {
-        // console.log('🎯 GAME UI - Mobile suggestion game toggle clicked!');
-        // console.log('Current game suggestion box display:', suggestionBox.style.display);
-        // console.log('Game suggestion box computed style:', window.getComputedStyle(suggestionBox).display);
+        console.log('🎯 GAME UI - Mobile suggestion game toggle clicked!');
+        console.log('Current game suggestion box display:', suggestionBox.style.display);
+        console.log('Game suggestion box computed style:', window.getComputedStyle(suggestionBox).display);
         
         // Re-get elements in case they weren't found initially
         const currentSuggestionText = document.getElementById('mobile-suggestion-text-game');
         const currentStatusDiv = document.getElementById('mobile-suggestion-status-game');
         
         const isHidden = suggestionBox.style.display === 'none' || !suggestionBox.style.display;
-        // console.log('Game suggestion box is hidden:', isHidden);
+        console.log('Game suggestion box is hidden:', isHidden);
         
         if (isHidden) {
             suggestionBox.style.display = 'block';
@@ -2357,7 +1854,7 @@ function setupMobileSuggestionBoxGame() {
             // Use fallback text if translation function not available
             const closeText = (window.lang && window.lang.t) ? window.lang.t('close_suggestions') : 'Cerrar';
             toggleBtn.textContent = `🔙 ${closeText}`;
-            // console.log('🎯 Game suggestion box opened');
+            console.log('🎯 Game suggestion box opened');
         } else {
             suggestionBox.style.display = 'none';
             
@@ -2368,7 +1865,7 @@ function setupMobileSuggestionBoxGame() {
             // Clear form when closing
             if (currentSuggestionText) currentSuggestionText.value = '';
             if (currentStatusDiv) currentStatusDiv.textContent = '';
-            // console.log('🎯 Game suggestion box closed');
+            console.log('🎯 Game suggestion box closed');
         }
     });
     
@@ -2453,122 +1950,44 @@ function setupMobileSuggestionBoxGame() {
 /**
  * Establishes the connection to the server via Socket.IO and sets up listeners.
  */
-function connectToServer(playerName, avatarData, roomId, targetScore) {
-    // *** GENTLE LANDSCAPE ENCOURAGEMENT ***
-    if (window.innerWidth <= 900) {
-        // console.log('🔄 Encouraging landscape mode...');
-        
-        // Mark as about to sign in
-        document.body.classList.add('about-to-sign-in');
-        
-        // Try Screen Orientation API gently
-        if (screen.orientation && screen.orientation.lock) {
-            screen.orientation.lock('landscape').then(() => {
-                // console.log('✅ Landscape locked successfully');
-            }).catch(err => {
-                // console.log('⚠️ Orientation lock failed:', err);
-            });
-        }
-    }
-    
-    if (typeof targetScore === 'undefined' || targetScore === null) {
+function connectToServer(playerName, avatarData, roomId) {
+    let targetScore = 70;
+    // Try to get targetScore from arguments (if passed)
+    if (arguments.length > 3 && arguments[3]) {
+        targetScore = arguments[3];
+    } else {
         const targetScoreSelect = document.getElementById('target-score');
-        targetScore = targetScoreSelect ? parseInt(targetScoreSelect.value, 10) || 70 : 70;
+        if (targetScoreSelect) {
+            targetScore = parseInt(targetScoreSelect.value, 10) || 70;
+        }
     }
     socket = io();
-    // Listen for player reconnected event (custom event from server)
-    socket.on('playerReconnected', (data) => {
-        showSystemMessage(isSpanish ?
-            `${data.playerName} ha vuelto a conectarse` :
-            `${data.playerName} has reconnected`, 'success');
-        if (typeof waitingSound !== 'undefined' && waitingSound && waitingSound.isLoaded()) {
-            waitingSound.play();
-        }
-    });
-// =========================================================
-// == [ROUTINE] SOCKET.IO RECONNECT HANDLING (Mobile Fix)
-// =========================================================
-
-// Save player data locally when signing in
-function savePlayerData(name, avatar, roomId, targetScore) {
-  try {
-    const playerData = { 
-      name, 
-      avatar, 
-      roomId: roomId || null, 
-      targetScore: targetScore || 70 
-    };
-    localStorage.setItem("playerData", JSON.stringify(playerData));
-    // console.log("💾 Saved playerData to localStorage:", playerData);
-  } catch (err) {
-    console.warn("⚠️ Could not save playerData:", err);
-  }
-}
-
-// Load saved player data (if any)
-function loadPlayerData() {
-  try {
-    const raw = localStorage.getItem("playerData");
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch (err) {
-    console.warn("⚠️ Could not parse playerData:", err);
-    return null;
-  }
-}
-
-// Handle disconnects
-socket.on("disconnect", (reason) => {
-  // console.log("⚠️ Socket disconnected:", reason);
-});
-
-// Handle automatic reconnect
-socket.on("reconnect", (attempt) => {
-  // console.log("✅ Socket reconnected after", attempt, "tries");
-  const saved = loadPlayerData();
-  if (saved) {
-    // console.log("🔄 Re-emitting setPlayerName with saved data:", saved);
-    socket.emit("setPlayerName", saved);
-  }
-});
-
-// Handle reconnection errors
-socket.on("reconnect_error", (err) => {
-  console.warn("⚠️ Reconnect error:", err);
-});
 
     socket.on('connect', () => {
-        // console.log("Connected to server.");
-        // console.log('🔍 CONNECT DEBUG: Setting up waiting message system');
+        console.log("Connected to server.");
         
         // AGGRESSIVE CLEAR: Clear points immediately on fresh connection to ensure clean start
-        // console.log('🧹 Clearing any cached points data on fresh connection');
+        console.log('🧹 Clearing any cached points data on fresh connection');
         playerPointsWon = {};
         previousTeamScores = { teamA: 0, teamB: 0 };
         
-        // For new connections, always start fresh - don't restore old localStorage data
-        // This ensures new rooms/sessions start with 0's
-        // console.log('🆕 Starting with completely fresh points data for new connection');
-        // Force clear localStorage to prevent carrying over old scores to new rooms
-        try {
-            localStorage.removeItem('domino_game_points');
-            // console.log('🗑️ Force cleared old localStorage points data');
-        } catch (error) {
-            console.warn('⚠️ Could not clear localStorage:', error);
+        // Only try to restore points from localStorage if we detect this is truly a reconnection
+        // (we'll be more conservative about restoring to avoid stale data)
+        const restored = restorePointsFromLocalStorage();
+        if (restored) {
+            console.log('📦 Restored points from recent session (within 1 hour)');
+        } else {
+            console.log('🆕 Starting with completely fresh points data');
+            // Force clear localStorage just in case
+            try {
+                localStorage.removeItem('domino_game_points');
+                console.log('🗑️ Force cleared old localStorage points data');
+            } catch (error) {
+                console.warn('⚠️ Could not clear localStorage:', error);
+            }
         }
         
-        // console.log('🔍 ROOM DEBUG - About to emit setPlayerName with roomId:', roomId);
         socket.emit('setPlayerName', { name: playerName, avatar: avatarData, roomId: roomId, targetScore: targetScore });
-
-
-// Automatically save to localStorage for reconnects
-savePlayerData( playerName,  avatarData,  roomId,  targetScore);
-
-
-
-        // Mark as signed in to hide rotation messages
-        document.body.classList.add('signed-in');
-        document.body.classList.remove('about-to-sign-in');
 
         // Hide lobby and show game UI when connected
         const lobby = document.getElementById('lobby-container');
@@ -2576,47 +1995,10 @@ savePlayerData( playerName,  avatarData,  roomId,  targetScore);
         if (lobby) lobby.style.display = 'none';
         if (gameUI) gameUI.style.display = 'block';
         
-        // Show initial waiting message only if room is not already full
-        setTimeout(() => {
-            // Check if room was already full when we joined (4th player case)
-            if (window.isRoomFull) {
-                // console.log('🎯 Room already full, not showing waiting message');
-                return;
-            }
-            
-            // Also check if a playerCount event already handled this
-            const waitingDiv = document.getElementById('waiting-for-players');
-            if (waitingDiv && getComputedStyle(waitingDiv).display !== 'none') {
-                // console.log('⏳ Waiting message already visible from playerCount event');
-                return;
-            }
-            
-            // console.log('🔍 Showing initial waiting message');
-            showWaitingForPlayersMessage();
-            // Initial display until server sends playerCount update
-            const playerCountText = document.getElementById('player-count-text');
-            if (playerCountText) {
-                playerCountText.textContent = window.lang.t('connecting');
-            }
-        }, 300); // Increased delay to let playerCount event arrive first
-        
-        // Mark as signed in for portrait mode blocking via CSS
-        document.body.classList.add('signed-in');
-        
-        // Continue gentle landscape encouragement for mobile devices
-        if (window.innerWidth <= 900) {
-            // Try to maintain landscape orientation
-            if (screen.orientation && screen.orientation.lock) {
-                screen.orientation.lock('landscape').catch(err => {
-                    // console.log('Landscape lock failed:', err);
-                });
-            }
-        }
-        
         // Setup mobile suggestion box for game UI after elements are visible
-        // console.log('🎯 Game UI shown - setting up STUBBORN suggestion box...');
+        console.log('🎯 Game UI shown - setting up STUBBORN suggestion box...');
         setTimeout(() => {
-            // console.log('🎯 About to call setupStubbornBox...');
+            console.log('🎯 About to call setupStubbornBox...');
             setupStubbornBox();
         }, 100); // Small delay to ensure elements are rendered
         
@@ -2632,16 +2014,7 @@ savePlayerData( playerName,  avatarData,  roomId,  targetScore);
         }, 500);
     });
 
-    socket.on('playerAssigned', (data) => { 
-        // Handle both old string format and new object format
-        if (typeof data === 'string') {
-            myJugadorName = data; 
-        } else {
-            myJugadorName = data.playerName;
-            // Store room status for waiting message logic
-            window.isRoomFull = data.isRoomFull;
-        }
-    });
+    socket.on('playerAssigned', (name) => { myJugadorName = name; });
 
     // Listen for animation events from other players
     socket.on('playTileAnimation', (data) => {
@@ -2655,12 +2028,6 @@ savePlayerData( playerName,  avatarData,  roomId,  targetScore);
         const centerPos = { x: width/2, y: height/2 - 100 };
         
         startTileAnimation(data.tile, startPos, centerPos, data.playerName);
-        
-        // Clear any pending timer since animation is now active
-        if (window.boardUpdateTimer) {
-            clearTimeout(window.boardUpdateTimer);
-            window.boardUpdateTimer = null;
-        }
     });
 function startGameSession() {
   // Show game area
@@ -2673,63 +2040,26 @@ function startGameSession() {
 }
 
 
-    // Handle player count updates for waiting message
-    socket.on('playerCount', (data) => {
-        const { count, roomFull } = data;
-        // console.log('👥 Player count update:', count, 'Room full:', roomFull);
-        waitingSound.play();
-        // Add debugging to check element existence
-        const waitingDiv = document.getElementById('waiting-for-players');
-        const playerCountText = document.getElementById('player-count-text');
-        const messageText = document.getElementById('waiting-message-text');
-        
-               
-        if (roomFull) {
-            waitingSound.play();
-            // 4 players - hide waiting message for everyone
-            // console.log('🎯 Room full, hiding waiting message');
-            hideWaitingForPlayersMessage();
-        } else if (count > 0) {
-            // 1-3 players - show waiting message with count
-            // console.log('⏳ Showing waiting message for', count, 'players');
-            showWaitingForPlayersMessage();
-            updatePlayerCountDisplay(count);
-             
-            // Also update room status for any players who might have just joined
-            window.isRoomFull = roomFull;
-        }
-    });
-
     socket.on('gameState', (state) => {
         // Check if this is a brand new game or initial connection
         const wasGameState = !!gameState && !!gameState.matchNumber;
         const isNewGame = !wasGameState || 
                          (state.matchNumber === 1 && (!state.teamScores || (state.teamScores.teamA === 0 && state.teamScores.teamB === 0)));
         
-        // Simple waiting message logic: only hide when game actually starts
-        if (state.gameInitialized) {
-            // console.log('✅ Game started, hiding waiting message');
-            hideWaitingForPlayersMessage();
-        }
-        // Note: We don't show waiting messages here anymore - handled by playerCount updates
-        
         // AGGRESSIVE CLEARING: Clear points on any of these conditions
         const shouldClearPoints = isNewGame || 
                                  !wasGameState || // First gameState received
                                  (state.matchNumber === 1 && wasGameState && gameState.matchNumber > 1); // Match reset to 1
         
-        // ALWAYS clear points when entering a new room (matchNumber 1 with fresh state)
-        const isEnteringNewRoom = state.matchNumber === 1 && (!state.teamScores || (state.teamScores.teamA === 0 && state.teamScores.teamB === 0));
-        
-        if (shouldClearPoints || isEnteringNewRoom) {
-            // console.log('🆕 New game/session detected - clearing all points data');
-            // console.log(`Previous match: ${gameState?.matchNumber || 'none'}, New match: ${state.matchNumber}`);
+        if (shouldClearPoints) {
+            console.log('🆕 New game/session detected - clearing all points data');
+            console.log(`Previous match: ${gameState.matchNumber || 'none'}, New match: ${state.matchNumber}`);
             clearAllPointsData();
             
             // Reset animation system for new game
             isAnimating = false;
             animatingTile = null;
-            // console.log('🎬 Animation system reset for new game');
+            console.log('🎬 Animation system reset for new game');
         }
         
         // Note: Removed automatic animation for other players here
@@ -2740,60 +2070,15 @@ function startGameSession() {
         const oldBoardLength = gameState ? gameState.board?.length || 0 : 0;
         const newBoardLength = state.board?.length || 0;
         
-        // If a new tile was added to the board, ALWAYS delay the update to allow animation
-        if (newBoardLength > oldBoardLength) {
-            // Store the new state to apply after a short delay to allow animation to start
-            window.pendingGameStateUpdate = state;
-            
-            // Update gameState immediately for non-board properties (messages, game status, etc.)
-            // but preserve the old board to allow animation to complete first
-            const currentBoard = gameState.board;
-            gameState = { ...state };  // Update all properties
-            gameState.board = currentBoard;  // Keep old board until animation completes
-            
-            // Set up a callback to apply the board update when animation finishes
-            window.delayedBoardUpdate = function() {
-                if (window.pendingGameStateUpdate) {
-                    gameState.board = window.pendingGameStateUpdate.board;  // Only update the board
-                    window.pendingGameStateUpdate = null;
-                    
-                    // Apply the highlight logic for the new tile
-                    if (gameState.lastPlayedTile) {
-                        if (!lastPlayedHighlight.tile || millis() - lastPlayedHighlight.timestamp > 1000) {
-                            lastPlayedHighlight.tile = gameState.lastPlayedTile;
-                            lastPlayedHighlight.timestamp = millis();
-                        }
-                    }
-                }
-            };
-            
-            // Check if any animation is currently running (either remote or current player)
-            const anyAnimationRunning = isAnimating || (window.currentPlayerAnimation && window.currentPlayerAnimation.isActive);
-            
-            // If no animation is currently running, start a timer to apply the update
-            // This handles cases where the gameState arrives before playTileAnimation
-            if (!anyAnimationRunning) {
-                window.boardUpdateTimer = setTimeout(() => {
-                    const stillNoAnimation = !isAnimating && !(window.currentPlayerAnimation && window.currentPlayerAnimation.isActive);
-                    if (window.delayedBoardUpdate && stillNoAnimation) {
-                        window.delayedBoardUpdate();
-                        window.delayedBoardUpdate = null;
-                    }
-                    window.boardUpdateTimer = null;
-                }, 100);
-            }
-        } else {
-            // No new tile, update immediately
-            gameState = state;
-            
-            // If board length increased and we have a lastPlayedTile, set highlight
-            // (This covers remote player moves - current player highlight is set in moveSuccess)
-            if (newBoardLength > oldBoardLength && gameState.lastPlayedTile) {
-                // Only set if we don't already have a recent highlight (avoid double-setting for current player)
-                if (!lastPlayedHighlight.tile || millis() - lastPlayedHighlight.timestamp > 1000) {
-                    lastPlayedHighlight.tile = gameState.lastPlayedTile;
-                    lastPlayedHighlight.timestamp = millis();
-                }
+        gameState = state;
+        
+        // If board length increased and we have a lastPlayedTile, set highlight
+        // (This covers remote player moves - current player highlight is set in moveSuccess)
+        if (newBoardLength > oldBoardLength && gameState.lastPlayedTile) {
+            // Only set if we don't already have a recent highlight (avoid double-setting for current player)
+            if (!lastPlayedHighlight.tile || millis() - lastPlayedHighlight.timestamp > 1000) {
+                lastPlayedHighlight.tile = gameState.lastPlayedTile;
+                lastPlayedHighlight.timestamp = millis();
             }
         }
         // (Removed points-objective update here; now handled by updateRoomInfo for compact legend)
@@ -2837,25 +2122,6 @@ function startGameSession() {
             const newRoundBtn = document.getElementById('newRoundBtn');
             if (!roundOverMessageDiv || !newRoundBtn) return;
             let message = window.lang.t('hand_finished');
-            // Play win sound whenever there is any kind of winner after a hand
-            let isAnyWinner = false;
-            if (
-                !!gameState.endRoundMessage &&
-                typeof gameState.endRoundMessage === 'string' &&
-                (
-                    gameState.endRoundMessage.toLowerCase().includes('domino') ||
-                    gameState.endRoundMessage.toLowerCase().includes('gana') ||
-                    gameState.endRoundMessage.toLowerCase().includes('wins')
-                )
-            ) {
-                isAnyWinner = true;
-            }
-            // Only play winSound if dialog is being shown for the first time and not simultaneously with waitingSound
-            if (dialogShownTimestamp === 0 && isAnyWinner && winSound && winSound.isLoaded()) {
-                setTimeout(() => {
-                    winSound.play();
-                }, 200); // Slight delay to avoid overlap with waitingSound
-            }
             if (gameState.gameBlocked) {
                 message = window.lang.t('game_closed') + '! ' + window.lang.t('no_valid_moves') + '!';
                 if (gameState.endRoundMessage) {
@@ -3015,11 +2281,11 @@ function startGameSession() {
     });
 
     socket.on('tilePlaced', (data) => {
-        // console.log('🔊 Tile placed event received');
+        console.log('🔊 Tile placed event received');
         if (tileSound && tileSound.isLoaded()) {
             try {
                 tileSound.play();
-                // console.log('🔊 Tile sound played');
+                console.log('🔊 Tile sound played');
             } catch (error) {
                 console.error('❌ Error playing tile sound:', error);
             }
@@ -3029,11 +2295,11 @@ function startGameSession() {
     });
 
     socket.on('playerPassed', (data) => {
-        // console.log('🔊 Player passed event received');
+        console.log('🔊 Player passed event received');
         if (passSound && passSound.isLoaded()) {
             try {
                 passSound.play();
-                // console.log('🔊 Pass sound played');
+                console.log('🔊 Pass sound played');
             } catch (error) {
                 console.error('❌ Error playing pass sound:', error);
             }
@@ -3043,11 +2309,11 @@ function startGameSession() {
     });
 
     socket.on('playerWonHand', (data) => {
-        // console.log('🔊 Player won hand event received');
+        console.log('🔊 Player won hand event received');
         if (winSound && winSound.isLoaded()) {
             try {
                 winSound.play();
-                // console.log('🔊 Win sound played');
+                console.log('🔊 Win sound played');
             } catch (error) {
                 console.error('❌ Error playing win sound:', error);
             }
@@ -3066,7 +2332,7 @@ function startGameSession() {
         clearAllPointsData();
         
         showMessage(`🔄 ${data.message}`);
-        // console.log('🔄 Game restarted - all points data cleared');
+        console.log('🔄 Game restarted - all points data cleared');
         
         const messagesDiv = document.getElementById('chat-messages');
         const messageElement = document.createElement('p');
@@ -3090,33 +2356,6 @@ function startGameSession() {
     socket.on('voiceMessage', (data) => {
         playVoiceMessage(data);
     });
-
-    socket.on('leaveGameResponse', (data) => {
-        // console.log('Leave game response:', data);
-        
-        if (data.success) {
-            showSystemMessage(isSpanish ? 
-                'Has salido del juego exitosamente' : 
-                'Successfully left the game', 'success');
-            
-            // Redirect to main page after short delay
-            setTimeout(() => {
-                window.location.href = 'index.html';
-            }, 1500);
-        } else {
-            showSystemMessage(isSpanish ? 
-                `Error al salir: ${data.message}` : 
-                `Error leaving: ${data.message}`, 'error');
-        }
-    });
-
-    socket.on('playerLeft', (data) => {
-        // console.log('Player left notification:', data);
-        
-        showSystemMessage(isSpanish ? 
-            `${data.playerName} ha salido del juego` : 
-            `${data.playerName} has left the game`, 'info');
-    });
 }
 
 
@@ -3124,30 +2363,18 @@ function startGameSession() {
 // == EVENT LISTENERS & USER INPUT HANDLING                                   ==
 // =============================================================================
 
-// Show system messages in chat
-function showSystemMessage(message, type = 'info') {
-    const messagesDiv = document.getElementById('chat-messages');
-    if (!messagesDiv) return;
-    const msg = document.createElement('p');
-    msg.innerHTML = `<b>System:</b> ${message}`;
-    msg.style.color = type === 'error' ? '#ff4444' : (type === 'success' ? '#44ff44' : '#ffaa00');
-    msg.style.fontWeight = 'bold';
-    messagesDiv.appendChild(msg);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
 function setupGameButtons() {
-    // console.log('Setting up game buttons...');
+    console.log('Setting up game buttons...');
     
     // Rules modal functionality
     function showRules(e) {
         if (e) e.preventDefault();
-        // console.log('Showing rules modal...');
+        console.log('Showing rules modal...');
         const rulesModal = document.getElementById('rules-modal');
         const rulesContent = document.getElementById('rules-modal-content');
         
         if (rulesModal && rulesContent) {
-            // console.log('Found rules modal elements');
+            console.log('Found rules modal elements');
             rulesModal.style.cssText = `
                 display: block !important;
                 visibility: visible !important;
@@ -3179,7 +2406,7 @@ function setupGameButtons() {
 
     function hideRules(e) {
         if (e) e.preventDefault();
-        // console.log('Hiding rules modal...');
+        console.log('Hiding rules modal...');
         const rulesModal = document.getElementById('rules-modal');
         if (rulesModal) {
             rulesModal.style.cssText = `
@@ -3200,13 +2427,13 @@ function setupGameButtons() {
         rulesModal: document.getElementById('rules-modal')
     };
 
-    // console.log('Rules elements found:', {
-    //   showRulesBtn: !!elements.showRulesBtn,
-    //    showRulesBtnMobile: !!elements.showRulesBtnMobile,
-    //   scrollRulesBtn: !!elements.scrollRulesBtn,
-    //   closeRulesBtn: !!elements.closeRulesBtn,
-    //   rulesModal: !!elements.rulesModal
-    //});
+    console.log('Rules elements found:', {
+        showRulesBtn: !!elements.showRulesBtn,
+        showRulesBtnMobile: !!elements.showRulesBtnMobile,
+        scrollRulesBtn: !!elements.scrollRulesBtn,
+        closeRulesBtn: !!elements.closeRulesBtn,
+        rulesModal: !!elements.rulesModal
+    });
 
     // Remove any existing event listeners first
     const removeOldListeners = (element, handler) => {
@@ -3219,7 +2446,7 @@ function setupGameButtons() {
     // Add click handlers to all rules buttons
     [elements.showRulesBtn, elements.showRulesBtnMobile, elements.scrollRulesBtn].forEach(button => {
         if (button) {
-            // console.log('Setting up rules button:', button.id);
+            console.log('Setting up rules button:', button.id);
             removeOldListeners(button, showRules);
             
             button.addEventListener('click', showRules);
@@ -3241,7 +2468,7 @@ function setupGameButtons() {
 
     // Setup close rules button
     if (elements.closeRulesBtn) {
-        // console.log('Setting up close button');
+        console.log('Setting up close button');
         removeOldListeners(elements.closeRulesBtn, hideRules);
         
         elements.closeRulesBtn.addEventListener('click', hideRules);
@@ -3253,7 +2480,7 @@ function setupGameButtons() {
 
     // Close on click outside modal
     if (elements.rulesModal) {
-        // console.log('Setting up modal click-outside handler');
+        console.log('Setting up modal click-outside handler');
         removeOldListeners(elements.rulesModal, (e) => e.target === elements.rulesModal && hideRules(e));
         
         elements.rulesModal.addEventListener('click', (e) => {
@@ -3266,7 +2493,7 @@ function setupGameButtons() {
     // Setup restart functionality
     function handleRestart(e) {
         if (e) e.preventDefault();
-        // console.log('Restart button clicked');
+        console.log('Restart button clicked');
         
         // Make sure we have a socket connection
         if (!socket || !socket.connected) {
@@ -3277,7 +2504,7 @@ function setupGameButtons() {
         
         if (confirm('¿Estás seguro de que quieres reiniciar el juego completamente? Esto borrará todos los puntajes y estadísticas.')) {
             try {
-                // console.log('Emitting restartGame event');
+                console.log('Emitting restartGame event');
                 socket.emit('restartGame');
                 
                 // Clear all points data immediately
@@ -3306,14 +2533,14 @@ function setupGameButtons() {
         mobile: document.getElementById('restart-game-btn-mobile')
     };
 
-    // console.log('Restart buttons found:', {
-    //    desktop: !!restartButtons.desktop,
-    //    mobile: !!restartButtons.mobile
-    // //});
+    console.log('Restart buttons found:', {
+        desktop: !!restartButtons.desktop,
+        mobile: !!restartButtons.mobile
+    });
 
     Object.values(restartButtons).forEach(button => {
         if (button) {
-            // console.log('Setting up restart button:', button.id);
+            console.log('Setting up restart button:', button.id);
             
             // Remove any existing listeners
             button.removeEventListener('click', handleRestart);
@@ -3344,9 +2571,6 @@ function setupGameButtons() {
         }
     });
 
-    // Setup leave game buttons - simplified approach
-    // console.log('🚪 Leave Game function setup complete - using direct onclick handlers in HTML');
-
     // Setup game control buttons
     const gameButtons = {
         'playLeftBtn': () => handlePlay('left'),
@@ -3364,7 +2588,7 @@ function setupGameButtons() {
     Object.entries(gameButtons).forEach(([id, handler]) => {
         const button = document.getElementById(id);
         if (button) {
-            // console.log('Adding click handler to game button:', id);
+            console.log('Adding click handler to game button:', id);
             button.addEventListener('click', handler);
         }
     });
@@ -3383,104 +2607,42 @@ function setupGameButtons() {
         });
     }
 
-    // Enable audio auto-play on first user interaction
-    document.addEventListener('click', enableAudioAutoPlay, { once: true });
-    document.addEventListener('touchstart', enableAudioAutoPlay, { once: true });
-    
     // Setup voice chat button (Push to Talk)
     const voiceChatBtn = document.getElementById('voice-chat-btn');
     if (voiceChatBtn) {
-        // console.log('Setting up voice chat button');
-        
-        // Check microphone permissions on first interaction
-        let permissionChecked = false;
-        
-        const handleVoiceStart = async (e) => {
-            e.preventDefault();
-            
-            // Check permissions first time
-            if (!permissionChecked) {
-                permissionChecked = true;
-                const hasPermission = await checkMicrophonePermissions();
-                if (!hasPermission) {
-                    const isSecureContext = window.location.protocol === 'https:' || 
-                                           window.location.hostname === 'localhost' || 
-                                           window.location.hostname === '127.0.0.1' ||
-                                           window.location.hostname.startsWith('192.168.') ||
-                                           window.location.hostname.startsWith('10.') ||
-                                           window.location.hostname.startsWith('172.') ||
-                                           window.location.hostname === '0.0.0.0';
-                    
-                    if (!isSecureContext) {
-                        alert('🔒 Voice chat requires HTTPS. Please use the live site for microphone access.');
-                    } else {
-                        alert('🎤 Microphone access denied. Please allow microphone permissions in your browser and try again.');
-                    }
-                    return;
-                }
-            }
-            
-            startVoiceRecording();
-        };
-        
-        const handleVoiceStop = (e) => {
-            e.preventDefault();
-            stopVoiceRecording();
-        };
-        
+        console.log('Setting up voice chat button');
         // Mouse events
-        voiceChatBtn.addEventListener('mousedown', handleVoiceStart);
-        voiceChatBtn.addEventListener('mouseup', handleVoiceStop);
-        voiceChatBtn.addEventListener('mouseleave', handleVoiceStop);
+        voiceChatBtn.addEventListener('mousedown', startVoiceRecording);
+        voiceChatBtn.addEventListener('mouseup', stopVoiceRecording);
+        voiceChatBtn.addEventListener('mouseleave', stopVoiceRecording);
         
         // Touch events for mobile
-        voiceChatBtn.addEventListener('touchstart', handleVoiceStart);
-        voiceChatBtn.addEventListener('touchend', handleVoiceStop);
-        
-        // Visual indicator for microphone availability
-        checkMicrophonePermissions().then(hasPermission => {
-            if (!hasPermission) {
-                const isSecureContext = window.location.protocol === 'https:' || 
-                                       window.location.hostname === 'localhost' || 
-                                       window.location.hostname === '127.0.0.1' ||
-                                       window.location.hostname.startsWith('192.168.') ||
-                                       window.location.hostname.startsWith('10.') ||
-                                       window.location.hostname.startsWith('172.') ||
-                                       window.location.hostname === '0.0.0.0' ||
-                                       window.location.port !== ''; // Development server with port
-                
-                if (!isSecureContext) {
-                    voiceChatBtn.style.opacity = '0.5';
-                    voiceChatBtn.title = 'Voice chat requires HTTPS - use live site';
-                } else {
-                    voiceChatBtn.style.opacity = '0.7';
-                    voiceChatBtn.title = 'Click to request microphone permission';
-                }
-            } else {
-                voiceChatBtn.style.opacity = '1';
-                voiceChatBtn.title = 'Hold to record voice message';
-            }
+        voiceChatBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            startVoiceRecording();
+        });
+        voiceChatBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            stopVoiceRecording();
         });
     }
 } // End of setupGameButtons function
 
 // Rename the function but keep the old name for compatibility
-// Remove duplicate and fix setupButtonListeners definition
-// If setupGameButtons is defined elsewhere, ensure it's loaded before use
-// Otherwise, keep only the function setupButtonListeners defined at the top
+const setupButtonListeners = setupGameButtons;
 
 /**
  * Calculate where a tile would be placed on the board for left or right position
  */
 function calculateTilePlacementPosition(tile, position) {
-    // console.log('🔧 calculateTilePlacementPosition called:', { tile, position });
+    console.log('🔧 calculateTilePlacementPosition called:', { tile, position });
     
     if (!gameState.board || gameState.board.length === 0 || !gameState.spinnerTile) {
-        // console.log('🔧 Missing game data:', { 
-        //   hasBoard: !!gameState.board, 
-        //   boardLength: gameState.board?.length, 
-        //   hasSpinner: !!gameState.spinnerTile 
-        // });
+        console.log('🔧 Missing game data:', { 
+            hasBoard: !!gameState.board, 
+            boardLength: gameState.board?.length, 
+            hasSpinner: !!gameState.spinnerTile 
+        });
         return null;
     }
     
@@ -3488,16 +2650,16 @@ function calculateTilePlacementPosition(tile, position) {
     const long = 100 * 0.95, short = 50 * 0.95, gap = 2;
     const boardCenterY = height / 2 - 218;
     
-    // console.log('🔧 Board data:', { boardLength: board.length, spinnerTile });
+    console.log('🔧 Board data:', { boardLength: board.length, spinnerTile });
     
     // Find spinner position
     const spinnerIndex = board.findIndex(t => t.left === spinnerTile.left && t.right === spinnerTile.right);
     if (spinnerIndex === -1) {
-        // console.log('🔧 Spinner not found in board');
+        console.log('🔧 Spinner not found in board');
         return null;
     }
     
-    // console.log('🔧 Spinner index:', spinnerIndex);
+    console.log('🔧 Spinner index:', spinnerIndex);
     
     const isSpinnerDouble = spinnerTile.left === spinnerTile.right;
     const spinnerW = isSpinnerDouble ? short : long;
@@ -3505,7 +2667,7 @@ function calculateTilePlacementPosition(tile, position) {
     const spinnerX = width / 2 - spinnerW / 2;
     const spinnerY = boardCenterY - spinnerH / 2;
     
-    // console.log('🔧 Spinner position:', { spinnerX, spinnerY, spinnerW, spinnerH });
+    console.log('🔧 Spinner position:', { spinnerX, spinnerY, spinnerW, spinnerH });
     
     if (position === 'left') {
         // Calculate left side placement position
@@ -3526,7 +2688,7 @@ function calculateTilePlacementPosition(tile, position) {
             y: connL.y - tileH / 2
         };
         
-        // console.log('🔧 Left position calculated:', result);
+        console.log('🔧 Left position calculated:', result);
         return result;
     } else if (position === 'right') {
         // Calculate right side placement position
@@ -3547,11 +2709,11 @@ function calculateTilePlacementPosition(tile, position) {
             y: connR.y - tileH / 2
         };
         
-        // console.log('🔧 Right position calculated:', result);
+        console.log('🔧 Right position calculated:', result);
         return result;
     }
     
-    // console.log('🔧 Invalid position:', position);
+    console.log('🔧 Invalid position:', position);
     return null;
 }
 
@@ -3585,7 +2747,7 @@ function handlePlay(position) {
 }
 
 function mousePressed() {
-    if (typeof gameState === 'undefined' || !gameState || gameState.currentTurn !== myJugadorName) {
+    if (gameState.currentTurn !== myJugadorName) {
         return;
     }
     
@@ -3648,190 +2810,76 @@ function showMessage(text) {
 function getPlayerIcon(imgElement, displayName, internalPlayerName) {
     if (!internalPlayerName) return; 
     
-    // AGGRESSIVE MOBILE FIX: Multiple detection methods and debugging
-    const userAgent = navigator.userAgent;
-    const isMobileUA = /iPhone|iPad|iPod|Android|Mobile|Phone|Tablet/i.test(userAgent);
-    const isMobileWidth = window.innerWidth <= 950; // Lowered threshold for testing
-    const isTouchDevice = 'ontouchstart' in window;
-    const isMobileBrowser = isMobileUA || isMobileWidth || isTouchDevice;
+    // Create a unique key for this player
+    const playerKey = `${displayName}_${internalPlayerName}`;
     
-    console.log('🔍 MOBILE DEBUG:', {
-        userAgent: userAgent.substring(0, 50),
-        isMobileUA,
-        isMobileWidth,
-        isTouchDevice,
-        isMobileBrowser,
-        hostname: window.location.hostname
-    });
-    
-    if (isMobileBrowser && !window.location.hostname.includes('localhost')) {
-        console.log('📱🚨 FORCING EMOJI AVATAR for mobile:', displayName);
-        const avatarDiv = imgElement.parentElement;
-        if (avatarDiv) {
-            // Clear any existing content and set emoji
-            avatarDiv.innerHTML = '';
-            avatarDiv.textContent = '�'; // Changed to phone emoji to confirm mobile detection
-            avatarDiv.style.fontSize = '24px';
-            avatarDiv.style.color = '#0066CC'; // Blue color to stand out
-            avatarDiv.style.display = 'flex';
-            avatarDiv.style.alignItems = 'center';
-            avatarDiv.style.justifyContent = 'center';
-            avatarDiv.title = 'Mobile Mode Active'; // Tooltip
+    // If we've already processed this player, use the cached result
+    if (avatarCache[playerKey]) {
+        if (avatarCache[playerKey].src) {
+            imgElement.src = avatarCache[playerKey].src;
+            imgElement.style.display = 'block';
+        } else {
+            imgElement.style.display = 'none';
         }
-        // Hide the image element completely
-        imgElement.style.display = 'none';
-        imgElement.remove();
         return;
     }
     
+    // Initialize cache entry
+    avatarCache[playerKey] = { src: null, processed: false, attemptIndex: 0 };
+    
     // Create multiple filename variations to try
-    const baseVariations = [
+    const avatarVariations = [
         `assets/icons/${displayName}_avatar.jpg`,           // Original case
-        `assets/icons/${displayName.toLowerCase()}_avatar.jpg`, // All lowercase  
+        `assets/icons/${displayName.toLowerCase()}_avatar.jpg`, // All lowercase
         `assets/icons/${displayName.toUpperCase()}_avatar.jpg`, // All uppercase
         `assets/icons/${displayName.charAt(0).toUpperCase() + displayName.slice(1).toLowerCase()}_avatar.jpg` // Title case
     ];
     
-    // Add cache-busting for mobile browsers
-    const isMobileDevice = window.innerWidth <= 900 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    const cacheBuster = isMobileDevice ? `?v=${Date.now()}` : '';
-    const avatarVariations = baseVariations.map(url => url + cacheBuster);
-    
-    console.log(`🔍 Testing avatar variations for ${displayName}:`, avatarVariations);
-    console.log(`📱 Mobile check: innerWidth=${window.innerWidth}, userAgent=${navigator.userAgent.includes('Mobile')}`);
-    console.log(`🌐 Hostname: ${window.location.hostname}`);
-    console.log(`🚫 Cache buster: ${cacheBuster} (mobile: ${isMobileDevice})`);
-    
     const match = internalPlayerName.match(/\d+/);
     const playerNumber = match ? match[0] : 'default';
-    const defaultAvatarSrc = `assets/icons/jugador${playerNumber}_avatar.jpg${cacheBuster}`;
+    const defaultAvatarSrc = `assets/icons/jugador${playerNumber}_avatar.jpg`;
     
-    let attemptIndex = 0;
-    
-    // Enhanced Safari Detection with debug logging
-    const browserUserAgent = navigator.userAgent;
-    const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(userAgent) || window.innerWidth <= 900;
-    const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
-    const isSafariMobile = (isSafari && isMobile) || isIOS; // More aggressive detection
-    
-    // MOBILE EMERGENCY FALLBACK: If mobile browser, skip file loading and use emoji directly
-    if (isMobile && !window.location.hostname.includes('localhost')) {
-        console.log(`📱🚨 MOBILE EMERGENCY: Skipping file avatars, using emoji for ${displayName}`);
-        avatarDiv.textContent = '👤';
-        avatarDiv.style.fontSize = '24px';
-        avatarDiv.style.color = '#666';
-        return;
-    }
-    
-    console.log(`🔍 Browser Detection:`, {
-        userAgent,
-        isSafari,
-        isMobile,
-        isIOS,
-        isSafariMobile,
-        innerWidth: window.innerWidth
-    });
-    
-    if (isSafariMobile) {
-        console.log(`🍎� SAFARI MOBILE DETECTED - Using special handling`);
-        
-        // For Safari Mobile, use a completely different approach
-        // Set up the image properties first
-        imgElement.style.opacity = '0';
-        imgElement.style.transition = 'opacity 0.3s';
-        
-        // Create a preloader image to test if the avatar exists
-        const testImage = new Image();
-        
-        const loadAvatar = (srcToTry) => {
-            return new Promise((resolve, reject) => {
-                const tempImg = new Image();
-                tempImg.onload = () => resolve(srcToTry);
-                tempImg.onerror = () => reject();
-                tempImg.src = srcToTry;
-            });
-        };
-        
-        // Try each avatar variation in sequence for Safari
-        const tryAvatarsSequentially = async () => {
-            for (let i = 0; i < avatarVariations.length; i++) {
-                try {
-                    console.log(`🍎 Safari trying: ${avatarVariations[i]}`);
-                    const workingSrc = await loadAvatar(avatarVariations[i]);
-                    console.log(`🍎✅ Safari found working avatar: ${workingSrc}`);
-                    imgElement.src = workingSrc;
-                    imgElement.style.opacity = '1';
-                    return;
-                } catch (e) {
-                    console.log(`🍎❌ Safari failed: ${avatarVariations[i]}`);
-                }
-            }
-            
-            // If all custom avatars failed, try default
-            try {
-                console.log(`🍎 Safari trying default: ${defaultAvatarSrc}`);
-                await loadAvatar(defaultAvatarSrc);
-                imgElement.src = defaultAvatarSrc;
-                imgElement.style.opacity = '1';
-                console.log(`🍎✅ Safari loaded default: ${defaultAvatarSrc}`);
-            } catch (e) {
-                console.log(`🍎❌ Safari even default failed, using emoji`);
-                const avatarDiv = imgElement.parentElement;
-                if (avatarDiv) {
-                    avatarDiv.textContent = '👤';
-                    avatarDiv.style.fontSize = '24px';
-                    imgElement.remove();
-                }
-            }
-        };
-        
-        // Start the Safari-specific loading
-        tryAvatarsSequentially();
-        return;
-    }
-    
-    // Function to try the next avatar variation (for non-Safari browsers)
+    // Function to try the next avatar variation
     const tryNextAvatar = () => {
-        if (attemptIndex < avatarVariations.length) {
-            const currentSrc = avatarVariations[attemptIndex];
-            console.log(`🔍 Trying variation ${attemptIndex + 1}/${avatarVariations.length}: ${currentSrc}`);
-            imgElement.src = currentSrc;
-            attemptIndex++;
+        const currentAttempt = avatarCache[playerKey].attemptIndex;
+        
+        if (currentAttempt < avatarVariations.length) {
+            avatarCache[playerKey].attemptIndex++;
+            imgElement.src = avatarVariations[currentAttempt];
         } else {
             // All custom variations failed, try default
-            console.log(`🔍 All variations failed, trying default: ${defaultAvatarSrc}`);
             imgElement.src = defaultAvatarSrc;
         }
     };
     
-    // Set up error handling before setting the source (for non-Safari browsers)
+    // Set up error handling before setting the source
     imgElement.onerror = function() {
-        console.log(`❌ MOBILE DEBUG - Failed to load: ${this.src}`);
-        console.log(`❌ MOBILE DEBUG - Complete: ${this.complete}, Width: ${this.naturalWidth}, Height: ${this.naturalHeight}`);
-        console.log(`❌ MOBILE DEBUG - UserAgent: ${navigator.userAgent}`);
-        console.log(`❌ MOBILE DEBUG - Inner width: ${window.innerWidth}`);
+        const currentAttempt = avatarCache[playerKey].attemptIndex - 1;
         
         // If we're still trying custom avatar variations
-        if (attemptIndex <= avatarVariations.length) {
+        if (currentAttempt < avatarVariations.length - 1) {
             tryNextAvatar();
+        } else if (this.src === defaultAvatarSrc) {
+            // Even default failed, cache the failure and hide the image
+            avatarCache[playerKey].src = null;
+            avatarCache[playerKey].processed = true;
+            this.style.display = 'none';
+            this.onerror = null;
         } else {
-            // Even default failed, remove the image element and use emoji
-            console.log(`❌ All avatar attempts failed for ${displayName}, using emoji`);
-            const avatarDiv = this.parentElement;
-            if (avatarDiv) {
-                avatarDiv.textContent = '👤';
-                avatarDiv.style.fontSize = '24px';
-                this.remove();
-            }
+            // Try default avatar
+            this.src = defaultAvatarSrc;
         }
     };
     
     imgElement.onload = function() {
-        console.log(`✅ SUCCESS! Avatar loaded: ${this.src}`);
+        // Cache the successful source
+        avatarCache[playerKey].src = this.src;
+        avatarCache[playerKey].processed = true;
+        this.style.display = 'block';
+        this.onload = null;
     };
     
-    // Start with the first variation (for non-Safari browsers)
+    // Start with the first variation
     tryNextAvatar();
 }
 
@@ -3889,7 +2937,7 @@ function determinePlayerPositions() {
 function updatePlayersUI() {
     if (!gameState || !gameState.jugadoresInfo || !myJugadorName) { return; }
 
-    // console.log('🎮 Updating players UI with game state:', gameState.jugadoresInfo);
+    console.log('🎮 Updating players UI with game state:', gameState.jugadoresInfo);
 
     const playerPositions = determinePlayerPositions();
 
@@ -3912,10 +2960,9 @@ function updatePlayersUI() {
         const playerData = gameState.jugadoresInfo.find(p => p.name === playerName);
         if (!playerData) return;
 
-        // console.log('🎯 Player data for', playerName, ':', playerData);
-        // console.log('🔍 Avatar data for', playerName, '- Type:', playerData.avatar?.type, 'Data:', playerData.avatar?.data);
+        console.log('🎯 Player data for', playerName, ':', playerData);
         // Debug: Log tileCount for each player and position
-        // console.log(`[DEBUG] Player: ${playerName}, Position: ${position}, tileCount: ${playerData.tileCount}`);
+        console.log(`[DEBUG] Player: ${playerName}, Position: ${position}, tileCount: ${playerData.tileCount}`);
 
         div.style.display = 'flex';
         div.innerHTML = ''; 
@@ -3923,11 +2970,6 @@ function updatePlayersUI() {
         // Create avatar element
         const avatarDiv = document.createElement('div');
         avatarDiv.className = 'player-avatar';
-        
-        // Mobile-specific styling for better compatibility
-        if (window.innerWidth <= 900) {
-            // Use default CSS styling - don't override
-        }
         
         // PRIORITY SYSTEM for avatar display:
         // 1st: Avatar files (type='file' or when no avatar data but file exists)
@@ -3938,119 +2980,77 @@ function updatePlayersUI() {
         if (playerData.avatar && playerData.avatar.type === 'file') {
             // Server indicated to use file - try to load image file
             const img = document.createElement('img');
-            img.style.width = '40px';
-            img.style.height = '40px';
-            img.style.borderRadius = '50%';
-            avatarDiv.appendChild(img);
-            
-            // Use original getPlayerIcon function for all cases - this was working!
-            getPlayerIcon(img, playerData.displayName, playerData.name);
-        } else if (playerData.avatar && playerData.avatar.type === 'custom') {
-            // Custom uploaded avatar
-            avatarDiv.classList.add('custom-avatar');
-            
-            // MOBILE FIX: Check if mobile and use emoji instead
-            const isMobileUA = /iPhone|iPad|iPod|Android|Mobile|Phone|Tablet/i.test(navigator.userAgent);
-            const isMobileWidth = window.innerWidth <= 900;
-            const isTouchDevice = 'ontouchstart' in window;
-            const isMobileBrowser = isMobileUA || isMobileWidth || isTouchDevice;
-            
-            if (isMobileBrowser && !window.location.hostname.includes('localhost')) {
-                console.log('📱🚨 MOBILE: Skipping custom avatar, using emoji for', playerData.displayName);
-                avatarDiv.textContent = '📱';
-                avatarDiv.style.fontSize = '24px';
-                avatarDiv.style.color = '#0066CC';
-                return;
-            }
-            
-            const customImg = document.createElement('img');
-            
-            // Safari mobile detection for custom avatars
-            const userAgent = navigator.userAgent;
-            const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
-            const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
-            const isSafariMobile = (isSafari && /iPhone|iPad|iPod|Android/i.test(userAgent)) || isIOS;
-            
-            if (isSafariMobile) {
-                console.log(`🍎📱 CUSTOM AVATAR - Safari mobile detected for ${playerData.displayName}`);
-                console.log(`🍎 Avatar data length: ${playerData.avatar.data.length}`);
-                
-                // For Safari mobile, set up image differently
-                customImg.style.opacity = '0';
-                customImg.style.transition = 'opacity 0.3s';
-                
-                customImg.onload = function() {
-                    console.log(`🍎✅ Custom avatar loaded successfully for ${playerData.displayName}`);
-                    this.style.opacity = '1';
-                };
-                
-                customImg.onerror = function() {
-                    console.log(`🍎❌ Custom avatar failed for ${playerData.displayName}, using fallback`);
-                    avatarDiv.textContent = '👤';
-                    avatarDiv.style.fontSize = '24px';
-                    this.remove();
-                };
-                
-                // Set source after event handlers for Safari
-                setTimeout(() => {
-                    customImg.src = playerData.avatar.data;
-                }, 10);
-            } else {
-                // Non-Safari browsers: direct assignment
-                customImg.src = playerData.avatar.data;
-            }
-            
-            customImg.alt = `${playerData.displayName} avatar`;
-            customImg.style.width = '40px';
-            customImg.style.height = '40px';
-            customImg.style.borderRadius = '50%';
-            avatarDiv.appendChild(customImg);
-        } else if (playerData.avatar && playerData.avatar.type === 'emoji') {
-            // Emoji avatar
-            avatarDiv.textContent = playerData.avatar.data;
-            avatarDiv.style.fontSize = '24px';
-        } else {
-            // No avatar data - try file first, then default
-            const img = document.createElement('img');
-            img.style.width = '40px';
-            img.style.height = '40px';
-            img.style.borderRadius = '50%';
-            img.style.opacity = '0';
-            img.style.transition = 'opacity 0.3s ease';
+            img.style.display = 'none';
             avatarDiv.appendChild(img);
             
             getPlayerIcon(img, playerData.displayName, playerData.name);
             
             setTimeout(() => {
-                if (img.style.opacity === '0') {
+                if (img.style.display === 'none') {
+                    // File failed to load, use default
+                    avatarDiv.textContent = '👤';
+                    console.log('⚠️ Avatar file failed to load for', playerData.displayName);
+                } else {
+                    console.log('✅ Using avatar FILE for', playerData.displayName);
+                }
+            }, 500);
+        } else if (playerData.avatar && playerData.avatar.type === 'custom') {
+            // Custom uploaded avatar
+            avatarDiv.classList.add('custom-avatar');
+            const customImg = document.createElement('img');
+            customImg.src = playerData.avatar.data;
+            customImg.alt = `${playerData.displayName} avatar`;
+            customImg.style.width = '40px';
+            customImg.style.height = '40px';
+            customImg.style.borderRadius = '50%';
+            avatarDiv.appendChild(customImg);
+            console.log('✅ Using CUSTOM upload for', playerData.displayName);
+        } else if (playerData.avatar && playerData.avatar.type === 'emoji') {
+            // Emoji avatar
+            avatarDiv.textContent = playerData.avatar.data;
+            avatarDiv.style.fontSize = '24px';
+            console.log('✅ Using EMOJI avatar for', playerData.displayName, ':', playerData.avatar.data);
+        } else {
+            // No avatar data - try file first, then default
+            const img = document.createElement('img');
+            img.style.display = 'none';
+            avatarDiv.appendChild(img);
+            
+            getPlayerIcon(img, playerData.displayName, playerData.name);
+            
+            setTimeout(() => {
+                if (img.style.display === 'none') {
                     // No file found, use default
                     avatarDiv.textContent = '👤';
-                    avatarDiv.style.fontSize = '24px';
-                    img.remove();
+                    console.log('⚠️ Using DEFAULT avatar for', playerData.displayName);
                 } else {
-                    // Avatar file loaded successfully
+                    console.log('✅ Using avatar FILE (fallback) for', playerData.displayName);
                 }
-            }, 1000);
+            }, 500);
         }
 
         const infoDiv = document.createElement('div');
         infoDiv.className = 'player-info-text';
 
-    // Always show player number in parentheses after name
-    let playerNum = '';
-    const match = playerData.name.match(/(\d+)/);
-    if (match) playerNum = match[1];
-    let finalDisplayName = playerNum ? `${playerData.displayName} (${playerNum})` : playerData.displayName;
+        // For mobile, show only player number in parentheses
+        let finalDisplayName = `${playerData.displayName} (${playerData.name})`;
+        if (window.innerWidth < 900) {
+            // Extract player number from 'Jugador N' and show as '(N)'
+            const match = /Jugador ?(\d+)/.exec(playerData.name);
+            const playerNum = match ? `(${match[1]})` : '';
+            finalDisplayName = `${playerData.displayName} ${playerNum}`.trim();
+        }
         
         // Create the player name div
         const nameDiv = document.createElement('div');
         nameDiv.className = 'player-name';
+        // Remove '(Tu)' for bottom player on mobile
+        let youText = (playerName === myJugadorName ? `(${window.lang.t('you')})` : '');
         // Remove '(Tu)' for bottom player on mobile only if this is the current user
-        let youText = '';
         if (window.innerWidth < 900 && (playerData.position === 'bottom' || div.id === 'player-display-bottom') && playerName === myJugadorName) {
             youText = '';
         }
-        nameDiv.textContent = `${finalDisplayName} ${youText}`.trim();
+        nameDiv.textContent = `${finalDisplayName} ${youText}`.replace(/\(Tu\)/, '').trim();
         
         // Create the tile count container
         const tileCountDiv = document.createElement('div');
@@ -4107,14 +3107,17 @@ pointsTable.innerHTML = `
   <div class="points-title">🏆 ${window.lang.t('points')}</div>
   <div id="points-table-content" class="points-content">${window.lang.t('waiting_game_data')}</div>
 `;
-   const scrollContainer = document.getElementById('game-ui');
+   const scrollContainer = document.getElementById('game-area');
 if (scrollContainer) {
   scrollContainer.appendChild(pointsTable);
 } else {
-  console.warn("⚠️ #game-ui not found. Points table not appended.");
-  // Fallback to body if game-ui not found
-  document.body.appendChild(pointsTable);
+  console.warn("⚠️ #game-area not found. Points table not appended.");
 }
+
+
+
+    
+    document.body.appendChild(pointsTable);
     
     // Create global update function
     window.updatePointsTableContent = function() {
@@ -4150,19 +3153,19 @@ if (scrollContainer) {
                 winningTeamPoints = scoreDifference;
                 winningTeamPlayers = gameState.teams.teamA || [];
                 isShutout = currentTotalB === 0; // Team B was shut out
-                // console.log(`🏆 MATCH COMPLETED - Team A wins with ${scoreDifference} points!${isShutout ? ' (SHUTOUT!)' : ''}`);
+                console.log(`🏆 MATCH COMPLETED - Team A wins with ${scoreDifference} points!${isShutout ? ' (SHUTOUT!)' : ''}`);
             } else if (currentTotalB > currentTotalA) {
                 // Team B won  
                 winningTeamPoints = scoreDifference;
                 winningTeamPlayers = gameState.teams.teamB || [];
                 isShutout = currentTotalA === 0; // Team A was shut out
-                // console.log(`🏆 MATCH COMPLETED - Team B wins with ${scoreDifference} points!${isShutout ? ' (SHUTOUT!)' : ''}`);
+                console.log(`🏆 MATCH COMPLETED - Team B wins with ${scoreDifference} points!${isShutout ? ' (SHUTOUT!)' : ''}`);
             }
             
             // DOUBLE POINTS FOR SHUTOUT: If the losing team has 0 points, double the points awarded
             if (isShutout && winningTeamPoints > 0) {
                 winningTeamPoints *= 2;
-                // console.log(`🔥 SHUTOUT BONUS! Points doubled to ${winningTeamPoints} for shutting out the opposing team!`);
+                console.log(`🔥 SHUTOUT BONUS! Points doubled to ${winningTeamPoints} for shutting out the opposing team!`);
             }
             
             // Award points to all winning team players
@@ -4172,7 +3175,7 @@ if (scrollContainer) {
                         playerPointsWon[playerName] = 0;
                     }
                     playerPointsWon[playerName] += winningTeamPoints;
-                    // console.log(`🏆 Awarding ${winningTeamPoints} points to ${playerName}`);
+                    console.log(`🏆 Awarding ${winningTeamPoints} points to ${playerName}`);
                 });
                 
                 // Update our tracking of previous scores (only once)
@@ -4182,14 +3185,6 @@ if (scrollContainer) {
                 
                 // Save to localStorage as backup
                 savePointsToLocalStorage();
-                // Play win sound for match victory (including blocked games)
-                if (winSound && winSound.isLoaded()) {
-                    try {
-                        winSound.play();
-                    } catch (error) {
-                        console.error('❌ Error playing win sound:', error);
-                    }
-                }
             }
         }
         
@@ -4202,7 +3197,7 @@ if (scrollContainer) {
                 cumulativePoints = player.pointsWon;
                 // Sync server data with local tracking to maintain consistency
                 playerPointsWon[player.name] = cumulativePoints;
-                // console.log(`Player ${player.displayName}: Using server cumulative points = ${cumulativePoints}`);
+                console.log(`Player ${player.displayName}: Using server cumulative points = ${cumulativePoints}`);
             } else {
                 // If no server data exists, check if we have local tracking for this player
                 if (!playerPointsWon[player.name]) {
@@ -4212,7 +3207,7 @@ if (scrollContainer) {
                     // from team scores and match completion status
                     if (gameState.matchNumber > 1 || (gameState.teamScores && 
                         (gameState.teamScores.teamA > 0 || gameState.teamScores.teamB > 0))) {
-                        // console.log(`🔄 Player ${player.displayName} may have reconnected, checking for missed points...`);
+                        console.log(`🔄 Player ${player.displayName} may have reconnected, checking for missed points...`);
                         
                         // Try to calculate what points this player should have based on match history
                         // This is a basic approximation - in a real system, the server should track this
@@ -4226,12 +3221,12 @@ if (scrollContainer) {
                                     // Estimate points for Team A player based on completed matches
                                     const estimatedPoints = Math.floor(teamAScore / 70) * (teamAScore > teamBScore ? Math.abs(teamAScore - teamBScore) : 0);
                                     playerPointsWon[player.name] = estimatedPoints;
-                                    // console.log(`🔄 Estimated ${estimatedPoints} points for reconnected Team A player ${player.displayName}`);
+                                    console.log(`🔄 Estimated ${estimatedPoints} points for reconnected Team A player ${player.displayName}`);
                                 } else if (gameState.teams.teamB && gameState.teams.teamB.includes(player.name)) {
                                     // Estimate points for Team B player based to completed matches
                                     const estimatedPoints = Math.floor(teamBScore / 70) * (teamBScore > teamAScore ? Math.abs(teamBScore - teamAScore) : 0);
                                     playerPointsWon[player.name] = estimatedPoints;
-                                    // console.log(`🔄 Estimated ${estimatedPoints} points for reconnected Team B player ${player.displayName}`);
+                                    console.log(`🔄 Estimated ${estimatedPoints} points for reconnected Team B player ${player.displayName}`);
                                 }
                             }
                         }
@@ -4295,11 +3290,68 @@ if (scrollContainer) {
     }
 }
 
-
+// EMERGENCY FUNCTION DISABLED - Cleaned up for production
+/*
+window.forceCreatePointsTable = function() {
+    console.log('🚨 EMERGENCY: Force creating points table!');
+    
+    // Remove any existing table first
+    const existingTable = document.getElementById('points-table-container');
+    if (existingTable) {
+        console.log('🗑️ Removing existing table');
+        existingTable.remove();
+    }
+    
+    // SIMPLE TEST: Create table in center of screen
+    let pointsTable = document.createElement('div');
+    pointsTable.id = 'points-table-container';
+    pointsTable.style.cssText = `
+        position: fixed !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        background: rgba(255, 0, 0, 1) !important;
+        color: white !important;
+        padding: 30px !important;
+        border-radius: 8px !important;
+        font-size: 20px !important;
+        min-width: 300px !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8) !important;
+        border: 8px solid yellow !important;
+        z-index: 999999 !important;
+        font-family: Arial, sans-serif !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        text-align: center !important;
+    `;
+    
+    pointsTable.innerHTML = `
+        <div style="font-weight: bold; margin-bottom: 20px; color: white; font-size: 24px;">🏆 POINTS TABLE TEST 🏆</div>
+        <div style="color: white; font-size: 18px; margin-bottom: 15px;">CENTER OF SCREEN!</div>
+        <div id="points-table-content" style="color: white; font-size: 16px; font-weight: bold;">
+            <div>da: 0 points</div>
+            <div>fv: 0 points</div>
+            <div>lk: 0 points</div>
+            <div>kk: 0 points</div>
+        </div>
+        <div style="margin-top: 20px; color: yellow; font-size: 14px;">Click the red button again to close</div>
+    `;
+    
+    // Add click to close
+    pointsTable.onclick = function() {
+        this.remove();
+    };
+    
+    document.body.appendChild(pointsTable);
+    console.log('Emergency function disabled');
+};
+*/
 
 function createPointsTable(playerPositions) {
     // This old function is now disabled - the real table is created in setup()
-    // console.log('Old createPointsTable called - using new immediate table instead');
+    console.log('Old createPointsTable called - using new immediate table instead');
 }
 
 function updateTeamInfo() {
@@ -4406,6 +3458,7 @@ function updateScoreboard() {
     if (!scoreboardDiv || !gameState.teamScores) return;
     const { teamScores } = gameState;
     scoreboardDiv.innerHTML = `
+        <b>${window.lang.t('scores')}</b><br>
         ${window.lang.t('team')} A: ${teamScores.teamA || 0}<br>
         ${window.lang.t('team')} B: ${teamScores.teamB || 0}
     `;
@@ -5094,45 +4147,45 @@ function clientHasValidMove() {
  * Validate if a specific tile can be played at a specific position
  */
 function isValidTilePlay(tile, position) {
-    // console.log('🔍 isValidTilePlay called:', { tile, position, gameState: gameState });
+    console.log('🔍 isValidTilePlay called:', { tile, position, gameState: gameState });
     
     if (!tile || !gameState) {
-        // console.log('❌ Missing tile or gameState');
+        console.log('❌ Missing tile or gameState');
         return false;
     }
     
     // Check if it's first move
     if (gameState.isFirstMove) {
-        // console.log('🎯 First move validation');
+        console.log('🎯 First move validation');
         if (gameState.isFirstRoundOfMatch) {
             // First round of match: must play double 6
             const isValid = tile.left === 6 && tile.right === 6;
-            // console.log('🎯 First round - need double 6:', isValid);
+            console.log('🎯 First round - need double 6:', isValid);
             return isValid;
         } else if (gameState.isAfterTiedBlockedGame) {
             // After a tied blocked game: player with double 6 can play any tile
-            // console.log('🎯 After tied game - any tile valid');
+            console.log('🎯 After tied game - any tile valid');
             return true;
         } else {
             // Regular first move of a new round
-            // console.log('🎯 Regular first move - any tile valid');
+            console.log('🎯 Regular first move - any tile valid');
             return true;
         }
     }
     
     // Check if tile matches board ends
-    // console.log('🎯 Board ends check - leftEnd:', gameState.leftEnd, 'rightEnd:', gameState.rightEnd);
+    console.log('🎯 Board ends check - leftEnd:', gameState.leftEnd, 'rightEnd:', gameState.rightEnd);
     if (position === 'left') {
         const isValid = tile.left === gameState.leftEnd || tile.right === gameState.leftEnd;
-        // console.log('🎯 Left position validation:', isValid);
+        console.log('🎯 Left position validation:', isValid);
         return isValid;
     } else if (position === 'right') {
         const isValid = tile.left === gameState.rightEnd || tile.right === gameState.rightEnd;
-        // console.log('🎯 Right position validation:', isValid);
+        console.log('🎯 Right position validation:', isValid);
         return isValid;
     }
     
-    // console.log('❌ Invalid position:', position);
+    console.log('❌ Invalid position:', position);
     return false;
 }
 
@@ -5141,153 +4194,8 @@ function isValidTilePlay(tile, position) {
 // == VOICE CHAT FUNCTIONS                                                    ==
 // =============================================================================
 
-// Enable audio auto-play after first user interaction
-let audioAutoPlayEnabled = false;
-
-// Enhanced audio unlock system with audio pool
-function enableAudioAutoPlay() {
-    if (window.audioSystemInitialized) return;
-    window.audioSystemInitialized = true;
-    
-    const initializeAudioSystem = async () => {
-        try {
-            // Initialize audio context
-            if (!window.globalAudioContext) {
-                window.globalAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
-            
-            const audioContext = window.globalAudioContext;
-            
-            if (audioContext.state === 'suspended') {
-                await audioContext.resume();
-            }
-            
-            // Play silent audio to unlock
-            const silentAudio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCStdgtJvHwA=');
-            silentAudio.volume = 0.01;
-            await silentAudio.play();
-            
-            // Create initial audio pool
-            createAudioPool();
-            
-            // Set up periodic audio context maintenance
-            setInterval(() => {
-                if (audioContext.state === 'suspended') {
-                    audioContext.resume().catch(() => {});
-                }
-            }, 3000);
-            
-            console.log('🎵 Audio system initialized with enhanced auto-play support');
-            
-        } catch (error) {
-            console.log('🎵 Audio system initialization failed:', error.name);
-            // Try again after a short delay
-            setTimeout(() => {
-                window.audioSystemInitialized = false;
-            }, 5000);
-        }
-    };
-    
-    // Initialize on any user interaction
-    const interactions = ['click', 'touchstart', 'touchend', 'keydown', 'mousedown', 'pointerdown'];
-    interactions.forEach(eventType => {
-        document.addEventListener(eventType, initializeAudioSystem, { once: true });
-    });
-    
-    // Also try to initialize immediately (might work if user already interacted)
-    initializeAudioSystem();
-}
-
-function showAudioUnlockedNotification() {
-    // Show a brief notification that audio is now enabled
-    const notification = document.createElement('div');
-    notification.innerHTML = '🎵 Voice messages will now auto-play!';
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #4CAF50;
-        color: white;
-        padding: 10px 15px;
-        border-radius: 5px;
-        font-size: 14px;
-        z-index: 1000;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-    `;
-    
-    document.body.appendChild(notification);
-    
-    // Remove after 3 seconds
-    setTimeout(() => {
-        if (notification.parentNode) {
-            notification.parentNode.removeChild(notification);
-        }
-    }, 3000);
-}
-
-// Check and request microphone permissions
-async function checkMicrophonePermissions() {
-    try {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            return false;
-        }
-
-        // Check if we're in a secure context (including local networks)
-        const isSecureContext = window.location.protocol === 'https:' || 
-                               window.location.hostname === 'localhost' || 
-                               window.location.hostname === '127.0.0.1' ||
-                               window.location.hostname.startsWith('192.168.') ||
-                               window.location.hostname.startsWith('10.') ||
-                               window.location.hostname.startsWith('172.') ||
-                               window.location.hostname === '0.0.0.0';
-        
-        if (!isSecureContext) {
-            return false;
-        }
-
-        // Try to get permission
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach(track => track.stop()); // Stop immediately
-        return true;
-    } catch (error) {
-        console.log('🎤 Microphone permission check failed:', error.name);
-        return false;
-    }
-}
-
 async function startVoiceRecording() {
     try {
-        // Check if we're on HTTPS or localhost (including IP variations)
-        const isSecureContext = window.location.protocol === 'https:' || 
-                               window.location.hostname === 'localhost' || 
-                               window.location.hostname === '127.0.0.1' ||
-                               window.location.hostname.startsWith('192.168.') ||
-                               window.location.hostname.startsWith('10.') ||
-                               window.location.hostname.startsWith('172.') ||
-                               window.location.hostname === '0.0.0.0';
-        
-        if (!isSecureContext) {
-            // Be more permissive for development - allow if it looks like local development
-            const isDevelopment = window.location.hostname.includes('localhost') ||
-                                window.location.hostname.includes('127.0.0.1') ||
-                                window.location.port !== '' || // Any port suggests development
-                                window.location.hostname === window.location.hostname.toLowerCase(); // Basic dev check
-            
-            if (!isDevelopment) {
-                alert('🔒 Voice recording requires HTTPS. You can listen to voice messages, but recording needs the live site.');
-                return;
-            }
-            
-            // Continue for development contexts
-            console.log('🔧 Development mode: allowing voice chat on', window.location.hostname);
-        }
-
-        // Check if getUserMedia is supported
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            alert('🎤 Voice chat is not supported on this device/browser.');
-            return;
-        }
-
         const stream = await navigator.mediaDevices.getUserMedia({ 
             audio: {
                 echoCancellation: true,
@@ -5311,19 +4219,19 @@ async function startVoiceRecording() {
         mediaRecorder = new MediaRecorder(stream, options);
         audioChunks = [];
         
-        // console.log("🎤 Using audio format:", mediaRecorder.mimeType);
+        console.log("🎤 Using audio format:", mediaRecorder.mimeType);
         
         mediaRecorder.ondataavailable = (event) => {
             if (event.data.size > 0) {
                 audioChunks.push(event.data);
-                // console.log("🎤 Audio chunk received:", event.data.size, "bytes");
+                console.log("🎤 Audio chunk received:", event.data.size, "bytes");
             }
         };
         
         mediaRecorder.onstop = () => {
-            // console.log("🎤 Recording stopped, processing audio...");
+            console.log("🎤 Recording stopped, processing audio...");
             const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
-            // console.log("🎤 Audio blob size:", audioBlob.size, "bytes");
+            console.log("🎤 Audio blob size:", audioBlob.size, "bytes");
             sendVoiceMessage(audioBlob);
             // Stop all tracks to release microphone
             stream.getTracks().forEach(track => track.stop());
@@ -5331,7 +4239,7 @@ async function startVoiceRecording() {
         
         mediaRecorder.start();
         isRecording = true;
-        // console.log("🎤 Grabando...");
+        console.log("🎤 Grabando...");
         
         // Visual feedback
         const voiceBtn = document.getElementById('voice-chat-btn');
@@ -5342,26 +4250,7 @@ async function startVoiceRecording() {
         
     } catch (error) {
         console.error("🎤 Error accessing microphone:", error);
-        
-        let errorMessage = "Could not access microphone. ";
-        
-        if (error.name === 'NotAllowedError') {
-            errorMessage += "Please allow microphone permissions in your browser settings.";
-        } else if (error.name === 'NotFoundError') {
-            errorMessage += "No microphone found on this device.";
-        } else if (error.name === 'NotSupportedError') {
-            errorMessage += "Microphone not supported on this browser.";
-        } else if (error.name === 'NotReadableError') {
-            errorMessage += "Microphone is already in use by another app.";
-        } else if (window.location.protocol !== 'https:' && 
-                   window.location.hostname !== 'localhost' && 
-                   window.location.hostname !== '127.0.0.1') {
-            errorMessage += "Voice chat requires HTTPS for security. Please use the live site.";
-        } else {
-            errorMessage += "Please check your browser permissions and try again.";
-        }
-        
-        alert(errorMessage);
+        alert("Could not access microphone. Please check permissions.");
     }
 }
 
@@ -5369,7 +4258,7 @@ function stopVoiceRecording() {
     if (mediaRecorder && isRecording) {
         mediaRecorder.stop();
         isRecording = false;
-        // console.log("🎤 Recording stopped");
+        console.log("🎤 Recording stopped");
         
         // Reset visual feedback
         const voiceBtn = document.getElementById('voice-chat-btn');
@@ -5381,7 +4270,7 @@ function stopVoiceRecording() {
 }
 
 function sendVoiceMessage(audioBlob) {
-    // console.log("🎤 Sending voice message, blob size:", audioBlob.size);
+    console.log("🎤 Sending voice message, blob size:", audioBlob.size);
     
     if (audioBlob.size === 0) {
         console.error("🎤 Audio blob is empty!");
@@ -5394,8 +4283,8 @@ function sendVoiceMessage(audioBlob) {
         const base64Audio = reader.result.split(',')[1];
         const myDisplayName = gameState.jugadoresInfo?.find(p => p.name === myJugadorName)?.displayName || 'Unknown';
         
-        // console.log("🎤 Base64 audio length:", base64Audio.length);
-        // console.log("🎤 Sending as:", myDisplayName);
+        console.log("🎤 Base64 audio length:", base64Audio.length);
+        console.log("🎤 Sending as:", myDisplayName);
         
         socket.emit('voiceMessage', { 
             audio: base64Audio, 
@@ -5422,251 +4311,40 @@ function sendVoiceMessage(audioBlob) {
 
 function playVoiceMessage(data) {
     try {
-        // console.log("🎵 Received voice message from:", data.sender);
+        console.log("🎵 Received voice message from:", data.sender);
+        console.log("🎵 Audio data length:", data.audio ? data.audio.length : 'No audio data');
         
         // Convert base64 back to audio
         const audioData = `data:audio/wav;base64,${data.audio}`;
-        
-        // Add to chat immediately
-        const messagesDiv = document.getElementById('chat-messages');
-        const messageElement = document.createElement('div');
-        const senderName = data.sender || 'Unknown';
-        
-        // Use a pooled audio element for better consistency
-        const audio = getPooledAudio(audioData);
-        
-        // Smart auto-play with single retry for 100% success
-        const attemptAutoPlay = async () => {
-            try {
-                // Ensure audio context is ready
-                await ensureAudioContextReady();
-                
-                // Primary attempt: Direct play
-                await audio.play();
-                return true;
-                
-            } catch (error) {
-                console.log("🎵 Auto-play failed:", error.name);
-                
-                // ONE smart retry: wait for next event loop and try fresh audio
-                try {
-                    await new Promise(resolve => setTimeout(resolve, 50));
-                    
-                    // Get a fresh audio element for the retry
-                    const retryAudio = new Audio(audioData);
-                    retryAudio.volume = 0.8;
-                    retryAudio.preload = 'auto';
-                    
-                    await retryAudio.play();
-                    
-                    // Success! Replace our audio reference with the working one
-                    returnAudioToPool(audio);
-                    audio.src = retryAudio.src;
-                    audio.currentTime = retryAudio.currentTime;
-                    audio.onended = retryAudio.onended;
-                    audio.onerror = retryAudio.onerror;
-                    
-                    return true;
-                    
-                } catch (retryError) {
-                    console.log("🎵 Retry also failed:", retryError.name);
-                    return false;
-                }
-            }
-        };
-        
-        // Try auto-play with exhaustive retry strategy
-        attemptAutoPlay().then(success => {
-            if (success) {
-                console.log("🎵 Voice message auto-playing successfully");
-                messageElement.innerHTML = `<b>${senderName}:</b> 🎵 <span style="color: #4CAF50;">Playing voice message...</span>`;
-                messagesDiv.appendChild(messageElement);
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                
-                audio.onended = () => {
-                    messageElement.innerHTML = `<b>${senderName}:</b> 🎤 Voice message <span style="color: #666; font-size: 0.9em;">(played)</span>`;
-                    console.log("🎵 Voice message ended");
-                    returnAudioToPool(audio);
-                };
-                
-                audio.onerror = () => {
-                    messageElement.innerHTML = `<b>${senderName}:</b> ❌ Voice message (playback error)`;
-                    returnAudioToPool(audio);
-                };
-                
-                // Successful auto-play: keep it simple
-                // expandAudioPool();
-                
-            } else {
-                showPlayButton();
-            }
-        });
-        
-        function showPlayButton() {
-            returnAudioToPool(audio); // Return unused audio to pool
-            
-            const playButton = document.createElement('button');
-            playButton.innerHTML = '▶️ Play';
-            playButton.style.cssText = `
-                background: #4CAF50; 
-                color: white; 
-                border: none; 
-                padding: 4px 8px; 
-                border-radius: 4px; 
-                cursor: pointer; 
-                font-size: 12px;
-                margin-left: 8px;
-            `;
-            
-            messageElement.innerHTML = `<b>${senderName}:</b> 🎤 Voice message `;
-            messageElement.appendChild(playButton);
-            messagesDiv.appendChild(messageElement);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-            
-            playButton.addEventListener('click', async () => {
-                playButton.innerHTML = '🔄';
-                playButton.disabled = true;
-                
-                try {
-                    // Get a fresh audio element for manual play
-                    const manualAudio = getPooledAudio(audioData);
-                    
-                    await manualAudio.play();
-                    playButton.innerHTML = '🎵';
-                    
-                    manualAudio.onended = () => {
-                        playButton.innerHTML = '✅';
-                        playButton.style.background = '#666';
-                        returnAudioToPool(manualAudio);
-                    };
-                    
-                    // Manual play successful - simple refresh
-                    createAudioPool();
-                    console.log("🎵 Manual play successful - audio pool refreshed");
-                    
-                } catch (playError) {
-                    console.log("🎵 Manual play failed:", playError);
-                    playButton.innerHTML = '❌';
-                    playButton.style.background = '#ff4444';
-                    playButton.disabled = false;
-                    playButton.title = 'Try again';
-                }
-            });
-        }
-        
-    } catch (error) {
-        console.error("🎵 Voice message error:", error);
-        
-        // Fallback message
-        const messagesDiv = document.getElementById('chat-messages');
-        const messageElement = document.createElement('div');
-        const senderName = data.sender || 'Unknown';
-        messageElement.innerHTML = `<b>${senderName}:</b> 🎤 Voice message (error)`;
-        messagesDiv.appendChild(messageElement);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    }
-}
-
-// Simplified audio pool management - back to what worked
-let audioPool = [];
-let audioPoolSize = 3; // Back to smaller, working size
-
-function getPooledAudio(audioData) {
-    if (audioPool.length > 0) {
-        const audio = audioPool.pop();
-        audio.src = audioData;
-        audio.currentTime = 0;
-        audio.volume = 0.8;
-        return audio;
-    } else {
         const audio = new Audio(audioData);
         audio.volume = 0.8;
-        audio.preload = 'auto';
-        return audio;
-    }
-}
-
-function returnAudioToPool(audio) {
-    if (audioPool.length < audioPoolSize && audio) {
-        // Clean up the audio element before returning to pool
-        audio.pause();
-        audio.currentTime = 0;
-        audio.src = '';
-        audio.onended = null;
-        audio.onerror = null;
-        audioPool.push(audio);
-    }
-}
-
-function createAudioPool() {
-    // Create initial pool of audio elements
-    while (audioPool.length < audioPoolSize) {
-        const audio = new Audio();
-        audio.volume = 0.8;
-        audio.preload = 'auto';
-        audioPool.push(audio);
-    }
-    console.log("🎵 Audio pool created with", audioPool.length, "elements");
-}
-
-function expandAudioPool() {
-    // Add more audio elements after successful plays
-    if (audioPool.length < audioPoolSize + 2) {
-        const audio = new Audio();
-        audio.volume = 0.8;
-        audio.preload = 'auto';
-        audioPool.push(audio);
-        console.log("🎵 Audio pool expanded to", audioPool.length, "elements");
-    }
-}
-
-async function forceAudioUnlock() {
-    try {
-        // Force audio context resume
-        if (window.globalAudioContext) {
-            if (window.globalAudioContext.state === 'suspended') {
-                await window.globalAudioContext.resume();
-            }
-            
-            // Play multiple silent buffers to force unlock
-            for (let i = 0; i < 3; i++) {
-                const buffer = window.globalAudioContext.createBuffer(1, 1, 22050);
-                const source = window.globalAudioContext.createBufferSource();
-                source.buffer = buffer;
-                source.connect(window.globalAudioContext.destination);
-                source.start(0);
-            }
-        }
         
-        // Also try with HTML audio
-        const forceUnlockAudio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCStdgtJvHwA=');
-        forceUnlockAudio.volume = 0.005; // Extra quiet
-        await forceUnlockAudio.play();
+        // Add debugging for audio events
+        audio.onloadeddata = () => console.log("🎵 Audio loaded successfully");
+        audio.oncanplay = () => console.log("🎵 Audio can play");
+        audio.onerror = (error) => console.error("🎵 Audio error:", error);
+        audio.onended = () => console.log("🎵 Audio playback ended");
         
-        console.log("🎵 Force audio unlock completed");
+        // Add to chat as received voice message
+        const messagesDiv = document.getElementById('chat-messages');
+        const messageElement = document.createElement('p');
+        const senderName = data.sender || 'Unknown';
+        messageElement.innerHTML = `<b>${senderName}:</b> 🎤 Voice Message`;
+        messageElement.style.fontStyle = 'italic';
+        messageElement.style.color = '#666';
+        messagesDiv.appendChild(messageElement);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        
+        // Play the audio
+        audio.play().then(() => {
+            console.log("🎵 Audio started playing");
+        }).catch(error => {
+            console.error("🎵 Error playing voice message:", error);
+            alert("Could not play voice message. Check browser audio permissions.");
+        });
         
     } catch (error) {
-        console.log("🎵 Force unlock failed:", error.name);
-    }
-}
-
-async function ensureAudioContextReady() {
-    try {
-        if (!window.globalAudioContext) {
-            window.globalAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        
-        const audioContext = window.globalAudioContext;
-        
-        if (audioContext.state === 'suspended') {
-            await audioContext.resume();
-            console.log("🎵 Audio context resumed");
-        }
-        
-        return true;
-    } catch (error) {
-        console.log("🎵 Audio context setup failed:", error.name);
-        return false;
+        console.error("🎵 Error processing voice message:", error);
     }
 }
 
@@ -5708,7 +4386,7 @@ function cancelTileAnimation(specificPlayer = null) {
     animatingTile = null;
     animatingPlayerName = null;
     animationProgress = 0;
-    // console.log('🚫 Tile animation cancelled due to invalid move');
+    console.log('🚫 Tile animation cancelled due to invalid move');
 }
 
 /**
@@ -5801,20 +4479,15 @@ function drawAnimatedTile() {
         
         } else {
             // Animation complete
+            console.log('🎬 Animation completed, cleaning up');
             isAnimating = false;
             animatingTile = null;
             
             // Apply any pending hand update now that animation is done
             if (window.pendingHandUpdate) {
-                // console.log('📋 Applying pending hand update');
+                console.log('📋 Applying pending hand update');
                 myPlayerHand = window.pendingHandUpdate;
                 window.pendingHandUpdate = null;
-            }
-            
-            // Execute delayed board update if one is pending
-            if (window.delayedBoardUpdate) {
-                window.delayedBoardUpdate();
-                window.delayedBoardUpdate = null;
             }
             
             return;
@@ -5859,13 +4532,6 @@ function drawPersistentAnimation() {
     if (elapsed >= totalDuration) {
         // Animation complete
         window.currentPlayerAnimation.isActive = false;
-        
-        // Execute delayed board update if one is pending
-        if (window.delayedBoardUpdate) {
-            window.delayedBoardUpdate();
-            window.delayedBoardUpdate = null;
-        }
-        
         return;
     }
     
@@ -5915,106 +4581,18 @@ function easeInOutQuad(t) {
     return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 }
 
-
-
-// Make the Leave Game function globally accessible immediately
-function handleLeaveGame(event) {
-    // console.log('🚪 handleLeaveGame called!');
-    // console.log('🚪 Event:', event);
+// TEST FUNCTION - Call from console to test animation
+window.testAnimation = function() {
+    console.log('🧪 Testing animation manually...');
     
-    try {
-        // console.log('🚪 Available variables:', {
-        //    myJugadorName: typeof myJugadorName !== 'undefined' ? myJugadorName : 'undefined',
-         //   gameState: typeof gameState !== 'undefined' ? gameState : 'undefined',
-        //    socket: typeof socket !== 'undefined' && socket ? 'connected' : 'not connected',
-        //    isSpanish: typeof isSpanish !== 'undefined' ? isSpanish : 'undefined'
-       // });
-        
-        if (event) {
-            event.preventDefault();
-        }
-        
-        // console.log('🚪 Leave game requested');
-        
-        // Simple confirmation
-        if (confirm('Are you sure you want to leave this game?')) {
-            // console.log('🚪 Player confirmed leave game');
-            
-            // Use fallback values
-            const roomCode = (typeof gameState !== 'undefined' && gameState?.roomId) ? gameState.roomId : 'Sala-1';
-            const playerName = (typeof myJugadorName !== 'undefined' && myJugadorName) ? myJugadorName : 'Unknown';
-            const playerId = (typeof socket !== 'undefined' && socket?.id) ? socket.id : 'unknown';
-            
-            // console.log('🚪 Sending leave game data:', { roomCode, playerName, playerId });
-            
-            // Only emit if socket is available
-            if (typeof socket !== 'undefined' && socket) {
-                socket.emit('leaveGame', {
-                    roomCode: roomCode,
-                    playerId: playerId,
-                    playerName: playerName
-                });
-                // console.log('🚪 Leave game event emitted successfully');
-            } else {
-                console.error('🚪 Socket not available, redirecting immediately');
-                window.location.href = 'index.html';
-                return;
-            }
-            
-            // Show leaving message
-            alert('Leaving game...');
-            
-            // Set a timeout to redirect if server doesn't respond
-            setTimeout(() => {
-                // console.log('🚪 Leave game timeout, forcing redirect');
-                window.location.href = 'index.html';
-            }, 3000);
-        } else {
-            // console.log('🚪 Player cancelled leave game');
-        }
-    } catch (error) {
-        console.error('🚪 Error in handleLeaveGame:', error);
-        alert('Error leaving game: ' + error.message);
-    }
-}
-
-// Make sure it's globally accessible
-window.handleLeaveGame = handleLeaveGame;
-
-// Test function to debug button issues
-function testLeaveButton() {
-    // console.log('🔧 Test function called!');
-    alert('Test function works!');
-}
-window.testLeaveButton = testLeaveButton;
-
-// Add event listeners for Leave Game buttons when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-    // console.log('🚪 Setting up Leave Game button event listeners...');
+    // Create a test tile
+    const testTile = { left: 3, right: 4 };
     
-    // Desktop button
-    const desktopBtn = document.getElementById('leave-game-btn-desktop');
-    if (desktopBtn) {
-        desktopBtn.addEventListener('click', function(event) {
-            // console.log('🚪 Desktop Leave Game button clicked via event listener');
-            handleLeaveGame(event);
-        });
-        // console.log('🚪 Desktop Leave Game button event listener added');
-    } else {
-        // console.log('🚪 Desktop Leave Game button not found');
-    }
+    // Force start animation
+    isAnimating = false; // Reset first
+    startTileAnimation(testTile, 'Test Player');
     
-    // Mobile button
-    const mobileBtn = document.getElementById('leave-game-btn-mobile');
-    if (mobileBtn) {
-        mobileBtn.addEventListener('click', function(event) {
-            // console.log('🚪 Mobile Leave Game button clicked via event listener');
-            handleLeaveGame(event);
-        });
-        // console.log('🚪 Mobile Leave Game button event listener added');
-    } else {
-        // console.log('🚪 Mobile Leave Game button not found');
-    }
-});
+    console.log('🧪 Test animation started. isAnimating:', isAnimating);
+};
 
 

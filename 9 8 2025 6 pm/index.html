@@ -1,18 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="manifest" href="/manifest.json">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#4CAF50">
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <!-- iOS Safari full screen -->
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="DominoM">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DominoM">
 
   <title>Block Dominoes</title>
-  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' fill='%234CAF50'/><text x='90' y='110' text-anchor='middle' font-size='72' fill='white'>🎲</text></svg>">
+  <link rel="apple-touch-icon" href="/icons/apple-icon-180.png">
 
   <link rel="stylesheet" href="/styles.css" />
   <link rel="stylesheet" href="/mobile.css" />
@@ -51,10 +48,6 @@
     </div>
 
     <h2>Crear Su Perfil</h2>
-    
-    <!-- Force Install Banner Button (for testing) - Mobile Only -->
-    <button onclick="forceShowInstallBanner()" class="mobile-only" style="position: fixed; top: 60px; right: 10px; z-index: 9999; background: orange; color: white; padding: 8px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 12px;">📱 Install Instructions</button>
-    
     <button id="show-rules-btn">📖 DominoM - Reglas del Juego</button>
     <div id="profile-status"></div>
 
@@ -357,43 +350,6 @@ document.addEventListener('DOMContentLoaded', function() {
   // console.log('DOM loaded, setting up buttons...');
   setupGameButtons();
 });
-</script>
-
-<script>
-// Register service worker for PWA - TEMPORARILY DISABLED FOR DEBUGGING
-/*
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then((registration) => {
-        console.log('Service Worker registered successfully:', registration.scope);
-      })
-      .catch((error) => {
-        console.log('Service Worker registration failed:', error);
-      });
-  });
-}
-*/
-
-// Force show install banner for testing
-window.forceShowInstallBanner = function() {
-  console.log('🔧 Forcing install banner display...');
-  localStorage.removeItem('installBannerDismissed'); // Clear dismiss flag
-  
-  if (window.deferredPrompt) {
-    // Use regular banner if we have deferredPrompt
-    if (typeof showInstallBanner === 'function') {
-      showInstallBanner();
-    }
-  } else {
-    // Use fallback banner for localhost/iOS
-    if (typeof showFallbackInstallBanner === 'function') {
-      showFallbackInstallBanner();
-    } else {
-      alert('Fallback banner function not loaded yet. Try again in a moment.');
-    }
-  }
-}
 </script>
 </body>
 </html>

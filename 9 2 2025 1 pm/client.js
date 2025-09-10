@@ -12,11 +12,11 @@ let socket;
 let myJugadorName;
 let myPlayerHand = [];
 let gameState = {};
-let avatarCache = {}; // Cache to prevent repeated avatar loading attempts
 let selectedTileIndex = null;
 let messageDisplay = { text: '', time: 0 };
 let tileSound;
 let lastPlayedHighlight = { tile: null, timestamp: 0 };
+let avatarCache = {};
 let dialogShownTimestamp = 0;
 let passSound;
 let winSound;
@@ -28,248 +28,6 @@ let animatingTile = null;
 let animationStartTime = 0;
 let animationDuration = 1000;
 let animationPauseDuration = 500;
-
-// =============================================================================
-// == PWA AUTO-INSTALL PROMPT FOR MOBILE                                      ==
-// =============================================================================
-
-let deferredPrompt;
-
-// Listen for the beforeinstallprompt event
-window.addEventListener('beforeinstallprompt', (e) => {
-    console.log('🎯 beforeinstallprompt event fired!');
-    // Prevent the mini-infobar from appearing on mobile
-    e.preventDefault();
-    // Stash the event so it can be triggered later
-    deferredPrompt = e;
-    window.deferredPrompt = e; // Also make it globally accessible
-    // Show our custom install banner
-    showInstallBanner();
-});
-
-// Also listen for any errors
-window.addEventListener('error', (e) => {
-    console.log('PWA Error:', e.message);
-});
-
-// Check PWA criteria on page load
-window.addEventListener('load', () => {
-    setTimeout(() => {
-        console.log('=== PWA Status Check ===');
-        console.log('Location:', window.location.href);
-        console.log('Protocol:', location.protocol);
-        console.log('Service Worker registered:', 'serviceWorker' in navigator);
-        console.log('beforeinstallprompt fired:', !!deferredPrompt);
-        console.log('Mobile width:', window.innerWidth <= 768);
-        
-        // Check if already installed
-        if (window.matchMedia('(display-mode: standalone)').matches) {
-            console.log('✅ App is already installed and running in standalone mode');
-        } else {
-            // If no beforeinstallprompt after 3 seconds, show fallback banner for localhost/iOS
-            if (!deferredPrompt && (location.hostname === 'localhost' || /iPad|iPhone|iPod/.test(navigator.userAgent))) {
-                console.log('🍎 Showing iOS/localhost fallback install banner');
-                showFallbackInstallBanner();
-            }
-        }
-    }, 3000); // Wait 3 seconds for beforeinstallprompt
-});
-
-function showInstallBanner() {
-    // Only show on mobile devices
-    if (window.innerWidth <= 768 && !localStorage.getItem('installBannerDismissed')) {
-        const banner = document.createElement('div');
-        banner.id = 'install-banner';
-        banner.style.cssText = `
-            position: fixed; 
-            top: 0; 
-            left: 0; 
-            right: 0; 
-            z-index: 10000;
-            background: linear-gradient(135deg, #4CAF50, #45a049);
-            color: white; 
-            padding: 12px; 
-            text-align: center;
-            font-family: Arial, sans-serif; 
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            animation: slideDown 0.3s ease-out;
-        `;
-        
-        banner.innerHTML = `
-            <div style="display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px;">
-                <span style="font-size: 14px; font-weight: 500;">🎲 Install Domino Game for the best experience!</span>
-                <div>
-                    <button onclick="installApp()" style="
-                        background: white; 
-                        color: #4CAF50; 
-                        border: none; 
-                        padding: 8px 16px; 
-                        border-radius: 20px; 
-                        cursor: pointer; 
-                        font-weight: bold;
-                        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-                    ">Install</button>
-                    <button onclick="dismissBanner()" style="
-                        background: transparent; 
-                        color: white; 
-                        border: 1px solid white; 
-                        padding: 6px 12px; 
-                        margin-left: 8px; 
-                        border-radius: 15px; 
-                        cursor: pointer;
-                    ">Maybe later</button>
-                </div>
-            </div>
-        `;
-        
-        // Add CSS animation
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideDown {
-                from { transform: translateY(-100%); }
-                to { transform: translateY(0); }
-            }
-        `;
-        document.head.appendChild(style);
-        
-        document.body.appendChild(banner);
-        
-        // Auto-dismiss after 10 seconds if user doesn't interact
-        setTimeout(() => {
-            if (document.getElementById('install-banner')) {
-                dismissBanner();
-            }
-        }, 10000);
-    }
-}
-
-// Fallback install banner for iOS Safari and localhost testing
-function showFallbackInstallBanner() {
-    if (window.innerWidth <= 768 && !localStorage.getItem('installBannerDismissed')) {
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        const banner = document.createElement('div');
-        banner.id = 'install-banner';
-        banner.style.cssText = `
-            position: fixed; 
-            top: 0; 
-            left: 0; 
-            right: 0; 
-            z-index: 10000;
-            background: linear-gradient(135deg, #FF6B35, #F7931E);
-            color: white; 
-            padding: 16px; 
-            text-align: center;
-            font-family: Arial, sans-serif; 
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-            animation: slideDown 0.5s ease-out;
-            border-bottom: 3px solid #fff;
-        `;
-        
-        if (isIOS) {
-            banner.innerHTML = `
-                <div style="max-width: 350px; margin: 0 auto;">
-                    <div style="font-size: 16px; font-weight: bold; margin-bottom: 12px;">
-                        🎲 ${window.lang ? window.lang.t('pwa_install_title') : '¡Instala DominoM para la Mejor Experiencia!'}
-                    </div>
-                    <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px; margin-bottom: 12px;">
-                        <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">📱 ${window.lang ? window.lang.t('pwa_install_steps') : 'Instalación en 3 Pasos Fáciles:'}</div>
-                        <div style="font-size: 13px; line-height: 1.4; text-align: left;">
-                            <div style="margin-bottom: 6px;"><strong>1.</strong> ${window.lang ? window.lang.t('pwa_step_1') : 'Toca el botón <strong>Compartir ↗️</strong> abajo'}</div>
-                            <div style="margin-bottom: 6px;"><strong>2.</strong> ${window.lang ? window.lang.t('pwa_step_2') : 'Desliza y toca <strong>"Añadir a Pantalla de Inicio"</strong>'}</div>
-                            <div><strong>3.</strong> ${window.lang ? window.lang.t('pwa_step_3') : 'Toca <strong>"Añadir"</strong> para confirmar'}</div>
-                        </div>
-                    </div>
-                    <div style="font-size: 12px; opacity: 0.9; margin-bottom: 12px;">
-                        ✨ ${window.lang ? window.lang.t('pwa_benefits') : '¡Pantalla completa, carga más rápida y funciona sin internet!'}
-                    </div>
-                    <button onclick="dismissBanner()" style="
-                        background: rgba(255,255,255,0.2); 
-                        color: white; 
-                        border: 2px solid white; 
-                        padding: 8px 16px; 
-                        border-radius: 20px; 
-                        cursor: pointer;
-                        font-size: 13px;
-                        font-weight: 600;
-                    ">${window.lang ? window.lang.t('pwa_later_button') : 'Lo haré después'}</button>
-                </div>
-            `;
-        } else {
-            banner.innerHTML = `
-                <div style="max-width: 350px; margin: 0 auto;">
-                    <div style="font-size: 16px; font-weight: bold; margin-bottom: 8px;">
-                        🎲 ${window.lang ? window.lang.t('pwa_android_title') : '¡Instala la App DominoM!'}
-                    </div>
-                    <div style="font-size: 13px; margin-bottom: 12px;">
-                        ${window.lang ? window.lang.t('pwa_android_instruction') : 'Busca el botón "Instalar" en el menú de tu navegador o barra de direcciones'}
-                    </div>
-                    <button onclick="dismissBanner()" style="
-                        background: transparent; 
-                        color: white; 
-                        border: 1px solid white; 
-                        padding: 6px 12px; 
-                        border-radius: 15px; 
-                        cursor: pointer;
-                        font-size: 12px;
-                    ">${window.lang ? window.lang.t('pwa_got_it') : 'Entendido'}</button>
-                </div>
-            `;
-        }
-        
-        document.body.appendChild(banner);
-        
-        // Auto-dismiss after 20 seconds for fallback banner (longer for instructions)
-        setTimeout(() => {
-            if (document.getElementById('install-banner')) {
-                dismissBanner();
-            }
-        }, 20000);
-    }
-}
-
-// Install the app when user clicks install
-window.installApp = function() {
-    if (deferredPrompt) {
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then((result) => {
-            if (result.outcome === 'accepted') {
-                console.log('User accepted the install prompt');
-            } else {
-                console.log('User dismissed the install prompt');
-            }
-            deferredPrompt = null;
-            dismissBanner();
-        });
-    }
-};
-
-// Dismiss the install banner
-window.dismissBanner = function() {
-    const banner = document.getElementById('install-banner');
-    if (banner) {
-        banner.style.animation = 'slideDown 0.3s ease-out reverse';
-        setTimeout(() => {
-            banner.remove();
-        }, 300);
-    }
-    // Remember user dismissed it for this session
-    localStorage.setItem('installBannerDismissed', 'true');
-};
-
-// Listen for app installed event
-window.addEventListener('appinstalled', (evt) => {
-    console.log('Domino game was installed');
-    dismissBanner();
-});
-
-// Clear the dismiss flag when app is actually installed
-window.addEventListener('beforeunload', () => {
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-        localStorage.removeItem('installBannerDismissed');
-    }
-});
-
-// =============================================================================
 let animationStartPos = { x: 0, y: 0 };
 let animationEndPos = { x: 0, y: 0 };
 let animationProgress = 0;
@@ -448,18 +206,6 @@ class LanguageManager {
                 'team_score': 'Marcador de Equipos',
                 'match_score': 'Puntuación del Match',
                 'matches_won': 'Matches Ganados',
-                
-                // PWA Install Banner (Spanish)
-                'pwa_install_title': '¡Instala DominoM para la Mejor Experiencia!',
-                'pwa_install_steps': 'Instalación en 3 Pasos Fáciles:',
-                'pwa_step_1': 'Toca el botón <strong>Compartir ↗️</strong> abajo',
-                'pwa_step_2': 'Desliza y toca <strong>"Añadir a Pantalla de Inicio"</strong>',
-                'pwa_step_3': 'Toca <strong>"Añadir"</strong> para confirmar',
-                'pwa_benefits': '¡Pantalla completa, carga más rápida y funciona sin internet!',
-                'pwa_later_button': 'Lo haré después',
-                'pwa_android_title': '¡Instala la App DominoM!',
-                'pwa_android_instruction': 'Busca el botón "Instalar" en el menú de tu navegador o barra de direcciones',
-                'pwa_got_it': 'Entendido',
                 'current_match': 'Match Actual',
                 'wins': 'Victorias',
                 'tiles': 'Fichas',
@@ -588,18 +334,6 @@ class LanguageManager {
                 'scores': 'Scores',
                 'match': 'Match',
                 'games_won': 'GAMES WON',
-                
-                // PWA Install Banner (English)
-                'pwa_install_title': 'Install DominoM for the Best Experience!',
-                'pwa_install_steps': 'Quick 3-Step Install:',
-                'pwa_step_1': 'Tap the <strong>Share button ↗️</strong> at the bottom',
-                'pwa_step_2': 'Scroll down and tap <strong>"Add to Home Screen"</strong>',
-                'pwa_step_3': 'Tap <strong>"Add"</strong> to confirm',
-                'pwa_benefits': 'Get fullscreen gameplay, faster loading, and work offline!',
-                'pwa_later_button': "I'll do it later",
-                'pwa_android_title': 'Install DominoM App!',
-                'pwa_android_instruction': 'Look for the "Install" button in your browser menu or address bar',
-                'pwa_got_it': 'Got it',
                 'waiting_game_data': 'Waiting for game data...'
             }
         };
@@ -1627,9 +1361,6 @@ function setupLobby() {
                         }
                         // console.log('⚠️ Enter name to save avatar as permanent file');
                     }
-                    
-                    // CLEAR FILE INPUT to reset "Seleccionar Archivo" text
-                    event.target.value = '';
                 };
                 img.src = e.target.result;
             };
@@ -2655,12 +2386,6 @@ savePlayerData( playerName,  avatarData,  roomId,  targetScore);
         const centerPos = { x: width/2, y: height/2 - 100 };
         
         startTileAnimation(data.tile, startPos, centerPos, data.playerName);
-        
-        // Clear any pending timer since animation is now active
-        if (window.boardUpdateTimer) {
-            clearTimeout(window.boardUpdateTimer);
-            window.boardUpdateTimer = null;
-        }
     });
 function startGameSession() {
   // Show game area
@@ -2740,60 +2465,15 @@ function startGameSession() {
         const oldBoardLength = gameState ? gameState.board?.length || 0 : 0;
         const newBoardLength = state.board?.length || 0;
         
-        // If a new tile was added to the board, ALWAYS delay the update to allow animation
-        if (newBoardLength > oldBoardLength) {
-            // Store the new state to apply after a short delay to allow animation to start
-            window.pendingGameStateUpdate = state;
-            
-            // Update gameState immediately for non-board properties (messages, game status, etc.)
-            // but preserve the old board to allow animation to complete first
-            const currentBoard = gameState.board;
-            gameState = { ...state };  // Update all properties
-            gameState.board = currentBoard;  // Keep old board until animation completes
-            
-            // Set up a callback to apply the board update when animation finishes
-            window.delayedBoardUpdate = function() {
-                if (window.pendingGameStateUpdate) {
-                    gameState.board = window.pendingGameStateUpdate.board;  // Only update the board
-                    window.pendingGameStateUpdate = null;
-                    
-                    // Apply the highlight logic for the new tile
-                    if (gameState.lastPlayedTile) {
-                        if (!lastPlayedHighlight.tile || millis() - lastPlayedHighlight.timestamp > 1000) {
-                            lastPlayedHighlight.tile = gameState.lastPlayedTile;
-                            lastPlayedHighlight.timestamp = millis();
-                        }
-                    }
-                }
-            };
-            
-            // Check if any animation is currently running (either remote or current player)
-            const anyAnimationRunning = isAnimating || (window.currentPlayerAnimation && window.currentPlayerAnimation.isActive);
-            
-            // If no animation is currently running, start a timer to apply the update
-            // This handles cases where the gameState arrives before playTileAnimation
-            if (!anyAnimationRunning) {
-                window.boardUpdateTimer = setTimeout(() => {
-                    const stillNoAnimation = !isAnimating && !(window.currentPlayerAnimation && window.currentPlayerAnimation.isActive);
-                    if (window.delayedBoardUpdate && stillNoAnimation) {
-                        window.delayedBoardUpdate();
-                        window.delayedBoardUpdate = null;
-                    }
-                    window.boardUpdateTimer = null;
-                }, 100);
-            }
-        } else {
-            // No new tile, update immediately
-            gameState = state;
-            
-            // If board length increased and we have a lastPlayedTile, set highlight
-            // (This covers remote player moves - current player highlight is set in moveSuccess)
-            if (newBoardLength > oldBoardLength && gameState.lastPlayedTile) {
-                // Only set if we don't already have a recent highlight (avoid double-setting for current player)
-                if (!lastPlayedHighlight.tile || millis() - lastPlayedHighlight.timestamp > 1000) {
-                    lastPlayedHighlight.tile = gameState.lastPlayedTile;
-                    lastPlayedHighlight.timestamp = millis();
-                }
+        gameState = state;
+        
+        // If board length increased and we have a lastPlayedTile, set highlight
+        // (This covers remote player moves - current player highlight is set in moveSuccess)
+        if (newBoardLength > oldBoardLength && gameState.lastPlayedTile) {
+            // Only set if we don't already have a recent highlight (avoid double-setting for current player)
+            if (!lastPlayedHighlight.tile || millis() - lastPlayedHighlight.timestamp > 1000) {
+                lastPlayedHighlight.tile = gameState.lastPlayedTile;
+                lastPlayedHighlight.timestamp = millis();
             }
         }
         // (Removed points-objective update here; now handled by updateRoomInfo for compact legend)
@@ -3383,83 +3063,23 @@ function setupGameButtons() {
         });
     }
 
-    // Enable audio auto-play on first user interaction
-    document.addEventListener('click', enableAudioAutoPlay, { once: true });
-    document.addEventListener('touchstart', enableAudioAutoPlay, { once: true });
-    
     // Setup voice chat button (Push to Talk)
     const voiceChatBtn = document.getElementById('voice-chat-btn');
     if (voiceChatBtn) {
         // console.log('Setting up voice chat button');
-        
-        // Check microphone permissions on first interaction
-        let permissionChecked = false;
-        
-        const handleVoiceStart = async (e) => {
-            e.preventDefault();
-            
-            // Check permissions first time
-            if (!permissionChecked) {
-                permissionChecked = true;
-                const hasPermission = await checkMicrophonePermissions();
-                if (!hasPermission) {
-                    const isSecureContext = window.location.protocol === 'https:' || 
-                                           window.location.hostname === 'localhost' || 
-                                           window.location.hostname === '127.0.0.1' ||
-                                           window.location.hostname.startsWith('192.168.') ||
-                                           window.location.hostname.startsWith('10.') ||
-                                           window.location.hostname.startsWith('172.') ||
-                                           window.location.hostname === '0.0.0.0';
-                    
-                    if (!isSecureContext) {
-                        alert('🔒 Voice chat requires HTTPS. Please use the live site for microphone access.');
-                    } else {
-                        alert('🎤 Microphone access denied. Please allow microphone permissions in your browser and try again.');
-                    }
-                    return;
-                }
-            }
-            
-            startVoiceRecording();
-        };
-        
-        const handleVoiceStop = (e) => {
-            e.preventDefault();
-            stopVoiceRecording();
-        };
-        
         // Mouse events
-        voiceChatBtn.addEventListener('mousedown', handleVoiceStart);
-        voiceChatBtn.addEventListener('mouseup', handleVoiceStop);
-        voiceChatBtn.addEventListener('mouseleave', handleVoiceStop);
+        voiceChatBtn.addEventListener('mousedown', startVoiceRecording);
+        voiceChatBtn.addEventListener('mouseup', stopVoiceRecording);
+        voiceChatBtn.addEventListener('mouseleave', stopVoiceRecording);
         
         // Touch events for mobile
-        voiceChatBtn.addEventListener('touchstart', handleVoiceStart);
-        voiceChatBtn.addEventListener('touchend', handleVoiceStop);
-        
-        // Visual indicator for microphone availability
-        checkMicrophonePermissions().then(hasPermission => {
-            if (!hasPermission) {
-                const isSecureContext = window.location.protocol === 'https:' || 
-                                       window.location.hostname === 'localhost' || 
-                                       window.location.hostname === '127.0.0.1' ||
-                                       window.location.hostname.startsWith('192.168.') ||
-                                       window.location.hostname.startsWith('10.') ||
-                                       window.location.hostname.startsWith('172.') ||
-                                       window.location.hostname === '0.0.0.0' ||
-                                       window.location.port !== ''; // Development server with port
-                
-                if (!isSecureContext) {
-                    voiceChatBtn.style.opacity = '0.5';
-                    voiceChatBtn.title = 'Voice chat requires HTTPS - use live site';
-                } else {
-                    voiceChatBtn.style.opacity = '0.7';
-                    voiceChatBtn.title = 'Click to request microphone permission';
-                }
-            } else {
-                voiceChatBtn.style.opacity = '1';
-                voiceChatBtn.title = 'Hold to record voice message';
-            }
+        voiceChatBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            startVoiceRecording();
+        });
+        voiceChatBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            stopVoiceRecording();
         });
     }
 } // End of setupGameButtons function
@@ -3648,190 +3268,76 @@ function showMessage(text) {
 function getPlayerIcon(imgElement, displayName, internalPlayerName) {
     if (!internalPlayerName) return; 
     
-    // AGGRESSIVE MOBILE FIX: Multiple detection methods and debugging
-    const userAgent = navigator.userAgent;
-    const isMobileUA = /iPhone|iPad|iPod|Android|Mobile|Phone|Tablet/i.test(userAgent);
-    const isMobileWidth = window.innerWidth <= 950; // Lowered threshold for testing
-    const isTouchDevice = 'ontouchstart' in window;
-    const isMobileBrowser = isMobileUA || isMobileWidth || isTouchDevice;
+    // Create a unique key for this player
+    const playerKey = `${displayName}_${internalPlayerName}`;
     
-    console.log('🔍 MOBILE DEBUG:', {
-        userAgent: userAgent.substring(0, 50),
-        isMobileUA,
-        isMobileWidth,
-        isTouchDevice,
-        isMobileBrowser,
-        hostname: window.location.hostname
-    });
-    
-    if (isMobileBrowser && !window.location.hostname.includes('localhost')) {
-        console.log('📱🚨 FORCING EMOJI AVATAR for mobile:', displayName);
-        const avatarDiv = imgElement.parentElement;
-        if (avatarDiv) {
-            // Clear any existing content and set emoji
-            avatarDiv.innerHTML = '';
-            avatarDiv.textContent = '�'; // Changed to phone emoji to confirm mobile detection
-            avatarDiv.style.fontSize = '24px';
-            avatarDiv.style.color = '#0066CC'; // Blue color to stand out
-            avatarDiv.style.display = 'flex';
-            avatarDiv.style.alignItems = 'center';
-            avatarDiv.style.justifyContent = 'center';
-            avatarDiv.title = 'Mobile Mode Active'; // Tooltip
+    // If we've already processed this player, use the cached result
+    if (avatarCache[playerKey]) {
+        if (avatarCache[playerKey].src) {
+            imgElement.src = avatarCache[playerKey].src;
+            imgElement.style.display = 'block';
+        } else {
+            imgElement.style.display = 'none';
         }
-        // Hide the image element completely
-        imgElement.style.display = 'none';
-        imgElement.remove();
         return;
     }
     
+    // Initialize cache entry
+    avatarCache[playerKey] = { src: null, processed: false, attemptIndex: 0 };
+    
     // Create multiple filename variations to try
-    const baseVariations = [
+    const avatarVariations = [
         `assets/icons/${displayName}_avatar.jpg`,           // Original case
-        `assets/icons/${displayName.toLowerCase()}_avatar.jpg`, // All lowercase  
+        `assets/icons/${displayName.toLowerCase()}_avatar.jpg`, // All lowercase
         `assets/icons/${displayName.toUpperCase()}_avatar.jpg`, // All uppercase
         `assets/icons/${displayName.charAt(0).toUpperCase() + displayName.slice(1).toLowerCase()}_avatar.jpg` // Title case
     ];
     
-    // Add cache-busting for mobile browsers
-    const isMobileDevice = window.innerWidth <= 900 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    const cacheBuster = isMobileDevice ? `?v=${Date.now()}` : '';
-    const avatarVariations = baseVariations.map(url => url + cacheBuster);
-    
-    console.log(`🔍 Testing avatar variations for ${displayName}:`, avatarVariations);
-    console.log(`📱 Mobile check: innerWidth=${window.innerWidth}, userAgent=${navigator.userAgent.includes('Mobile')}`);
-    console.log(`🌐 Hostname: ${window.location.hostname}`);
-    console.log(`🚫 Cache buster: ${cacheBuster} (mobile: ${isMobileDevice})`);
-    
     const match = internalPlayerName.match(/\d+/);
     const playerNumber = match ? match[0] : 'default';
-    const defaultAvatarSrc = `assets/icons/jugador${playerNumber}_avatar.jpg${cacheBuster}`;
+    const defaultAvatarSrc = `assets/icons/jugador${playerNumber}_avatar.jpg`;
     
-    let attemptIndex = 0;
-    
-    // Enhanced Safari Detection with debug logging
-    const browserUserAgent = navigator.userAgent;
-    const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(userAgent) || window.innerWidth <= 900;
-    const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
-    const isSafariMobile = (isSafari && isMobile) || isIOS; // More aggressive detection
-    
-    // MOBILE EMERGENCY FALLBACK: If mobile browser, skip file loading and use emoji directly
-    if (isMobile && !window.location.hostname.includes('localhost')) {
-        console.log(`📱🚨 MOBILE EMERGENCY: Skipping file avatars, using emoji for ${displayName}`);
-        avatarDiv.textContent = '👤';
-        avatarDiv.style.fontSize = '24px';
-        avatarDiv.style.color = '#666';
-        return;
-    }
-    
-    console.log(`🔍 Browser Detection:`, {
-        userAgent,
-        isSafari,
-        isMobile,
-        isIOS,
-        isSafariMobile,
-        innerWidth: window.innerWidth
-    });
-    
-    if (isSafariMobile) {
-        console.log(`🍎� SAFARI MOBILE DETECTED - Using special handling`);
-        
-        // For Safari Mobile, use a completely different approach
-        // Set up the image properties first
-        imgElement.style.opacity = '0';
-        imgElement.style.transition = 'opacity 0.3s';
-        
-        // Create a preloader image to test if the avatar exists
-        const testImage = new Image();
-        
-        const loadAvatar = (srcToTry) => {
-            return new Promise((resolve, reject) => {
-                const tempImg = new Image();
-                tempImg.onload = () => resolve(srcToTry);
-                tempImg.onerror = () => reject();
-                tempImg.src = srcToTry;
-            });
-        };
-        
-        // Try each avatar variation in sequence for Safari
-        const tryAvatarsSequentially = async () => {
-            for (let i = 0; i < avatarVariations.length; i++) {
-                try {
-                    console.log(`🍎 Safari trying: ${avatarVariations[i]}`);
-                    const workingSrc = await loadAvatar(avatarVariations[i]);
-                    console.log(`🍎✅ Safari found working avatar: ${workingSrc}`);
-                    imgElement.src = workingSrc;
-                    imgElement.style.opacity = '1';
-                    return;
-                } catch (e) {
-                    console.log(`🍎❌ Safari failed: ${avatarVariations[i]}`);
-                }
-            }
-            
-            // If all custom avatars failed, try default
-            try {
-                console.log(`🍎 Safari trying default: ${defaultAvatarSrc}`);
-                await loadAvatar(defaultAvatarSrc);
-                imgElement.src = defaultAvatarSrc;
-                imgElement.style.opacity = '1';
-                console.log(`🍎✅ Safari loaded default: ${defaultAvatarSrc}`);
-            } catch (e) {
-                console.log(`🍎❌ Safari even default failed, using emoji`);
-                const avatarDiv = imgElement.parentElement;
-                if (avatarDiv) {
-                    avatarDiv.textContent = '👤';
-                    avatarDiv.style.fontSize = '24px';
-                    imgElement.remove();
-                }
-            }
-        };
-        
-        // Start the Safari-specific loading
-        tryAvatarsSequentially();
-        return;
-    }
-    
-    // Function to try the next avatar variation (for non-Safari browsers)
+    // Function to try the next avatar variation
     const tryNextAvatar = () => {
-        if (attemptIndex < avatarVariations.length) {
-            const currentSrc = avatarVariations[attemptIndex];
-            console.log(`🔍 Trying variation ${attemptIndex + 1}/${avatarVariations.length}: ${currentSrc}`);
-            imgElement.src = currentSrc;
-            attemptIndex++;
+        const currentAttempt = avatarCache[playerKey].attemptIndex;
+        
+        if (currentAttempt < avatarVariations.length) {
+            avatarCache[playerKey].attemptIndex++;
+            imgElement.src = avatarVariations[currentAttempt];
         } else {
             // All custom variations failed, try default
-            console.log(`🔍 All variations failed, trying default: ${defaultAvatarSrc}`);
             imgElement.src = defaultAvatarSrc;
         }
     };
     
-    // Set up error handling before setting the source (for non-Safari browsers)
+    // Set up error handling before setting the source
     imgElement.onerror = function() {
-        console.log(`❌ MOBILE DEBUG - Failed to load: ${this.src}`);
-        console.log(`❌ MOBILE DEBUG - Complete: ${this.complete}, Width: ${this.naturalWidth}, Height: ${this.naturalHeight}`);
-        console.log(`❌ MOBILE DEBUG - UserAgent: ${navigator.userAgent}`);
-        console.log(`❌ MOBILE DEBUG - Inner width: ${window.innerWidth}`);
+        const currentAttempt = avatarCache[playerKey].attemptIndex - 1;
         
         // If we're still trying custom avatar variations
-        if (attemptIndex <= avatarVariations.length) {
+        if (currentAttempt < avatarVariations.length - 1) {
             tryNextAvatar();
+        } else if (this.src === defaultAvatarSrc) {
+            // Even default failed, cache the failure and hide the image
+            avatarCache[playerKey].src = null;
+            avatarCache[playerKey].processed = true;
+            this.style.display = 'none';
+            this.onerror = null;
         } else {
-            // Even default failed, remove the image element and use emoji
-            console.log(`❌ All avatar attempts failed for ${displayName}, using emoji`);
-            const avatarDiv = this.parentElement;
-            if (avatarDiv) {
-                avatarDiv.textContent = '👤';
-                avatarDiv.style.fontSize = '24px';
-                this.remove();
-            }
+            // Try default avatar
+            this.src = defaultAvatarSrc;
         }
     };
     
     imgElement.onload = function() {
-        console.log(`✅ SUCCESS! Avatar loaded: ${this.src}`);
+        // Cache the successful source
+        avatarCache[playerKey].src = this.src;
+        avatarCache[playerKey].processed = true;
+        this.style.display = 'block';
+        this.onload = null;
     };
     
-    // Start with the first variation (for non-Safari browsers)
+    // Start with the first variation
     tryNextAvatar();
 }
 
@@ -3924,11 +3430,6 @@ function updatePlayersUI() {
         const avatarDiv = document.createElement('div');
         avatarDiv.className = 'player-avatar';
         
-        // Mobile-specific styling for better compatibility
-        if (window.innerWidth <= 900) {
-            // Use default CSS styling - don't override
-        }
-        
         // PRIORITY SYSTEM for avatar display:
         // 1st: Avatar files (type='file' or when no avatar data but file exists)
         // 2nd: Custom uploads (type='custom') 
@@ -3938,99 +3439,93 @@ function updatePlayersUI() {
         if (playerData.avatar && playerData.avatar.type === 'file') {
             // Server indicated to use file - try to load image file
             const img = document.createElement('img');
+            img.style.display = 'none';
             img.style.width = '40px';
             img.style.height = '40px';
             img.style.borderRadius = '50%';
             avatarDiv.appendChild(img);
             
-            // Use original getPlayerIcon function for all cases - this was working!
-            getPlayerIcon(img, playerData.displayName, playerData.name);
+            // If server provided specific avatar filename, use it directly
+            if (playerData.avatar.data && playerData.avatar.data.includes('_avatar.jpg')) {
+                const avatarPath = `assets/icons/${playerData.avatar.data}`;
+                img.src = avatarPath;
+                // console.log('🔍 Loading avatar file for', playerData.displayName, ':', avatarPath);
+                // console.log('🔍 Full avatar object:', JSON.stringify(playerData.avatar));
+                
+                img.onload = function() {
+                    this.style.display = 'block';
+                    // console.log('✅ Avatar file loaded and displayed for', playerData.displayName, ':', playerData.avatar.data);
+                };
+                img.onerror = function() {
+                    // console.log('⚠️ Primary avatar failed, trying fallbacks for', playerData.displayName);
+                    // Try proper case version
+                    const properCaseName = playerData.displayName.charAt(0).toUpperCase() + playerData.displayName.slice(1).toLowerCase();
+                    const fallbackPath = `assets/icons/${properCaseName}_avatar.jpg`;
+                    
+                    this.src = fallbackPath;
+                    this.onload = function() {
+                        this.style.display = 'block';
+                        // console.log('✅ Fallback avatar loaded for', playerData.displayName, ':', fallbackPath);
+                    };
+                    this.onerror = function() {
+                        // Final fallback to default emoji
+                        avatarDiv.textContent = '👤';
+                        // console.log('⚠️ All avatar files failed for', playerData.displayName, '- using default emoji');
+                    };
+                };
+                
+                // Fallback: Force display after a short delay if onload doesn't fire
+                setTimeout(() => {
+                    if (img.style.display === 'none') {
+                        img.style.display = 'block';
+                        // console.log('🔄 Force-displayed avatar for', playerData.displayName, 'after timeout');
+                    }
+                }, 1000);
+            } else {
+                // Use the old system for custom avatar names
+                getPlayerIcon(img, playerData.displayName, playerData.name);
+            }
+            
+            setTimeout(() => {
+                if (img.style.display === 'none') {
+                    // File failed to load or load event didn't fire, use default emoji
+                    avatarDiv.textContent = '👤';
+                    // console.log('⚠️ Avatar file timeout - using default for', playerData.displayName);
+                }
+            }, 1500);
         } else if (playerData.avatar && playerData.avatar.type === 'custom') {
             // Custom uploaded avatar
             avatarDiv.classList.add('custom-avatar');
-            
-            // MOBILE FIX: Check if mobile and use emoji instead
-            const isMobileUA = /iPhone|iPad|iPod|Android|Mobile|Phone|Tablet/i.test(navigator.userAgent);
-            const isMobileWidth = window.innerWidth <= 900;
-            const isTouchDevice = 'ontouchstart' in window;
-            const isMobileBrowser = isMobileUA || isMobileWidth || isTouchDevice;
-            
-            if (isMobileBrowser && !window.location.hostname.includes('localhost')) {
-                console.log('📱🚨 MOBILE: Skipping custom avatar, using emoji for', playerData.displayName);
-                avatarDiv.textContent = '📱';
-                avatarDiv.style.fontSize = '24px';
-                avatarDiv.style.color = '#0066CC';
-                return;
-            }
-            
             const customImg = document.createElement('img');
-            
-            // Safari mobile detection for custom avatars
-            const userAgent = navigator.userAgent;
-            const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
-            const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
-            const isSafariMobile = (isSafari && /iPhone|iPad|iPod|Android/i.test(userAgent)) || isIOS;
-            
-            if (isSafariMobile) {
-                console.log(`🍎📱 CUSTOM AVATAR - Safari mobile detected for ${playerData.displayName}`);
-                console.log(`🍎 Avatar data length: ${playerData.avatar.data.length}`);
-                
-                // For Safari mobile, set up image differently
-                customImg.style.opacity = '0';
-                customImg.style.transition = 'opacity 0.3s';
-                
-                customImg.onload = function() {
-                    console.log(`🍎✅ Custom avatar loaded successfully for ${playerData.displayName}`);
-                    this.style.opacity = '1';
-                };
-                
-                customImg.onerror = function() {
-                    console.log(`🍎❌ Custom avatar failed for ${playerData.displayName}, using fallback`);
-                    avatarDiv.textContent = '👤';
-                    avatarDiv.style.fontSize = '24px';
-                    this.remove();
-                };
-                
-                // Set source after event handlers for Safari
-                setTimeout(() => {
-                    customImg.src = playerData.avatar.data;
-                }, 10);
-            } else {
-                // Non-Safari browsers: direct assignment
-                customImg.src = playerData.avatar.data;
-            }
-            
+            customImg.src = playerData.avatar.data;
             customImg.alt = `${playerData.displayName} avatar`;
             customImg.style.width = '40px';
             customImg.style.height = '40px';
             customImg.style.borderRadius = '50%';
             avatarDiv.appendChild(customImg);
+            // console.log('✅ Using CUSTOM upload for', playerData.displayName);
         } else if (playerData.avatar && playerData.avatar.type === 'emoji') {
             // Emoji avatar
             avatarDiv.textContent = playerData.avatar.data;
             avatarDiv.style.fontSize = '24px';
+            // console.log('✅ Using EMOJI avatar for', playerData.displayName, ':', playerData.avatar.data);
         } else {
             // No avatar data - try file first, then default
             const img = document.createElement('img');
-            img.style.width = '40px';
-            img.style.height = '40px';
-            img.style.borderRadius = '50%';
-            img.style.opacity = '0';
-            img.style.transition = 'opacity 0.3s ease';
+            img.style.display = 'none';
             avatarDiv.appendChild(img);
             
             getPlayerIcon(img, playerData.displayName, playerData.name);
             
             setTimeout(() => {
-                if (img.style.opacity === '0') {
+                if (img.style.display === 'none') {
                     // No file found, use default
                     avatarDiv.textContent = '👤';
-                    avatarDiv.style.fontSize = '24px';
-                    img.remove();
+                    // console.log('⚠️ Using DEFAULT avatar for', playerData.displayName);
                 } else {
-                    // Avatar file loaded successfully
+                    // console.log('✅ Using avatar FILE (fallback) for', playerData.displayName);
                 }
-            }, 1000);
+            }, 500);
         }
 
         const infoDiv = document.createElement('div');
@@ -5141,153 +4636,8 @@ function isValidTilePlay(tile, position) {
 // == VOICE CHAT FUNCTIONS                                                    ==
 // =============================================================================
 
-// Enable audio auto-play after first user interaction
-let audioAutoPlayEnabled = false;
-
-// Enhanced audio unlock system with audio pool
-function enableAudioAutoPlay() {
-    if (window.audioSystemInitialized) return;
-    window.audioSystemInitialized = true;
-    
-    const initializeAudioSystem = async () => {
-        try {
-            // Initialize audio context
-            if (!window.globalAudioContext) {
-                window.globalAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
-            
-            const audioContext = window.globalAudioContext;
-            
-            if (audioContext.state === 'suspended') {
-                await audioContext.resume();
-            }
-            
-            // Play silent audio to unlock
-            const silentAudio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCStdgtJvHwA=');
-            silentAudio.volume = 0.01;
-            await silentAudio.play();
-            
-            // Create initial audio pool
-            createAudioPool();
-            
-            // Set up periodic audio context maintenance
-            setInterval(() => {
-                if (audioContext.state === 'suspended') {
-                    audioContext.resume().catch(() => {});
-                }
-            }, 3000);
-            
-            console.log('🎵 Audio system initialized with enhanced auto-play support');
-            
-        } catch (error) {
-            console.log('🎵 Audio system initialization failed:', error.name);
-            // Try again after a short delay
-            setTimeout(() => {
-                window.audioSystemInitialized = false;
-            }, 5000);
-        }
-    };
-    
-    // Initialize on any user interaction
-    const interactions = ['click', 'touchstart', 'touchend', 'keydown', 'mousedown', 'pointerdown'];
-    interactions.forEach(eventType => {
-        document.addEventListener(eventType, initializeAudioSystem, { once: true });
-    });
-    
-    // Also try to initialize immediately (might work if user already interacted)
-    initializeAudioSystem();
-}
-
-function showAudioUnlockedNotification() {
-    // Show a brief notification that audio is now enabled
-    const notification = document.createElement('div');
-    notification.innerHTML = '🎵 Voice messages will now auto-play!';
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #4CAF50;
-        color: white;
-        padding: 10px 15px;
-        border-radius: 5px;
-        font-size: 14px;
-        z-index: 1000;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-    `;
-    
-    document.body.appendChild(notification);
-    
-    // Remove after 3 seconds
-    setTimeout(() => {
-        if (notification.parentNode) {
-            notification.parentNode.removeChild(notification);
-        }
-    }, 3000);
-}
-
-// Check and request microphone permissions
-async function checkMicrophonePermissions() {
-    try {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            return false;
-        }
-
-        // Check if we're in a secure context (including local networks)
-        const isSecureContext = window.location.protocol === 'https:' || 
-                               window.location.hostname === 'localhost' || 
-                               window.location.hostname === '127.0.0.1' ||
-                               window.location.hostname.startsWith('192.168.') ||
-                               window.location.hostname.startsWith('10.') ||
-                               window.location.hostname.startsWith('172.') ||
-                               window.location.hostname === '0.0.0.0';
-        
-        if (!isSecureContext) {
-            return false;
-        }
-
-        // Try to get permission
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach(track => track.stop()); // Stop immediately
-        return true;
-    } catch (error) {
-        console.log('🎤 Microphone permission check failed:', error.name);
-        return false;
-    }
-}
-
 async function startVoiceRecording() {
     try {
-        // Check if we're on HTTPS or localhost (including IP variations)
-        const isSecureContext = window.location.protocol === 'https:' || 
-                               window.location.hostname === 'localhost' || 
-                               window.location.hostname === '127.0.0.1' ||
-                               window.location.hostname.startsWith('192.168.') ||
-                               window.location.hostname.startsWith('10.') ||
-                               window.location.hostname.startsWith('172.') ||
-                               window.location.hostname === '0.0.0.0';
-        
-        if (!isSecureContext) {
-            // Be more permissive for development - allow if it looks like local development
-            const isDevelopment = window.location.hostname.includes('localhost') ||
-                                window.location.hostname.includes('127.0.0.1') ||
-                                window.location.port !== '' || // Any port suggests development
-                                window.location.hostname === window.location.hostname.toLowerCase(); // Basic dev check
-            
-            if (!isDevelopment) {
-                alert('🔒 Voice recording requires HTTPS. You can listen to voice messages, but recording needs the live site.');
-                return;
-            }
-            
-            // Continue for development contexts
-            console.log('🔧 Development mode: allowing voice chat on', window.location.hostname);
-        }
-
-        // Check if getUserMedia is supported
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            alert('🎤 Voice chat is not supported on this device/browser.');
-            return;
-        }
-
         const stream = await navigator.mediaDevices.getUserMedia({ 
             audio: {
                 echoCancellation: true,
@@ -5342,26 +4692,7 @@ async function startVoiceRecording() {
         
     } catch (error) {
         console.error("🎤 Error accessing microphone:", error);
-        
-        let errorMessage = "Could not access microphone. ";
-        
-        if (error.name === 'NotAllowedError') {
-            errorMessage += "Please allow microphone permissions in your browser settings.";
-        } else if (error.name === 'NotFoundError') {
-            errorMessage += "No microphone found on this device.";
-        } else if (error.name === 'NotSupportedError') {
-            errorMessage += "Microphone not supported on this browser.";
-        } else if (error.name === 'NotReadableError') {
-            errorMessage += "Microphone is already in use by another app.";
-        } else if (window.location.protocol !== 'https:' && 
-                   window.location.hostname !== 'localhost' && 
-                   window.location.hostname !== '127.0.0.1') {
-            errorMessage += "Voice chat requires HTTPS for security. Please use the live site.";
-        } else {
-            errorMessage += "Please check your browser permissions and try again.";
-        }
-        
-        alert(errorMessage);
+        alert("Could not access microphone. Please check permissions.");
     }
 }
 
@@ -5423,250 +4754,39 @@ function sendVoiceMessage(audioBlob) {
 function playVoiceMessage(data) {
     try {
         // console.log("🎵 Received voice message from:", data.sender);
+        // console.log("🎵 Audio data length:", data.audio ? data.audio.length : 'No audio data');
         
         // Convert base64 back to audio
         const audioData = `data:audio/wav;base64,${data.audio}`;
-        
-        // Add to chat immediately
-        const messagesDiv = document.getElementById('chat-messages');
-        const messageElement = document.createElement('div');
-        const senderName = data.sender || 'Unknown';
-        
-        // Use a pooled audio element for better consistency
-        const audio = getPooledAudio(audioData);
-        
-        // Smart auto-play with single retry for 100% success
-        const attemptAutoPlay = async () => {
-            try {
-                // Ensure audio context is ready
-                await ensureAudioContextReady();
-                
-                // Primary attempt: Direct play
-                await audio.play();
-                return true;
-                
-            } catch (error) {
-                console.log("🎵 Auto-play failed:", error.name);
-                
-                // ONE smart retry: wait for next event loop and try fresh audio
-                try {
-                    await new Promise(resolve => setTimeout(resolve, 50));
-                    
-                    // Get a fresh audio element for the retry
-                    const retryAudio = new Audio(audioData);
-                    retryAudio.volume = 0.8;
-                    retryAudio.preload = 'auto';
-                    
-                    await retryAudio.play();
-                    
-                    // Success! Replace our audio reference with the working one
-                    returnAudioToPool(audio);
-                    audio.src = retryAudio.src;
-                    audio.currentTime = retryAudio.currentTime;
-                    audio.onended = retryAudio.onended;
-                    audio.onerror = retryAudio.onerror;
-                    
-                    return true;
-                    
-                } catch (retryError) {
-                    console.log("🎵 Retry also failed:", retryError.name);
-                    return false;
-                }
-            }
-        };
-        
-        // Try auto-play with exhaustive retry strategy
-        attemptAutoPlay().then(success => {
-            if (success) {
-                console.log("🎵 Voice message auto-playing successfully");
-                messageElement.innerHTML = `<b>${senderName}:</b> 🎵 <span style="color: #4CAF50;">Playing voice message...</span>`;
-                messagesDiv.appendChild(messageElement);
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                
-                audio.onended = () => {
-                    messageElement.innerHTML = `<b>${senderName}:</b> 🎤 Voice message <span style="color: #666; font-size: 0.9em;">(played)</span>`;
-                    console.log("🎵 Voice message ended");
-                    returnAudioToPool(audio);
-                };
-                
-                audio.onerror = () => {
-                    messageElement.innerHTML = `<b>${senderName}:</b> ❌ Voice message (playback error)`;
-                    returnAudioToPool(audio);
-                };
-                
-                // Successful auto-play: keep it simple
-                // expandAudioPool();
-                
-            } else {
-                showPlayButton();
-            }
-        });
-        
-        function showPlayButton() {
-            returnAudioToPool(audio); // Return unused audio to pool
-            
-            const playButton = document.createElement('button');
-            playButton.innerHTML = '▶️ Play';
-            playButton.style.cssText = `
-                background: #4CAF50; 
-                color: white; 
-                border: none; 
-                padding: 4px 8px; 
-                border-radius: 4px; 
-                cursor: pointer; 
-                font-size: 12px;
-                margin-left: 8px;
-            `;
-            
-            messageElement.innerHTML = `<b>${senderName}:</b> 🎤 Voice message `;
-            messageElement.appendChild(playButton);
-            messagesDiv.appendChild(messageElement);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-            
-            playButton.addEventListener('click', async () => {
-                playButton.innerHTML = '🔄';
-                playButton.disabled = true;
-                
-                try {
-                    // Get a fresh audio element for manual play
-                    const manualAudio = getPooledAudio(audioData);
-                    
-                    await manualAudio.play();
-                    playButton.innerHTML = '🎵';
-                    
-                    manualAudio.onended = () => {
-                        playButton.innerHTML = '✅';
-                        playButton.style.background = '#666';
-                        returnAudioToPool(manualAudio);
-                    };
-                    
-                    // Manual play successful - simple refresh
-                    createAudioPool();
-                    console.log("🎵 Manual play successful - audio pool refreshed");
-                    
-                } catch (playError) {
-                    console.log("🎵 Manual play failed:", playError);
-                    playButton.innerHTML = '❌';
-                    playButton.style.background = '#ff4444';
-                    playButton.disabled = false;
-                    playButton.title = 'Try again';
-                }
-            });
-        }
-        
-    } catch (error) {
-        console.error("🎵 Voice message error:", error);
-        
-        // Fallback message
-        const messagesDiv = document.getElementById('chat-messages');
-        const messageElement = document.createElement('div');
-        const senderName = data.sender || 'Unknown';
-        messageElement.innerHTML = `<b>${senderName}:</b> 🎤 Voice message (error)`;
-        messagesDiv.appendChild(messageElement);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    }
-}
-
-// Simplified audio pool management - back to what worked
-let audioPool = [];
-let audioPoolSize = 3; // Back to smaller, working size
-
-function getPooledAudio(audioData) {
-    if (audioPool.length > 0) {
-        const audio = audioPool.pop();
-        audio.src = audioData;
-        audio.currentTime = 0;
-        audio.volume = 0.8;
-        return audio;
-    } else {
         const audio = new Audio(audioData);
         audio.volume = 0.8;
-        audio.preload = 'auto';
-        return audio;
-    }
-}
-
-function returnAudioToPool(audio) {
-    if (audioPool.length < audioPoolSize && audio) {
-        // Clean up the audio element before returning to pool
-        audio.pause();
-        audio.currentTime = 0;
-        audio.src = '';
-        audio.onended = null;
-        audio.onerror = null;
-        audioPool.push(audio);
-    }
-}
-
-function createAudioPool() {
-    // Create initial pool of audio elements
-    while (audioPool.length < audioPoolSize) {
-        const audio = new Audio();
-        audio.volume = 0.8;
-        audio.preload = 'auto';
-        audioPool.push(audio);
-    }
-    console.log("🎵 Audio pool created with", audioPool.length, "elements");
-}
-
-function expandAudioPool() {
-    // Add more audio elements after successful plays
-    if (audioPool.length < audioPoolSize + 2) {
-        const audio = new Audio();
-        audio.volume = 0.8;
-        audio.preload = 'auto';
-        audioPool.push(audio);
-        console.log("🎵 Audio pool expanded to", audioPool.length, "elements");
-    }
-}
-
-async function forceAudioUnlock() {
-    try {
-        // Force audio context resume
-        if (window.globalAudioContext) {
-            if (window.globalAudioContext.state === 'suspended') {
-                await window.globalAudioContext.resume();
-            }
-            
-            // Play multiple silent buffers to force unlock
-            for (let i = 0; i < 3; i++) {
-                const buffer = window.globalAudioContext.createBuffer(1, 1, 22050);
-                const source = window.globalAudioContext.createBufferSource();
-                source.buffer = buffer;
-                source.connect(window.globalAudioContext.destination);
-                source.start(0);
-            }
-        }
         
-        // Also try with HTML audio
-        const forceUnlockAudio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCStdgtJvHwA=');
-        forceUnlockAudio.volume = 0.005; // Extra quiet
-        await forceUnlockAudio.play();
+        // Add debugging for audio events
+        audio.onloadeddata = () => console.log("🎵 Audio loaded successfully");
+        audio.oncanplay = () =>  console.log("🎵 Audio can play");
+        audio.onerror = (error) => console.error("🎵 Audio error:", error);
+        audio.onended = () =>  console.log("🎵 Audio playback ended");
         
-        console.log("🎵 Force audio unlock completed");
+        // Add to chat as received voice message
+        const messagesDiv = document.getElementById('chat-messages');
+        const messageElement = document.createElement('p');
+        const senderName = data.sender || 'Unknown';
+        messageElement.innerHTML = `<b>${senderName}:</b> 🎤 Voice Message`;
+        messageElement.style.fontStyle = 'italic';
+        messageElement.style.color = '#666';
+        messagesDiv.appendChild(messageElement);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        
+        // Play the audio
+        audio.play().then(() => {
+            // console.log("🎵 Audio started playing");
+        }).catch(error => {
+            console.error("🎵 Error playing voice message:", error);
+            alert("Could not play voice message. Check browser audio permissions.");
+        });
         
     } catch (error) {
-        console.log("🎵 Force unlock failed:", error.name);
-    }
-}
-
-async function ensureAudioContextReady() {
-    try {
-        if (!window.globalAudioContext) {
-            window.globalAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        
-        const audioContext = window.globalAudioContext;
-        
-        if (audioContext.state === 'suspended') {
-            await audioContext.resume();
-            console.log("🎵 Audio context resumed");
-        }
-        
-        return true;
-    } catch (error) {
-        console.log("🎵 Audio context setup failed:", error.name);
-        return false;
+        console.error("🎵 Error processing voice message:", error);
     }
 }
 
@@ -5801,6 +4921,7 @@ function drawAnimatedTile() {
         
         } else {
             // Animation complete
+            // console.log('🎬 Animation completed, cleaning up');
             isAnimating = false;
             animatingTile = null;
             
@@ -5809,12 +4930,6 @@ function drawAnimatedTile() {
                 // console.log('📋 Applying pending hand update');
                 myPlayerHand = window.pendingHandUpdate;
                 window.pendingHandUpdate = null;
-            }
-            
-            // Execute delayed board update if one is pending
-            if (window.delayedBoardUpdate) {
-                window.delayedBoardUpdate();
-                window.delayedBoardUpdate = null;
             }
             
             return;
@@ -5859,13 +4974,6 @@ function drawPersistentAnimation() {
     if (elapsed >= totalDuration) {
         // Animation complete
         window.currentPlayerAnimation.isActive = false;
-        
-        // Execute delayed board update if one is pending
-        if (window.delayedBoardUpdate) {
-            window.delayedBoardUpdate();
-            window.delayedBoardUpdate = null;
-        }
-        
         return;
     }
     
@@ -5915,7 +5023,19 @@ function easeInOutQuad(t) {
     return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 }
 
-
+// TEST FUNCTION - Call from console to test animation
+window.testAnimation = function() {
+    // console.log('🧪 Testing animation manually...');
+    
+    // Create a test tile
+    const testTile = { left: 3, right: 4 };
+    
+    // Force start animation
+    isAnimating = false; // Reset first
+    startTileAnimation(testTile, 'Test Player');
+    
+    // console.log('🧪 Test animation started. isAnimating:', isAnimating);
+};
 
 // Make the Leave Game function globally accessible immediately
 function handleLeaveGame(event) {

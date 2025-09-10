@@ -714,25 +714,20 @@ html, body {
   display: block;
 }
 
-/* #points-table-container block is defined below with all properties and media queries */
-
-@media (min-width: 900px) {
-  #points-table-container {
-    position: absolute;
-    bottom: 80px;
-    right: 20px;
-    z-index: 9999;
-    height: 130px; /* You can tweak this value */
-    padding: 4px 8px; /* Smaller padding for easier tweaking */
-    font-size: 10px; /* Smaller font for easier tweaking */
-    background: rgba(139, 117, 86, 0.9);
-    color: white;
-    border: 1px solid #8B7556;
-    border-radius: 6px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-    display: block;
-    overflow: hidden; /* Prevent content overflow */
-  }
+#points-table-container {
+  position: absolute;
+  bottom: 80px; /* Moved up from 60px to make room for buttons */
+  right: 20px;
+  z-index: 9999;
+  padding: 7px 11px; /* Reduced padding by 5% */
+  min-height: 57px; /* Reduced height by 5% (60px * 0.95) */
+  font-size: 11px; /* Further reduced font size */
+  background: rgba(139, 117, 86, 0.9);
+  color: white;
+  border: 1px solid #8B7556;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  display: block;
 }
 
 
