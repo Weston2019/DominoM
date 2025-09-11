@@ -3920,12 +3920,32 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName) {
                 imgElement.style.opacity = '1';
                 console.log(`🍎✅ Safari loaded default: ${defaultAvatarSrc}`);
             } catch (e) {
-                console.log(`🍎❌ Safari even default failed, using emoji`);
+                console.log(`🍎❌ Safari even default failed, forcing jugador1`);
                 const avatarDiv = imgElement.parentElement;
                 if (avatarDiv) {
-                    avatarDiv.textContent = '👤';
-                    avatarDiv.style.fontSize = '24px';
-                    imgElement.remove();
+                    // 🔧 MOBILE FIX: Force jugador1 instead of emoji on Safari mobile
+                    console.log(`🍎📱 Safari mobile: Force loading jugador1`);
+                    imgElement.onerror = null;
+                    imgElement.src = `assets/defaults/jugador1_avatar.jpg?v=${Date.now()}`;
+                    imgElement.onload = () => {
+                        console.log(`🍎✅ Safari jugador1 fallback success`);
+                        imgElement.style.opacity = '1';
+                    };
+                    imgElement.onerror = () => {
+                        console.log(`🍎❌ Safari jugador1 also failed, using styled emoji`);
+                        avatarDiv.innerHTML = '';
+                        avatarDiv.textContent = '🎯';
+                        avatarDiv.style.fontSize = '28px';
+                        avatarDiv.style.color = '#0066CC';
+                        avatarDiv.style.display = 'flex';
+                        avatarDiv.style.alignItems = 'center';
+                        avatarDiv.style.justifyContent = 'center';
+                        avatarDiv.style.width = '40px';
+                        avatarDiv.style.height = '40px';
+                        avatarDiv.style.borderRadius = '50%';
+                        avatarDiv.style.backgroundColor = '#f8f9fa';
+                        imgElement.remove();
+                    };
                 }
             }
         };
@@ -3961,12 +3981,41 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName) {
             tryNextAvatar();
         } else {
             // Even default failed, remove the image element and use emoji
-            console.log(`❌ All avatar attempts failed for ${displayName}, using emoji`);
+            console.log(`❌ All avatar attempts failed for ${displayName}, using default jugador fallback`);
             const avatarDiv = this.parentElement;
             if (avatarDiv) {
-                avatarDiv.textContent = '👤';
-                avatarDiv.style.fontSize = '24px';
-                this.remove();
+                // 🔧 MOBILE FIX: Force default jugador avatar instead of emoji
+                const isMobileDevice = window.innerWidth <= 900 || /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent);
+                
+                if (isMobileDevice) {
+                    console.log(`📱 MOBILE FORCE: Trying jugador1 as final fallback for ${displayName}`);
+                    // Force load jugador1 as absolute fallback on mobile
+                    this.onerror = null; // Remove error handler to prevent loop
+                    this.src = `assets/defaults/jugador1_avatar.jpg?v=${Date.now()}`;
+                    this.onload = () => {
+                        console.log(`✅ MOBILE FORCE: jugador1 fallback loaded for ${displayName}`);
+                    };
+                    this.onerror = () => {
+                        console.log(`❌ MOBILE FORCE: Even jugador1 failed, using styled emoji`);
+                        avatarDiv.innerHTML = '';
+                        avatarDiv.textContent = '🎯';
+                        avatarDiv.style.fontSize = '28px';
+                        avatarDiv.style.color = '#0066CC';
+                        avatarDiv.style.display = 'flex';
+                        avatarDiv.style.alignItems = 'center';
+                        avatarDiv.style.justifyContent = 'center';
+                        avatarDiv.style.width = '40px';
+                        avatarDiv.style.height = '40px';
+                        avatarDiv.style.borderRadius = '50%';
+                        avatarDiv.style.backgroundColor = '#f8f9fa';
+                        this.remove();
+                    };
+                } else {
+                    // Desktop: use emoji as before
+                    avatarDiv.textContent = '👤';
+                    avatarDiv.style.fontSize = '24px';
+                    this.remove();
+                }
             }
         }
     };
@@ -4182,10 +4231,33 @@ function updatePlayersUI() {
                 };
                 
                 customImg.onerror = function() {
-                    console.log(`🍎❌ Custom avatar failed for ${playerData.displayName}, using fallback`);
-                    avatarDiv.textContent = '👤';
-                    avatarDiv.style.fontSize = '24px';
-                    this.remove();
+                    console.log(`🍎❌ Custom avatar failed for ${playerData.displayName}, forcing jugador fallback`);
+                    // 🔧 MOBILE FIX: Force jugador avatar instead of emoji
+                    const match = playerData.name.match(/(\d+)/);
+                    const playerNumber = match ? match[1] : '1';
+                    const jugadorSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg?v=${Date.now()}`;
+                    
+                    this.onerror = null;
+                    this.src = jugadorSrc;
+                    this.onload = () => {
+                        console.log(`🍎✅ Safari custom->jugador fallback success: jugador${playerNumber}`);
+                        this.style.opacity = '1';
+                    };
+                    this.onerror = () => {
+                        console.log(`🍎❌ Safari jugador fallback failed, using styled emoji`);
+                        avatarDiv.innerHTML = '';
+                        avatarDiv.textContent = '🎯';
+                        avatarDiv.style.fontSize = '28px';
+                        avatarDiv.style.color = '#0066CC';
+                        avatarDiv.style.display = 'flex';
+                        avatarDiv.style.alignItems = 'center';
+                        avatarDiv.style.justifyContent = 'center';
+                        avatarDiv.style.width = '40px';
+                        avatarDiv.style.height = '40px';
+                        avatarDiv.style.borderRadius = '50%';
+                        avatarDiv.style.backgroundColor = '#f8f9fa';
+                        this.remove();
+                    };
                 };
                 
                 // Set source after event handlers for Safari
