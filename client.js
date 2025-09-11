@@ -3902,10 +3902,37 @@ function showMessage(text) {
 }
 
 function getPlayerIcon(imgElement, displayName, internalPlayerName) {
-    // 🚫 DISABLED: This function was causing conflicts with unified avatar solution
-    // Just return early - let the unified avatar logic handle everything
-    console.log(`🚫 getPlayerIcon called for ${displayName} but DISABLED - unified avatar handles this`);
-    return; 
+    if (!internalPlayerName) return; 
+    
+    // � SIMPLIFIED: Just load jugador defaults directly - no complex logic
+    console.log(`🎯 getPlayerIcon: Loading jugador default for ${displayName}`);
+    
+    const playerMatch = internalPlayerName.match(/(\d+)/);
+    const playerNumber = playerMatch ? playerMatch[1] : '1';
+    const jugadorSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg?v=${Date.now()}`;
+    
+    imgElement.onload = () => {
+        console.log(`✅ getPlayerIcon: Jugador${playerNumber} loaded for ${displayName}`);
+    };
+    
+    imgElement.onerror = () => {
+        console.log(`❌ getPlayerIcon: Jugador failed for ${displayName}, using emoji`);
+        const avatarDiv = imgElement.parentElement;
+        if (avatarDiv) {
+            avatarDiv.innerHTML = '';
+            avatarDiv.textContent = '🎯';
+            avatarDiv.style.fontSize = '28px';
+            avatarDiv.style.display = 'flex';
+            avatarDiv.style.alignItems = 'center';
+            avatarDiv.style.justifyContent = 'center';
+            avatarDiv.style.width = '40px';
+            avatarDiv.style.height = '40px';
+            avatarDiv.style.borderRadius = '50%';
+            avatarDiv.style.backgroundColor = '#f8f9fa';
+        }
+    };
+    
+    imgElement.src = jugadorSrc; 
     
     // AGGRESSIVE MOBILE FIX: Multiple detection methods and debugging
     const userAgent = navigator.userAgent;
@@ -3962,9 +3989,9 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName) {
     console.log(`🌐 Hostname: ${window.location.hostname}`);
     console.log(`🚫 Cache buster: ${cacheBuster} (mobile: ${isMobileDevice})`);
     
-    const match = internalPlayerName.match(/\d+/);
-    const playerNumber = match ? match[0] : 'default';
-    const defaultAvatarSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg${cacheBuster}`;
+    const playerMatch2 = internalPlayerName.match(/\d+/);
+    const playerNumber2 = playerMatch2 ? playerMatch2[0] : 'default';
+    const defaultAvatarSrc = `assets/defaults/jugador${playerNumber2}_avatar.jpg${cacheBuster}`;
     
     console.log(`🎯 DEFAULT AVATAR: Attempting to load ${defaultAvatarSrc} for ${displayName}`);
     console.log(`🔢 Player number extracted: ${playerNumber} from ${internalPlayerName}`);
