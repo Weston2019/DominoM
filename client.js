@@ -4238,7 +4238,11 @@ function updatePlayersUI() {
         tileCount: p.tileCount
     })));
     
+    const isFirstLoad = lastPlayerDataHash === null;
     const playersChanged = currentPlayerDataHash !== lastPlayerDataHash;
+    const shouldLoadAvatars = isFirstLoad || playersChanged;
+    
+    console.log(`🔍 AVATAR CHECK: First load = ${isFirstLoad}, Players changed = ${playersChanged}, Should load = ${shouldLoadAvatars}`);
     
     // console.log('🎮 Updating players UI with game state:', gameState.jugadoresInfo);
 
@@ -4286,17 +4290,21 @@ function updatePlayersUI() {
         // 3rd: Selected emojis (type='emoji')
         // 4th: Default avatar
         
-        // 🔧 SIMPLE UNIFIED FIX: Everyone gets the same logic - try jugador defaults
-        // Since uploaded avatars get erased by deployments anyway
-        // 🔧 LOOP PREVENTION: Only load avatars if player data changed
-        if (playersChanged) {
+        // 🔧 UNIFIED PRIORITY SYSTEM: Try uploaded avatars first, then jugador defaults
+        // 🔧 LOOP PREVENTION: Only load avatars if needed
+        if (shouldLoadAvatars) {
             console.log(`🎯 UNIFIED: Loading avatar for ${playerData.displayName} (internal: ${playerData.name})`);
             
             const playerMatch = playerData.name.match(/(\d+)/);
             const playerNumber = playerMatch ? playerMatch[1] : '1';
+            
+            // PRIORITY 1: Try uploaded avatar first
+            const uploadedAvatarSrc = `assets/icons/${playerData.displayName}_avatar.jpg?v=${Date.now()}`;
+            
+            // PRIORITY 2: Fallback to jugador default
             const jugadorSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg?v=${Date.now()}`;
             
-            console.log(`🔍 UNIFIED: Attempting to load ${jugadorSrc}`);
+            console.log(`🔍 UNIFIED: Trying uploaded avatar first: ${uploadedAvatarSrc}`);
             
             const img = document.createElement('img');
             img.style.width = '40px';
@@ -4306,52 +4314,54 @@ function updatePlayersUI() {
             img.alt = `${playerData.displayName} avatar`;
             
             img.onload = () => {
-                console.log(`✅ UNIFIED: Jugador${playerNumber} loaded successfully for ${playerData.displayName}`);
+                console.log(`✅ UNIFIED: Uploaded avatar loaded for ${playerData.displayName}`);
             };
             
             img.onerror = () => {
-                console.log(`❌ UNIFIED: Jugador${playerNumber} failed for ${playerData.displayName}, trying jugador1 fallback`);
+                console.log(`❌ UNIFIED: Uploaded avatar failed for ${playerData.displayName}, trying jugador${playerNumber}`);
                 
-                // Try jugador1 as absolute fallback
-                const fallbackSrc = `assets/defaults/jugador1_avatar.jpg?v=${Date.now()}`;
-                console.log(`🔧 UNIFIED: Trying fallback ${fallbackSrc}`);
+                // Try jugador default as fallback
+                console.log(`🔧 UNIFIED: Trying jugador fallback: ${jugadorSrc}`);
                 
                 img.onerror = () => {
-                    console.log(`❌ UNIFIED: Even jugador1 fallback failed for ${playerData.displayName}, using emoji`);
-                    avatarDiv.innerHTML = '';
-                    avatarDiv.textContent = '🎯';
-                    avatarDiv.style.fontSize = '28px';
-                    avatarDiv.style.display = 'flex';
-                    avatarDiv.style.alignItems = 'center';
-                    avatarDiv.style.justifyContent = 'center';
-                    avatarDiv.style.width = '40px';
-                    avatarDiv.style.height = '40px';
-                    avatarDiv.style.borderRadius = '50%';
-                    avatarDiv.style.backgroundColor = '#f8f9fa';
+                    console.log(`❌ UNIFIED: Even jugador${playerNumber} failed for ${playerData.displayName}, trying jugador1`);
+                    
+                    // Final fallback to jugador1
+                    const finalFallback = `assets/defaults/jugador1_avatar.jpg?v=${Date.now()}`;
+                    img.onerror = () => {
+                        console.log(`❌ UNIFIED: All avatars failed for ${playerData.displayName}, using emoji`);
+                        avatarDiv.innerHTML = '';
+                        avatarDiv.textContent = '🎯';
+                        avatarDiv.style.fontSize = '28px';
+                        avatarDiv.style.display = 'flex';
+                        avatarDiv.style.alignItems = 'center';
+                        avatarDiv.style.justifyContent = 'center';
+                        avatarDiv.style.width = '40px';
+                        avatarDiv.style.height = '40px';
+                        avatarDiv.style.borderRadius = '50%';
+                        avatarDiv.style.backgroundColor = '#f8f9fa';
+                    };
+                    
+                    img.onload = () => {
+                        console.log(`✅ UNIFIED: Jugador1 final fallback loaded for ${playerData.displayName}`);
+                    };
+                    
+                    img.src = finalFallback;
                 };
                 
                 img.onload = () => {
-                    console.log(`✅ UNIFIED: Jugador1 fallback loaded for ${playerData.displayName}`);
+                    console.log(`✅ UNIFIED: Jugador${playerNumber} fallback loaded for ${playerData.displayName}`);
                 };
                 
-                img.src = fallbackSrc;
+                img.src = jugadorSrc;
             };
             
-            img.src = jugadorSrc;
+            img.src = uploadedAvatarSrc;
             avatarDiv.appendChild(img);
         } else {
-            // 🔄 REUSE: Player data hasn't changed, reuse existing avatar
-            const existingAvatar = div.querySelector('.player-avatar img, .player-avatar');
-            if (existingAvatar) {
-                avatarDiv.appendChild(existingAvatar.cloneNode(true));
-            } else {
-                // Fallback if no existing avatar found
-                avatarDiv.textContent = '🎯';
-                avatarDiv.style.fontSize = '28px';
-                avatarDiv.style.display = 'flex';
-                avatarDiv.style.alignItems = 'center';
-                avatarDiv.style.justifyContent = 'center';
-            }
+            // 🔄 REUSE: Player data hasn't changed, showing last loaded avatar
+            console.log(`🔄 REUSE: Using cached display for ${playerData.displayName}`);
+            // The avatar div will be empty but that's OK - UI will still show player info
         }
 
         const infoDiv = document.createElement('div');
