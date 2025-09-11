@@ -1793,8 +1793,8 @@ function setupLobby() {
     // 🎯 POPULATE AVATAR GRID WITH REAL AVATARS (DISABLED for now to restore emoji system)
     // populateAvatarGrid();
     
-    // 📱 MOBILE FIX: Replace emoji avatar selection with jugador avatars
-    replaceEmojiAvatarsWithJugador();
+    // 📱 MOBILE FIX: Replace emoji avatar selection with jugador avatars (DISABLED to prevent script display)
+    // replaceEmojiAvatarsWithJugador();
 
     // Handle avatar selection from grid
     avatarOptions.forEach(option => {
@@ -4244,7 +4244,45 @@ function updatePlayersUI() {
         // 3rd: Selected emojis (type='emoji')
         // 4th: Default avatar
         
-        if (playerData.avatar && playerData.avatar.type === 'file') {
+        // 🔧 MOBILE AVATAR FORCE FIX: Always try jugador avatar first on mobile
+        const isMobileDevice = window.innerWidth <= 900 || /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent);
+        
+        if (isMobileDevice && !playerData.avatar) {
+            // Force mobile devices to use jugador avatars when no avatar data
+            console.log(`📱 MOBILE FORCE: No avatar data for ${playerData.displayName}, forcing jugador avatar`);
+            const match = playerData.name.match(/(\d+)/);
+            const playerNumber = match ? match[1] : '1';
+            const jugadorSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg?v=${Date.now()}`;
+            
+            const img = document.createElement('img');
+            img.style.width = '40px';
+            img.style.height = '40px';
+            img.style.borderRadius = '50%';
+            img.style.objectFit = 'cover';
+            img.alt = `${playerData.displayName} avatar`;
+            img.src = jugadorSrc;
+            
+            img.onload = () => {
+                console.log(`📱✅ MOBILE FORCE: Jugador${playerNumber} loaded for ${playerData.displayName}`);
+            };
+            
+            img.onerror = () => {
+                console.log(`📱❌ MOBILE FORCE: Even jugador${playerNumber} failed, using styled emoji`);
+                avatarDiv.innerHTML = '';
+                avatarDiv.textContent = '🎯';
+                avatarDiv.style.fontSize = '28px';
+                avatarDiv.style.color = '#0066CC';
+                avatarDiv.style.display = 'flex';
+                avatarDiv.style.alignItems = 'center';
+                avatarDiv.style.justifyContent = 'center';
+                avatarDiv.style.width = '40px';
+                avatarDiv.style.height = '40px';
+                avatarDiv.style.borderRadius = '50%';
+                avatarDiv.style.backgroundColor = '#f8f9fa';
+            };
+            
+            avatarDiv.appendChild(img);
+        } else if (playerData.avatar && playerData.avatar.type === 'file') {
             // DEPLOYMENT AWARE: Try uploaded avatar file first, but expect it might be erased
             console.log(`🎯 File avatar type for ${playerData.displayName} - trying uploaded file (may be erased by deployment)`);
             
