@@ -4227,6 +4227,7 @@ function determinePlayerPositions() {
 
 // Global variable to track player data changes and prevent avatar reload loops
 let lastPlayerDataHash = null;
+let forceAvatarReload = false; // Force reload when avatars fail
 
 function updatePlayersUI() {
     if (!gameState || !gameState.jugadoresInfo || !myJugadorName) { return; }
@@ -4240,9 +4241,9 @@ function updatePlayersUI() {
     
     const isFirstLoad = lastPlayerDataHash === null;
     const playersChanged = currentPlayerDataHash !== lastPlayerDataHash;
-    const shouldLoadAvatars = isFirstLoad || playersChanged;
+    const shouldLoadAvatars = isFirstLoad || playersChanged || forceAvatarReload;
     
-    console.log(`🔍 AVATAR CHECK: First load = ${isFirstLoad}, Players changed = ${playersChanged}, Should load = ${shouldLoadAvatars}`);
+    console.log(`🔍 AVATAR CHECK: First load = ${isFirstLoad}, Players changed = ${playersChanged}, Force reload = ${forceAvatarReload}, Should load = ${shouldLoadAvatars}`);
     
     // console.log('🎮 Updating players UI with game state:', gameState.jugadoresInfo);
 
@@ -4298,13 +4299,16 @@ function updatePlayersUI() {
             const playerMatch = playerData.name.match(/(\d+)/);
             const playerNumber = playerMatch ? playerMatch[1] : '1';
             
-            // PRIORITY 1: Try uploaded avatar first
-            const uploadedAvatarSrc = `assets/icons/${playerData.displayName}_avatar.jpg?v=${Date.now()}`;
+            // PRIORITY 1: Try uploaded avatar with multiple case variations
+            const displayName = playerData.displayName;
+            const avatarVariations = [
+                `assets/icons/${displayName}_avatar.jpg`,                    // Original case (da)
+                `assets/icons/${displayName.toUpperCase()}_avatar.jpg`,      // Uppercase (DA)
+                `assets/icons/${displayName.toLowerCase()}_avatar.jpg`,      // Lowercase (da)
+                `assets/icons/${displayName.charAt(0).toUpperCase() + displayName.slice(1).toLowerCase()}_avatar.jpg` // Title case (Da)
+            ];
             
-            // PRIORITY 2: Fallback to jugador default
-            const jugadorSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg?v=${Date.now()}`;
-            
-            console.log(`🔍 UNIFIED: Trying uploaded avatar first: ${uploadedAvatarSrc}`);
+            console.log(`🔍 UNIFIED: Trying avatar variations for ${displayName}:`, avatarVariations);
             
             const img = document.createElement('img');
             img.style.width = '40px';
@@ -4313,50 +4317,63 @@ function updatePlayersUI() {
             img.style.objectFit = 'cover';
             img.alt = `${playerData.displayName} avatar`;
             
-            img.onload = () => {
-                console.log(`✅ UNIFIED: Uploaded avatar loaded for ${playerData.displayName}`);
-            };
+            let currentVariationIndex = 0;
             
-            img.onerror = () => {
-                console.log(`❌ UNIFIED: Uploaded avatar failed for ${playerData.displayName}, trying jugador${playerNumber}`);
-                
-                // Try jugador default as fallback
-                console.log(`🔧 UNIFIED: Trying jugador fallback: ${jugadorSrc}`);
-                
-                img.onerror = () => {
-                    console.log(`❌ UNIFIED: Even jugador${playerNumber} failed for ${playerData.displayName}, trying jugador1`);
+            const tryNextVariation = () => {
+                if (currentVariationIndex < avatarVariations.length) {
+                    const currentSrc = avatarVariations[currentVariationIndex] + `?v=${Date.now()}`;
+                    console.log(`🔍 UNIFIED: Trying variation ${currentVariationIndex + 1}/${avatarVariations.length}: ${currentSrc}`);
                     
-                    // Final fallback to jugador1
-                    const finalFallback = `assets/defaults/jugador1_avatar.jpg?v=${Date.now()}`;
                     img.onerror = () => {
-                        console.log(`❌ UNIFIED: All avatars failed for ${playerData.displayName}, using emoji`);
-                        avatarDiv.innerHTML = '';
-                        avatarDiv.textContent = '🎯';
-                        avatarDiv.style.fontSize = '28px';
-                        avatarDiv.style.display = 'flex';
-                        avatarDiv.style.alignItems = 'center';
-                        avatarDiv.style.justifyContent = 'center';
-                        avatarDiv.style.width = '40px';
-                        avatarDiv.style.height = '40px';
-                        avatarDiv.style.borderRadius = '50%';
-                        avatarDiv.style.backgroundColor = '#f8f9fa';
+                        console.log(`❌ UNIFIED: Failed variation ${currentVariationIndex + 1}: ${currentSrc}`);
+                        currentVariationIndex++;
+                        tryNextVariation();
                     };
                     
                     img.onload = () => {
-                        console.log(`✅ UNIFIED: Jugador1 final fallback loaded for ${playerData.displayName}`);
+                        console.log(`✅ UNIFIED: Uploaded avatar loaded: ${currentSrc}`);
                     };
                     
-                    img.src = finalFallback;
-                };
-                
-                img.onload = () => {
-                    console.log(`✅ UNIFIED: Jugador${playerNumber} fallback loaded for ${playerData.displayName}`);
-                };
-                
-                img.src = jugadorSrc;
+                    img.src = currentSrc;
+                } else {
+                    // All uploaded variations failed, try jugador defaults
+                    console.log(`🔧 UNIFIED: All uploaded variations failed, trying jugador${playerNumber}`);
+                    const jugadorSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg?v=${Date.now()}`;
+                    
+                    img.onerror = () => {
+                        console.log(`❌ UNIFIED: Jugador${playerNumber} failed, trying jugador1 fallback`);
+                        
+                        const finalFallback = `assets/defaults/jugador1_avatar.jpg?v=${Date.now()}`;
+                        img.onerror = () => {
+                            console.log(`❌ UNIFIED: All avatars failed for ${displayName}, using emoji`);
+                            avatarDiv.innerHTML = '';
+                            avatarDiv.textContent = '🎯';
+                            avatarDiv.style.fontSize = '28px';
+                            avatarDiv.style.display = 'flex';
+                            avatarDiv.style.alignItems = 'center';
+                            avatarDiv.style.justifyContent = 'center';
+                            avatarDiv.style.width = '40px';
+                            avatarDiv.style.height = '40px';
+                            avatarDiv.style.borderRadius = '50%';
+                            avatarDiv.style.backgroundColor = '#f8f9fa';
+                        };
+                        
+                        img.onload = () => {
+                            console.log(`✅ UNIFIED: Jugador1 final fallback loaded for ${displayName}`);
+                        };
+                        
+                        img.src = finalFallback;
+                    };
+                    
+                    img.onload = () => {
+                        console.log(`✅ UNIFIED: Jugador${playerNumber} loaded for ${displayName}`);
+                    };
+                    
+                    img.src = jugadorSrc;
+                }
             };
             
-            img.src = uploadedAvatarSrc;
+            tryNextVariation();
             avatarDiv.appendChild(img);
         } else {
             // 🔄 REUSE: Player data hasn't changed, showing last loaded avatar
@@ -4425,6 +4442,7 @@ function updatePlayersUI() {
     
     // 🔧 LOOP PREVENTION: Update the hash to prevent unnecessary avatar reloads
     lastPlayerDataHash = currentPlayerDataHash;
+    forceAvatarReload = false; // Reset force flag after reload attempt
 }
 
 function createPointsTableNow() {
