@@ -3664,7 +3664,7 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName) {
         hostname: window.location.hostname
     });
     
-    if (isMobileBrowser && !window.location.hostname.includes('localhost')) {
+    if ((window.innerWidth <= 900 || /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent)) && !window.location.hostname.includes('localhost')) {
         console.log('📱🚨 FORCING EMOJI AVATAR for mobile:', displayName);
         const avatarDiv = imgElement.parentElement;
         if (avatarDiv) {
@@ -3720,7 +3720,7 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName) {
         console.log(`📱🚨 MOBILE EMERGENCY: Skipping file avatars, using emoji for ${displayName}`);
         avatarDiv.textContent = '👤';
         avatarDiv.style.fontSize = '24px';
-        avatarDiv.style.color = '#666';
+        avatarDiv.style.color = '#0066CC'; avatarDiv.style.backgroundColor = '#f0f0f0'; avatarDiv.style.border = '2px solid #0066CC';
         return;
     }
     
@@ -3955,7 +3955,7 @@ function updatePlayersUI() {
             const isTouchDevice = 'ontouchstart' in window;
             const isMobileBrowser = isMobileUA || isMobileWidth || isTouchDevice;
             
-            if (isMobileBrowser && !window.location.hostname.includes('localhost')) {
+            if ((window.innerWidth <= 900 || /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent)) && !window.location.hostname.includes('localhost')) {
                 console.log('📱🚨 MOBILE: Skipping custom avatar, using emoji for', playerData.displayName);
                 avatarDiv.textContent = '📱';
                 avatarDiv.style.fontSize = '24px';
@@ -6016,5 +6016,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // console.log('🚪 Mobile Leave Game button not found');
     }
 });
+
 
 
