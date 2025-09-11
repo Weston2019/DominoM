@@ -3707,6 +3707,9 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName) {
     const playerNumber = match ? match[0] : 'default';
     const defaultAvatarSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg${cacheBuster}`;
     
+    console.log(`🎯 DEFAULT AVATAR: Attempting to load ${defaultAvatarSrc} for ${displayName}`);
+    console.log(`🔢 Player number extracted: ${playerNumber} from ${internalPlayerName}`);
+    
     let attemptIndex = 0;
     
     // Enhanced Safari Detection with debug logging
@@ -4026,13 +4029,15 @@ function updatePlayersUI() {
             setTimeout(() => {
                 if (img.style.opacity === '0') {
                     // No jugador avatar found, use emoji fallback
+                    console.log(`⏰ TIMEOUT: Default avatar failed to load for ${playerData.displayName}, using emoji fallback`);
                     avatarDiv.textContent = emojiData;
                     avatarDiv.style.fontSize = '24px';
                     img.remove();
                 } else {
                     // Jugador avatar loaded successfully
+                    console.log(`✅ TIMEOUT: Default avatar loaded successfully for ${playerData.displayName}`);
                 }
-            }, 1000);
+            }, 3000); // Increased from 1000ms to 3000ms for slower mobile connections
         }
 
         const infoDiv = document.createElement('div');
