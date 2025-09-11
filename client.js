@@ -4011,33 +4011,34 @@ function updatePlayersUI() {
             customImg.style.borderRadius = '50%';
             avatarDiv.appendChild(customImg);
         } else {
-            // FIXED PRIORITY: Always try default jugador avatars first, regardless of emoji selection
-            // This ensures players see proper default avatars instead of emojis
+            // SIMPLE FIX: Try default avatar FIRST, then fallback to emoji if it fails
+            const match = playerData.name.match(/(\d+)/);
+            const playerNumber = match ? match[1] : '1';
+            const defaultAvatarSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg`;
+            
+            console.log(`🎯 SIMPLE FIX: Loading default avatar ${defaultAvatarSrc} for ${playerData.displayName}`);
+            
             const img = document.createElement('img');
             img.style.width = '40px';
             img.style.height = '40px';
             img.style.borderRadius = '50%';
-            img.style.opacity = '0';
-            img.style.transition = 'opacity 0.3s ease';
+            img.alt = `${playerData.displayName} avatar`;
+            
+            // Simple load/error handling
+            img.onload = function() {
+                console.log(`✅ SIMPLE FIX: Default avatar loaded for ${playerData.displayName}`);
+                this.style.opacity = '1';
+            };
+            
+            img.onerror = function() {
+                console.log(`❌ SIMPLE FIX: Default avatar failed for ${playerData.displayName}, using emoji`);
+                avatarDiv.textContent = playerData.avatar && playerData.avatar.type === 'emoji' ? playerData.avatar.data : '👤';
+                avatarDiv.style.fontSize = '24px';
+                this.remove();
+            };
+            
+            img.src = defaultAvatarSrc;
             avatarDiv.appendChild(img);
-            
-            // Store the emoji as fallback
-            const emojiData = playerData.avatar && playerData.avatar.type === 'emoji' ? playerData.avatar.data : '👤';
-            
-            getPlayerIcon(img, playerData.displayName, playerData.name);
-            
-            setTimeout(() => {
-                if (img.style.opacity === '0') {
-                    // No jugador avatar found, use emoji fallback
-                    console.log(`⏰ TIMEOUT: Default avatar failed to load for ${playerData.displayName}, using emoji fallback`);
-                    avatarDiv.textContent = emojiData;
-                    avatarDiv.style.fontSize = '24px';
-                    img.remove();
-                } else {
-                    // Jugador avatar loaded successfully
-                    console.log(`✅ TIMEOUT: Default avatar loaded successfully for ${playerData.displayName}`);
-                }
-            }, 3000); // Increased from 1000ms to 3000ms for slower mobile connections
         }
 
         const infoDiv = document.createElement('div');
