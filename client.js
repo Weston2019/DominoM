@@ -13,6 +13,8 @@ let myJugadorName;
 let myPlayerHand = [];
 let gameState = {};
 let avatarCache = {}; // Cache to prevent repeated avatar loading attempts
+// Clear avatar cache on page load to force fresh avatar loading
+setTimeout(() => { avatarCache = {}; }, 100);
 let selectedTileIndex = null;
 let messageDisplay = { text: '', time: 0 };
 let tileSound;
