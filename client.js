@@ -4101,15 +4101,32 @@ function updatePlayersUI() {
                 console.log(`❌ Uploaded avatar missing (likely erased by deployment): ${uploadedAvatarSrc}`);
                 console.log(`🎯 Falling back to default avatar for ${playerData.displayName}`);
                 
-                // Immediately try default avatar
+                // Extract player number from internal name for default avatar
                 const match = playerData.name.match(/(\d+)/);
                 const playerNumber = match ? match[1] : '1';
                 const defaultAvatarSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg`;
                 
+                // 🔧 MOBILE FIX: Add cache buster for mobile browsers
+                const isMobileDevice = window.innerWidth <= 900 || /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent);
+                const cacheBuster = isMobileDevice ? `?v=${Date.now()}` : '';
+                const defaultAvatarWithCache = defaultAvatarSrc + cacheBuster;
+                
+                console.log(`🎯 MOBILE DEBUG: Using default avatar ${defaultAvatarWithCache} for ${playerData.displayName} (mobile: ${isMobileDevice})`);
+                
                 this.onerror = function() {
-                    console.log(`❌ Even default avatar failed for ${playerData.displayName}, using emoji`);
+                    console.log(`❌ Even default avatar failed for ${playerData.displayName}, using emoji fallback`);
+                    // 🔧 MOBILE FIX: Ensure avatar div shows properly on mobile
+                    avatarDiv.innerHTML = ''; // Clear any existing content
                     avatarDiv.textContent = '👤';
-                    avatarDiv.style.fontSize = '24px';
+                    avatarDiv.style.fontSize = '28px';
+                    avatarDiv.style.color = '#666';
+                    avatarDiv.style.display = 'flex';
+                    avatarDiv.style.alignItems = 'center';
+                    avatarDiv.style.justifyContent = 'center';
+                    avatarDiv.style.width = '40px';
+                    avatarDiv.style.height = '40px';
+                    avatarDiv.style.borderRadius = '50%';
+                    avatarDiv.style.backgroundColor = '#f0f0f0';
                     this.remove();
                 };
                 
@@ -4117,7 +4134,8 @@ function updatePlayersUI() {
                     console.log(`✅ DEFAULT AVATAR LOADED: ${this.src} for ${playerData.displayName}`);
                 };
                 
-                this.src = defaultAvatarSrc;
+                // Try default avatar with cache buster
+                this.src = defaultAvatarWithCache;
             };
             
             // Start with uploaded avatar attempt
@@ -4190,13 +4208,22 @@ function updatePlayersUI() {
             const playerNumber = match ? match[1] : '1';
             const defaultAvatarSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg`;
             
-            console.log(`🎯 SIMPLE FIX: Loading default avatar ${defaultAvatarSrc} for ${playerData.displayName}`);
+            // 🔧 MOBILE FIX: Add cache buster and mobile-specific handling
+            const isMobileDevice = window.innerWidth <= 900 || /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent);
+            const cacheBuster = isMobileDevice ? `?v=${Date.now()}` : '';
+            const defaultAvatarWithCache = defaultAvatarSrc + cacheBuster;
+            
+            console.log(`🎯 SIMPLE FIX: Loading default avatar ${defaultAvatarWithCache} for ${playerData.displayName} (mobile: ${isMobileDevice})`);
             
             const img = document.createElement('img');
             img.style.width = '40px';
             img.style.height = '40px';
             img.style.borderRadius = '50%';
             img.alt = `${playerData.displayName} avatar`;
+            
+            // 🔧 MOBILE FIX: Ensure proper loading and fallback
+            img.style.objectFit = 'cover';
+            img.style.backgroundColor = '#f0f0f0'; // Fallback background
             
             // Simple load/error handling
             img.onload = function() {
@@ -4210,26 +4237,24 @@ function updatePlayersUI() {
                 console.log(`❌ Complete: ${this.complete}, Natural width: ${this.naturalWidth}`);
                 console.log(`❌ Current URL: ${window.location.href}`);
                 
-                // DIAGNOSTIC: Try to fetch the avatar directly to see server response
-                fetch(defaultAvatarSrc)
-                    .then(response => {
-                        console.log(`🔍 FETCH TEST: Status ${response.status} for ${defaultAvatarSrc}`);
-                        console.log(`🔍 FETCH TEST: Headers:`, Object.fromEntries(response.headers.entries()));
-                        return response.text();
-                    })
-                    .then(data => {
-                        console.log(`🔍 FETCH TEST: Response length: ${data.length}`);
-                    })
-                    .catch(err => {
-                        console.log(`🔍 FETCH TEST: Error:`, err);
-                    });
-                
-                avatarDiv.textContent = playerData.avatar && playerData.avatar.type === 'emoji' ? playerData.avatar.data : '👤';
-                avatarDiv.style.fontSize = '24px';
+                // 🔧 MOBILE FIX: Enhanced emoji fallback with proper styling
+                avatarDiv.innerHTML = ''; // Clear any existing content
+                const emojiToShow = playerData.avatar && playerData.avatar.type === 'emoji' ? playerData.avatar.data : '👤';
+                avatarDiv.textContent = emojiToShow;
+                avatarDiv.style.fontSize = '28px';
+                avatarDiv.style.color = '#666';
+                avatarDiv.style.display = 'flex';
+                avatarDiv.style.alignItems = 'center';
+                avatarDiv.style.justifyContent = 'center';
+                avatarDiv.style.width = '40px';
+                avatarDiv.style.height = '40px';
+                avatarDiv.style.borderRadius = '50%';
+                avatarDiv.style.backgroundColor = '#f0f0f0';
                 this.remove();
             };
             
-            img.src = defaultAvatarSrc;
+            // Use the cache-busted URL for mobile
+            img.src = defaultAvatarWithCache;
             avatarDiv.appendChild(img);
         }
 
