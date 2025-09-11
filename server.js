@@ -62,6 +62,15 @@ if (!fs.existsSync(iconsDir)) {
     console.log(`✅ [STARTUP] Avatars directory exists: ${iconsDir}`);
 }
 
+// Create defaults directory for default avatars
+const defaultsDir = path.join(__dirname, 'assets', 'defaults');
+if (!fs.existsSync(defaultsDir)) {
+    fs.mkdirSync(defaultsDir, { recursive: true });
+    console.log(`🚀 [STARTUP] Created defaults directory: ${defaultsDir}`);
+} else {
+    console.log(`✅ [STARTUP] Defaults directory exists: ${defaultsDir}`);
+}
+
 // =============================================================================
 // == GLOBAL VARIABLES & GAME STATE MANAGEMENT                                ==
 // =============================================================================
