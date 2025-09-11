@@ -49,12 +49,69 @@ const io = socketIo(server);
 
 app.use(express.static(__dirname));
 
+// Serve avatars from persistent storage
+app.use('/assets/icons', express.static(global.AVATAR_ICONS_PATH || path.join(__dirname, 'assets', 'icons')));
+
 // =============================================================================
 // == ENSURE REQUIRED DIRECTORIES EXIST ON SERVER STARTUP                    ==
 // =============================================================================
 
+// =============================================================================
+// == AVATAR STORAGE CONFIGURATION - PERSISTENT ACROSS DEPLOYMENTS          ==
+// =============================================================================
+
+function setupAvatarStorage() {
+    // Check if we're on Render with persistent disk
+    const persistentPath = process.env.RENDER_PERSISTENT_DISK_PATH;
+    
+    if (persistentPath) {
+        // 🎯 PRODUCTION: Use Render persistent disk
+        console.log('🔄 [AVATAR-STORAGE] Using Render persistent disk:', persistentPath);
+        
+        global.AVATAR_ICONS_PATH = path.join(persistentPath, 'avatars');
+        global.AVATAR_DEFAULTS_PATH = path.join(__dirname, 'assets', 'defaults');
+        
+        // Create persistent avatar directory
+        if (!fs.existsSync(global.AVATAR_ICONS_PATH)) {
+            fs.mkdirSync(global.AVATAR_ICONS_PATH, { recursive: true });
+            console.log('✅ [AVATAR-STORAGE] Created persistent avatars:', global.AVATAR_ICONS_PATH);
+        } else {
+            const existingFiles = fs.readdirSync(global.AVATAR_ICONS_PATH);
+            console.log(`🎉 [AVATAR-STORAGE] Persistent avatars found: ${existingFiles.length} files`);
+        }
+    } else {
+        // 🔧 DEVELOPMENT: Use local storage
+        console.log('🔄 [AVATAR-STORAGE] Using local storage (development mode)');
+        
+        global.AVATAR_ICONS_PATH = path.join(__dirname, 'assets', 'icons');
+        global.AVATAR_DEFAULTS_PATH = path.join(__dirname, 'assets', 'defaults');
+        
+        // Create local directories
+        if (!fs.existsSync(global.AVATAR_ICONS_PATH)) {
+            fs.mkdirSync(global.AVATAR_ICONS_PATH, { recursive: true });
+            console.log('✅ [AVATAR-STORAGE] Created local avatars directory');
+        }
+    }
+    
+    // Always ensure defaults directory exists
+    if (!fs.existsSync(global.AVATAR_DEFAULTS_PATH)) {
+        fs.mkdirSync(global.AVATAR_DEFAULTS_PATH, { recursive: true });
+        console.log('✅ [AVATAR-STORAGE] Created defaults directory');
+    }
+    
+    console.log('📁 [AVATAR-STORAGE] Paths configured:', {
+        icons: global.AVATAR_ICONS_PATH,
+        defaults: global.AVATAR_DEFAULTS_PATH,
+        persistent: !!persistentPath
+    });
+}
+
+// Initialize avatar storage
+setupAvatarStorage();
+
+// Legacy support - remove these after updating all references
 // Create avatars directory if it doesn't exist
-const iconsDir = path.join(__dirname, 'assets', 'icons');
+const iconsDir = global.AVATAR_ICONS_PATH || path.join(__dirname, 'assets', 'icons');
 if (!fs.existsSync(iconsDir)) {
     fs.mkdirSync(iconsDir, { recursive: true });
     console.log(`🚀 [STARTUP] Created avatars directory: ${iconsDir}`);
@@ -63,7 +120,7 @@ if (!fs.existsSync(iconsDir)) {
 }
 
 // Create defaults directory for default avatars
-const defaultsDir = path.join(__dirname, 'assets', 'defaults');
+const defaultsDir = global.AVATAR_DEFAULTS_PATH || path.join(__dirname, 'assets', 'defaults');
 if (!fs.existsSync(defaultsDir)) {
     fs.mkdirSync(defaultsDir, { recursive: true });
     console.log(`🚀 [STARTUP] Created defaults directory: ${defaultsDir}`);
@@ -1107,16 +1164,16 @@ app.post('/save-avatar', express.json({ limit: '1mb' }), (req, res) => {
     
     // Create the filename using exact case provided by user
     const filename = `${playerName}_avatar.jpg`;
-    const filepath = path.join(iconsDir, filename);
+    const filepath = path.join(global.AVATAR_ICONS_PATH || iconsDir, filename);
     
-    // Save the file
+    // Save the file to persistent storage
     fs.writeFile(filepath, imageBuffer, (err) => {
         if (err) {
             console.error('Error saving avatar file:', err);
             return res.status(500).json({ error: 'Failed to save avatar file' });
         }
         
-        console.log(`✅ Avatar saved: ${filename}`);
+        console.log(`✅ Avatar saved to persistent storage: ${filename} -> ${filepath}`);
         res.json({ success: true, filename: filename });
     });
 });
@@ -1127,8 +1184,8 @@ app.get('/debug/avatars', (req, res) => {
     const path = require('path');
     
     try {
-        const iconsDir = path.join(__dirname, 'assets', 'icons');
-        const defaultsDir = path.join(__dirname, 'assets', 'defaults');
+        const iconsDir = global.AVATAR_ICONS_PATH || path.join(__dirname, 'assets', 'icons');
+        const defaultsDir = global.AVATAR_DEFAULTS_PATH || path.join(__dirname, 'assets', 'defaults');
         
         let iconFiles = [];
         let defaultFiles = [];
