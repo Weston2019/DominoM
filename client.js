@@ -4244,8 +4244,8 @@ function updatePlayersUI() {
         // 3rd: Selected emojis (type='emoji')
         // 4th: Default avatar
         
-        // 🔧 MOBILE AVATAR FORCE FIX: Always use jugador avatars on mobile to avoid empty circles
-        const isMobileDevice = window.innerWidth <= 900 || /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent);
+        // 🔧 MOBILE AVATAR FORCE FIX: Only apply to actual mobile devices
+        const isMobileDevice = /iPhone|iPad|iPod|Android|Mobile|Phone|Tablet/i.test(navigator.userAgent) && window.innerWidth <= 1024;
         
         if (isMobileDevice) {
             // Force ALL mobile devices to use jugador avatars (uploaded avatars get erased by deployments)
