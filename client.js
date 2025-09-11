@@ -1670,6 +1670,119 @@ function setupLobby() {
     
     nameInput.focus(); 
     
+    // 📱 REPLACE EMOJI AVATAR SELECTION WITH JUGADOR AVATARS
+    function replaceEmojiAvatarsWithJugador() {
+        console.log('🎯 Replacing emoji avatar selection with jugador avatars...');
+        
+        setTimeout(() => {
+            const avatarOptions = document.querySelectorAll('.avatar-option');
+            console.log('🔍 Found', avatarOptions.length, 'avatar options to replace');
+            
+            if (avatarOptions.length > 0) {
+                const container = avatarOptions[0].parentElement;
+                console.log('📦 Avatar container found:', container ? container.className : 'none');
+                
+                // Clear all existing emoji options
+                avatarOptions.forEach(option => option.remove());
+                
+                // Add jugador default avatars
+                const jugadorAvatars = [
+                    { src: 'assets/defaults/jugador1_avatar.jpg', name: 'Jugador 1' },
+                    { src: 'assets/defaults/jugador2_avatar.jpg', name: 'Jugador 2' },
+                    { src: 'assets/defaults/jugador3_avatar.jpg', name: 'Jugador 3' },
+                    { src: 'assets/defaults/jugador4_avatar.jpg', name: 'Jugador 4' }
+                ];
+                
+                jugadorAvatars.forEach((avatar, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'avatar-option';
+                    div.dataset.avatar = avatar.src;
+                    div.style.cssText = `
+                        display: inline-block;
+                        margin: 5px;
+                        cursor: pointer;
+                        border: 2px solid transparent;
+                        border-radius: 50%;
+                        transition: border-color 0.2s;
+                        width: 44px;
+                        height: 44px;
+                        overflow: hidden;
+                    `;
+                    
+                    const img = document.createElement('img');
+                    img.src = avatar.src;
+                    img.alt = avatar.name;
+                    img.style.cssText = `
+                        width: 40px;
+                        height: 40px;
+                        border-radius: 50%;
+                        object-fit: cover;
+                        display: block;
+                    `;
+                    
+                    img.onload = () => {
+                        console.log(`✅ Loaded avatar: ${avatar.src}`);
+                    };
+                    
+                    img.onerror = () => {
+                        console.log(`❌ Failed to load: ${avatar.src}`);
+                        // Fallback to emoji
+                        div.innerHTML = '';
+                        div.textContent = ['🎯', '🎲', '🎮', '🏆'][index] || '👤';
+                        div.style.fontSize = '28px';
+                        div.style.display = 'flex';
+                        div.style.alignItems = 'center';
+                        div.style.justifyContent = 'center';
+                        div.style.color = '#0066CC';
+                        div.style.backgroundColor = '#f8f9fa';
+                    };
+                    
+                    div.appendChild(img);
+                    
+                    // Add click handler
+                    div.addEventListener('click', () => {
+                        // Remove selected from all options
+                        document.querySelectorAll('.avatar-option').forEach(opt => {
+                            opt.style.border = '2px solid transparent';
+                            opt.classList.remove('selected');
+                        });
+                        
+                        // Select this one
+                        div.style.border = '3px solid #007bff';
+                        div.classList.add('selected');
+                        
+                        // Update selection
+                        selectedAvatar = avatar.src;
+                        customAvatarData = null;
+                        
+                        // Hide custom preview
+                        const customPreview = document.getElementById('custom-avatar-preview');
+                        if (customPreview) customPreview.style.display = 'none';
+                        
+                        // Save to localStorage
+                        localStorage.setItem('domino_player_avatar', JSON.stringify({
+                            type: 'image',
+                            data: avatar.src
+                        }));
+                        
+                        console.log('✅ Selected jugador avatar:', avatar.src);
+                    });
+                    
+                    container.appendChild(div);
+                });
+                
+                console.log('✅ Replaced', avatarOptions.length, 'emoji options with', jugadorAvatars.length, 'jugador avatars');
+                
+                // Select first jugador avatar by default
+                if (container.children.length > 0) {
+                    container.children[0].click();
+                }
+            } else {
+                console.log('⚠️ No avatar options found to replace');
+            }
+        }, 500); // Wait for DOM to be ready
+    }
+    
     // Setup suggestion box functionality
     setupSuggestionBox();
     
@@ -1679,6 +1792,9 @@ function setupLobby() {
     
     // 🎯 POPULATE AVATAR GRID WITH REAL AVATARS (DISABLED for now to restore emoji system)
     // populateAvatarGrid();
+    
+    // 📱 MOBILE FIX: Replace emoji avatar selection with jugador avatars
+    replaceEmojiAvatarsWithJugador();
 
     // Handle avatar selection from grid
     avatarOptions.forEach(option => {
