@@ -4306,10 +4306,7 @@ function updatePlayersUI() {
             const avatarVariations = [
                 `assets/icons/${displayName}_avatar.jpg`,                    // Original case (e.g., KK)
                 `assets/icons/${displayName.toUpperCase()}_avatar.jpg`,      // Force uppercase (KK)
-                `assets/icons/${displayName.toLowerCase()}_avatar.jpg`,      // Force lowercase (kk) 
-                `assets/icons/${displayName.toLowerCase()}_AVATAR.jpg`,      // lowercase + AVATAR (kk_AVATAR)
-                `assets/icons/${displayName.toUpperCase()}_AVATAR.jpg`,      // All caps (KK_AVATAR)
-                // Skip problematic title case for all-uppercase names
+                `assets/icons/${displayName.toLowerCase()}_avatar.jpg`,      // Force lowercase (kk)
                 ...(displayName === displayName.toUpperCase() ? [] : 
                     [`assets/icons/${displayName.charAt(0).toUpperCase() + displayName.slice(1).toLowerCase()}_avatar.jpg`])
             ];
@@ -4342,40 +4339,33 @@ function updatePlayersUI() {
                     
                     img.src = currentSrc;
                 } else {
-                    // All uploaded variations failed, try jugador defaults
-                    console.log(`🔧 UNIFIED: All uploaded variations failed, trying jugador${playerNumber}`);
-                    const jugadorSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg?v=${Date.now()}`;
+                    // All uploaded variations failed, use colored initials as fallback
+                    console.log(`🔧 UNIFIED: All uploaded variations failed for ${displayName}, creating colored initials`);
                     
-                    img.onerror = () => {
-                        console.log(`❌ UNIFIED: Jugador${playerNumber} failed, trying jugador1 fallback`);
-                        
-                        const finalFallback = `assets/defaults/jugador1_avatar.jpg?v=${Date.now()}`;
-                        img.onerror = () => {
-                            console.log(`❌ UNIFIED: All avatars failed for ${displayName}, using emoji`);
-                            avatarDiv.innerHTML = '';
-                            avatarDiv.textContent = '🎯';
-                            avatarDiv.style.fontSize = '28px';
-                            avatarDiv.style.display = 'flex';
-                            avatarDiv.style.alignItems = 'center';
-                            avatarDiv.style.justifyContent = 'center';
-                            avatarDiv.style.width = '40px';
-                            avatarDiv.style.height = '40px';
-                            avatarDiv.style.borderRadius = '50%';
-                            avatarDiv.style.backgroundColor = '#f8f9fa';
-                        };
-                        
-                        img.onload = () => {
-                            console.log(`✅ UNIFIED: Jugador1 final fallback loaded for ${displayName}`);
-                        };
-                        
-                        img.src = finalFallback;
-                    };
+                    // Remove the img element and create a colored div with initials
+                    img.remove();
                     
-                    img.onload = () => {
-                        console.log(`✅ UNIFIED: Jugador${playerNumber} loaded for ${displayName}`);
-                    };
+                    // Create colored avatar with initials
+                    const coloredAvatar = document.createElement('div');
+                    coloredAvatar.style.width = '40px';
+                    coloredAvatar.style.height = '40px';
+                    coloredAvatar.style.borderRadius = '50%';
+                    coloredAvatar.style.display = 'flex';
+                    coloredAvatar.style.alignItems = 'center';
+                    coloredAvatar.style.justifyContent = 'center';
+                    coloredAvatar.style.fontSize = '16px';
+                    coloredAvatar.style.fontWeight = 'bold';
+                    coloredAvatar.style.color = 'white';
+                    coloredAvatar.textContent = displayName.substring(0, 2).toUpperCase();
                     
-                    img.src = jugadorSrc;
+                    // Use different colors based on player number
+                    const colors = ['#007bff', '#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6f42c1'];
+                    const colorIndex = (parseInt(playerNumber) - 1) % colors.length;
+                    coloredAvatar.style.backgroundColor = colors[colorIndex];
+                    
+                    avatarDiv.appendChild(coloredAvatar);
+                    console.log(`✅ UNIFIED: Created colored initials avatar for ${displayName}: ${displayName.substring(0, 2).toUpperCase()}`);
+                    return; // Don't continue with img loading
                 }
             };
             

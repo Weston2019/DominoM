@@ -10,6 +10,94 @@ const path = require('path');
 const analytics = require('./analytics');
 
 const app = express();
+
+// =============================================================================
+// == RENDER-ONLY AVATAR SYSTEM - Creates avatars that exist only on server ==
+// =============================================================================
+
+// Create avatars directory if it doesn't exist
+const serverAvatarsDir = path.join(__dirname, 'assets', 'icons');
+const serverDefaultsDir = path.join(__dirname, 'assets', 'defaults');
+
+if (!fs.existsSync(serverAvatarsDir)) {
+    fs.mkdirSync(serverAvatarsDir, { recursive: true });
+}
+if (!fs.existsSync(serverDefaultsDir)) {
+    fs.mkdirSync(serverDefaultsDir, { recursive: true });
+}
+
+// Generate SVG avatar for a given name and color
+function generateSVGAvatar(initials, color) {
+    return `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="20" cy="20" r="20" fill="${color}"/>
+        <text x="20" y="26" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle">${initials}</text>
+    </svg>`;
+}
+
+// Server-side avatar endpoint - creates avatars on-demand
+app.get('/assets/icons/:filename', (req, res) => {
+    const filename = req.params.filename;
+    const filePath = path.join(serverAvatarsDir, filename);
+    
+    // If file exists, serve it
+    if (fs.existsSync(filePath)) {
+        return res.sendFile(filePath);
+    }
+    
+    // If it's an avatar request, generate one dynamically
+    const match = filename.match(/^([A-Za-z0-9]+)_avatar\.(jpg|png|svg)$/);
+    if (match) {
+        const username = match[1].toUpperCase();
+        const initials = username.substring(0, 2);
+        
+        // Color based on username hash
+        const colors = ['#007bff', '#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6f42c1', '#fd7e14', '#20c997'];
+        let hash = 0;
+        for (let i = 0; i < username.length; i++) {
+            hash = username.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const color = colors[Math.abs(hash) % colors.length];
+        
+        // Generate SVG avatar
+        const svgContent = generateSVGAvatar(initials, color);
+        
+        res.setHeader('Content-Type', 'image/svg+xml');
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+        return res.send(svgContent);
+    }
+    
+    // File not found
+    res.status(404).send('Avatar not found');
+});
+
+// Default jugador avatars endpoint
+app.get('/assets/defaults/:filename', (req, res) => {
+    const filename = req.params.filename;
+    const filePath = path.join(serverDefaultsDir, filename);
+    
+    // If file exists, serve it
+    if (fs.existsSync(filePath)) {
+        return res.sendFile(filePath);
+    }
+    
+    // Generate default jugador avatar
+    const match = filename.match(/^jugador(\d+)_avatar\.(jpg|png|svg)$/);
+    if (match) {
+        const playerNum = parseInt(match[1]);
+        const colors = ['#007bff', '#28a745', '#ffc107', '#dc3545'];
+        const color = colors[(playerNum - 1) % colors.length];
+        const initials = `J${playerNum}`;
+        
+        const svgContent = generateSVGAvatar(initials, color);
+        
+        res.setHeader('Content-Type', 'image/svg+xml');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        return res.send(svgContent);
+    }
+    
+    res.status(404).send('Default avatar not found');
+});
+
 // Endpoint to get active rooms and their player counts
 app.get('/active-rooms', (req, res) => {
     const rooms = [];
