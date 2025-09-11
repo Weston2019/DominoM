@@ -4227,7 +4227,7 @@ function determinePlayerPositions() {
 
 // Global variable to track player data changes and prevent avatar reload loops
 let lastPlayerDataHash = null;
-let forceAvatarReload = false; // Force reload when avatars fail
+let forceAvatarReload = true; // Start with force reload to ensure initial load
 
 function updatePlayersUI() {
     if (!gameState || !gameState.jugadoresInfo || !myJugadorName) { return; }
@@ -4376,9 +4376,21 @@ function updatePlayersUI() {
             tryNextVariation();
             avatarDiv.appendChild(img);
         } else {
-            // 🔄 REUSE: Player data hasn't changed, showing last loaded avatar
-            console.log(`🔄 REUSE: Using cached display for ${playerData.displayName}`);
-            // The avatar div will be empty but that's OK - UI will still show player info
+            // 🔄 REUSE: Player data hasn't changed, check if avatars actually exist
+            console.log(`🔄 REUSE: Checking cached display for ${playerData.displayName}`);
+            const existingImg = div.querySelector('.player-avatar img');
+            const existingContent = div.querySelector('.player-avatar');
+            
+            if (!existingImg && (!existingContent || existingContent.innerHTML.trim() === '')) {
+                // No avatar loaded, force a reload
+                console.log(`⚠️ REUSE: No cached avatar found for ${playerData.displayName}, forcing reload`);
+                forceAvatarReload = true;
+                // Restart the function to load avatars
+                updatePlayersUI();
+                return;
+            } else {
+                console.log(`✅ REUSE: Using valid cached display for ${playerData.displayName}`);
+            }
         }
 
         const infoDiv = document.createElement('div');
