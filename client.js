@@ -3940,15 +3940,33 @@ function updatePlayersUI() {
         // 4th: Default avatar
         
         if (playerData.avatar && playerData.avatar.type === 'file') {
-            // Server indicated to use file - try to load image file
+            // REMOVED: Complex getPlayerIcon logic that was causing 404s
+            // Server indicated to use file - but files get erased, so fallback to default
+            console.log(`⚠️ File avatar type detected for ${playerData.displayName}, using default instead`);
+            
+            const match = playerData.name.match(/(\d+)/);
+            const playerNumber = match ? match[1] : '1';
+            const defaultAvatarSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg`;
+            
             const img = document.createElement('img');
             img.style.width = '40px';
             img.style.height = '40px';
             img.style.borderRadius = '50%';
-            avatarDiv.appendChild(img);
+            img.alt = `${playerData.displayName} avatar`;
             
-            // Use original getPlayerIcon function for all cases - this was working!
-            getPlayerIcon(img, playerData.displayName, playerData.name);
+            img.onload = function() {
+                console.log(`✅ DEFAULT: Avatar loaded for ${playerData.displayName}`);
+            };
+            
+            img.onerror = function() {
+                console.log(`❌ DEFAULT: Avatar failed for ${playerData.displayName}`);
+                avatarDiv.textContent = '👤';
+                avatarDiv.style.fontSize = '24px';
+                this.remove();
+            };
+            
+            img.src = defaultAvatarSrc;
+            avatarDiv.appendChild(img);
         } else if (playerData.avatar && playerData.avatar.type === 'custom') {
             // Custom uploaded avatar
             avatarDiv.classList.add('custom-avatar');
@@ -4031,7 +4049,25 @@ function updatePlayersUI() {
             };
             
             img.onerror = function() {
-                console.log(`❌ SIMPLE FIX: Default avatar failed for ${playerData.displayName}, using emoji`);
+                console.log(`❌ SIMPLE FIX: Default avatar failed for ${playerData.displayName}`);
+                console.log(`❌ Failed URL: ${this.src}`);
+                console.log(`❌ Complete: ${this.complete}, Natural width: ${this.naturalWidth}`);
+                console.log(`❌ Current URL: ${window.location.href}`);
+                
+                // DIAGNOSTIC: Try to fetch the avatar directly to see server response
+                fetch(defaultAvatarSrc)
+                    .then(response => {
+                        console.log(`🔍 FETCH TEST: Status ${response.status} for ${defaultAvatarSrc}`);
+                        console.log(`🔍 FETCH TEST: Headers:`, Object.fromEntries(response.headers.entries()));
+                        return response.text();
+                    })
+                    .then(data => {
+                        console.log(`🔍 FETCH TEST: Response length: ${data.length}`);
+                    })
+                    .catch(err => {
+                        console.log(`🔍 FETCH TEST: Error:`, err);
+                    });
+                
                 avatarDiv.textContent = playerData.avatar && playerData.avatar.type === 'emoji' ? playerData.avatar.data : '👤';
                 avatarDiv.style.fontSize = '24px';
                 this.remove();
