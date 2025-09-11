@@ -5458,10 +5458,8 @@ function enableAudioAutoPlay() {
             
         } catch (error) {
             console.log('🎵 Audio system initialization failed:', error.name);
-            // Try again after a short delay
-            setTimeout(() => {
-                window.audioSystemInitialized = false;
-            }, 5000);
+            // Don't retry - just continue without audio to prevent infinite loop
+            console.log('🎵 Continuing without audio system to prevent blocking game start');
         }
     };
     
