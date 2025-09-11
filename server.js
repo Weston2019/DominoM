@@ -1133,13 +1133,27 @@ app.get('/debug/avatars', (req, res) => {
     
     try {
         const iconsDir = path.join(__dirname, 'assets', 'icons');
-        const files = fs.readdirSync(iconsDir);
-        const avatarFiles = files.filter(file => file.endsWith('_avatar.jpg'));
+        const defaultsDir = path.join(__dirname, 'assets', 'defaults');
+        
+        let iconFiles = [];
+        let defaultFiles = [];
+        
+        if (fs.existsSync(iconsDir)) {
+            iconFiles = fs.readdirSync(iconsDir).filter(file => file.endsWith('_avatar.jpg'));
+        }
+        
+        if (fs.existsSync(defaultsDir)) {
+            defaultFiles = fs.readdirSync(defaultsDir).filter(file => file.includes('avatar'));
+        }
         
         res.json({ 
             success: true, 
-            avatarFiles: avatarFiles.sort(),
-            iconsDir: iconsDir 
+            avatarFiles: iconFiles.sort(),
+            defaultFiles: defaultFiles.sort(),
+            iconsDirExists: fs.existsSync(iconsDir),
+            defaultsDirExists: fs.existsSync(defaultsDir),
+            iconsPath: iconsDir,
+            defaultsPath: defaultsDir
         });
     } catch (error) {
         res.json({ 

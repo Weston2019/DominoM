@@ -3817,7 +3817,7 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName) {
         console.log(`❌ MOBILE DEBUG - Inner width: ${window.innerWidth}`);
         
         // If we're still trying custom avatar variations
-        if (attemptIndex <= avatarVariations.length) {
+        if (attemptIndex < avatarVariations.length) {
             tryNextAvatar();
         } else {
             // Even default failed, remove the image element and use emoji
