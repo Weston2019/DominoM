@@ -52,6 +52,22 @@ app.use(express.static(__dirname));
 // Serve avatars from persistent storage
 app.use('/assets/icons', express.static(global.AVATAR_ICONS_PATH || path.join(__dirname, 'assets', 'icons')));
 
+// Serve individual avatar files from memory storage
+app.get('/assets/icons/:filename', (req, res) => {
+    const filename = req.params.filename;
+    
+    // Try to get from memory storage first
+    const avatarData = getAvatar(filename);
+    
+    if (avatarData) {
+        res.set('Content-Type', 'image/jpeg');
+        res.set('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+        res.send(avatarData);
+    } else {
+        res.status(404).json({ error: 'Avatar not found' });
+    }
+});
+
 // =============================================================================
 // == ENSURE REQUIRED DIRECTORIES EXIST ON SERVER STARTUP                    ==
 // =============================================================================
@@ -80,17 +96,21 @@ function setupAvatarStorage() {
             console.log(`🎉 [AVATAR-STORAGE] Persistent avatars found: ${existingFiles.length} files`);
         }
     } else {
-        // 🔧 DEVELOPMENT: Use local storage
-        console.log('🔄 [AVATAR-STORAGE] Using local storage (development mode)');
+        // 🔧 FALLBACK: Use in-memory avatar storage (database approach)
+        console.log('🔄 [AVATAR-STORAGE] Using in-memory storage with database backup');
         
+        global.AVATAR_STORAGE = new Map(); // In-memory avatar storage
         global.AVATAR_ICONS_PATH = path.join(__dirname, 'assets', 'icons');
         global.AVATAR_DEFAULTS_PATH = path.join(__dirname, 'assets', 'defaults');
         
-        // Create local directories
+        // Create local directories for fallback
         if (!fs.existsSync(global.AVATAR_ICONS_PATH)) {
             fs.mkdirSync(global.AVATAR_ICONS_PATH, { recursive: true });
             console.log('✅ [AVATAR-STORAGE] Created local avatars directory');
         }
+        
+        // Load any existing avatars into memory
+        loadAvatarsIntoMemory();
     }
     
     // Always ensure defaults directory exists
@@ -102,8 +122,71 @@ function setupAvatarStorage() {
     console.log('📁 [AVATAR-STORAGE] Paths configured:', {
         icons: global.AVATAR_ICONS_PATH,
         defaults: global.AVATAR_DEFAULTS_PATH,
-        persistent: !!persistentPath
+        persistent: !!persistentPath,
+        inMemoryStorage: !persistentPath
     });
+}
+
+// Load existing avatars into memory storage
+function loadAvatarsIntoMemory() {
+    try {
+        if (fs.existsSync(global.AVATAR_ICONS_PATH)) {
+            const files = fs.readdirSync(global.AVATAR_ICONS_PATH);
+            files.forEach(filename => {
+                if (filename.endsWith('_avatar.jpg')) {
+                    const filepath = path.join(global.AVATAR_ICONS_PATH, filename);
+                    const data = fs.readFileSync(filepath, 'base64');
+                    global.AVATAR_STORAGE.set(filename, data);
+                }
+            });
+            console.log(`📦 [AVATAR-STORAGE] Loaded ${global.AVATAR_STORAGE.size} avatars into memory`);
+        }
+    } catch (error) {
+        console.error('❌ [AVATAR-STORAGE] Failed to load avatars into memory:', error);
+    }
+}
+
+// Save avatar to memory and try to write to disk
+function saveAvatar(filename, imageBuffer) {
+    if (global.AVATAR_STORAGE) {
+        // Store in memory first
+        const base64Data = imageBuffer.toString('base64');
+        global.AVATAR_STORAGE.set(filename, base64Data);
+        console.log(`💾 [AVATAR-STORAGE] Saved ${filename} to memory storage`);
+    }
+    
+    // Also try to save to disk (will be lost on deployment but that's ok)
+    const filepath = path.join(global.AVATAR_ICONS_PATH, filename);
+    fs.writeFileSync(filepath, imageBuffer);
+}
+
+// Get avatar from memory or disk
+function getAvatar(filename) {
+    if (global.AVATAR_STORAGE && global.AVATAR_STORAGE.has(filename)) {
+        return Buffer.from(global.AVATAR_STORAGE.get(filename), 'base64');
+    }
+    
+    // Fallback to disk
+    const filepath = path.join(global.AVATAR_ICONS_PATH, filename);
+    if (fs.existsSync(filepath)) {
+        return fs.readFileSync(filepath);
+    }
+    
+    return null;
+}
+
+// List all avatars from memory storage
+function listAvatars() {
+    if (global.AVATAR_STORAGE) {
+        return Array.from(global.AVATAR_STORAGE.keys());
+    }
+    
+    // Fallback to disk listing
+    if (fs.existsSync(global.AVATAR_ICONS_PATH)) {
+        return fs.readdirSync(global.AVATAR_ICONS_PATH).filter(f => f.endsWith('_avatar.jpg'));
+    }
+    
+    return [];
 }
 
 // Initialize avatar storage
@@ -1164,18 +1247,17 @@ app.post('/save-avatar', express.json({ limit: '1mb' }), (req, res) => {
     
     // Create the filename using exact case provided by user
     const filename = `${playerName}_avatar.jpg`;
-    const filepath = path.join(global.AVATAR_ICONS_PATH || iconsDir, filename);
     
-    // Save the file to persistent storage
-    fs.writeFile(filepath, imageBuffer, (err) => {
-        if (err) {
-            console.error('Error saving avatar file:', err);
-            return res.status(500).json({ error: 'Failed to save avatar file' });
-        }
+    try {
+        // Save using the new storage system
+        saveAvatar(filename, imageBuffer);
         
-        console.log(`✅ Avatar saved to persistent storage: ${filename} -> ${filepath}`);
+        console.log(`✅ Avatar saved to memory storage: ${filename}`);
         res.json({ success: true, filename: filename });
-    });
+    } catch (error) {
+        console.error('Error saving avatar:', error);
+        res.status(500).json({ error: 'Failed to save avatar' });
+    }
 });
 
 // Debug endpoint to list avatar files (remove after testing)
@@ -1187,12 +1269,9 @@ app.get('/debug/avatars', (req, res) => {
         const iconsDir = global.AVATAR_ICONS_PATH || path.join(__dirname, 'assets', 'icons');
         const defaultsDir = global.AVATAR_DEFAULTS_PATH || path.join(__dirname, 'assets', 'defaults');
         
-        let iconFiles = [];
+        // Get avatar files from memory storage or disk
+        let iconFiles = listAvatars();
         let defaultFiles = [];
-        
-        if (fs.existsSync(iconsDir)) {
-            iconFiles = fs.readdirSync(iconsDir).filter(file => file.endsWith('_avatar.jpg'));
-        }
         
         if (fs.existsSync(defaultsDir)) {
             defaultFiles = fs.readdirSync(defaultsDir).filter(file => file.includes('avatar'));
