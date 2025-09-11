@@ -1677,82 +1677,8 @@ function setupLobby() {
     // console.log('🎯 Setting up STUBBORN mobile suggestion box...');
     setupStubbornBox();
     
-    // 🎯 POPULATE AVATAR GRID WITH REAL AVATARS
-    populateAvatarGrid();
-    
-    // 🔧 FALLBACK: Force replace emojis after DOM loads
-    setTimeout(async () => {
-        const emojiOptions = document.querySelectorAll('.avatar-option');
-        if (emojiOptions.length > 0 && emojiOptions[0].textContent.match(/[😎🤠🥳🎯🎲🎮🤩😈⚡🔥💎🤖🌟🏆👑🎊]/)) {
-            console.log('🔧 FALLBACK: Detected emoji avatars, replacing with images...');
-            
-            try {
-                const response = await fetch('/debug/avatars');
-                const data = await response.json();
-                
-                if (data.success) {
-                    const container = emojiOptions[0].parentElement;
-                    
-                    // Remove all emojis
-                    emojiOptions.forEach(option => option.remove());
-                    
-                    // Add image avatars
-                    const jugadorFiles = data.defaultFiles.filter(f => f.startsWith('jugador'));
-                    jugadorFiles.forEach(filename => {
-                        const div = document.createElement('div');
-                        div.className = 'avatar-option';
-                        div.dataset.avatar = `assets/defaults/${filename}`;
-                        div.style.cssText = 'display: inline-block; margin: 5px; cursor: pointer; border: 2px solid transparent; border-radius: 50%; transition: border-color 0.2s;';
-                        div.innerHTML = `<img src="assets/defaults/${filename}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">`;
-                        
-                        div.addEventListener('click', () => {
-                            document.querySelectorAll('.avatar-option').forEach(opt => {
-                                opt.style.border = '2px solid transparent';
-                                opt.classList.remove('selected');
-                            });
-                            div.style.border = '3px solid #007bff';
-                            div.classList.add('selected');
-                            selectedAvatar = `assets/defaults/${filename}`;
-                            localStorage.setItem('domino_player_avatar', JSON.stringify({
-                                type: 'image',
-                                data: selectedAvatar
-                            }));
-                        });
-                        
-                        container.appendChild(div);
-                    });
-                    
-                    data.avatarFiles.forEach(filename => {
-                        const div = document.createElement('div');
-                        div.className = 'avatar-option';
-                        div.dataset.avatar = `assets/icons/${filename}`;
-                        div.style.cssText = 'display: inline-block; margin: 5px; cursor: pointer; border: 2px solid transparent; border-radius: 50%; transition: border-color 0.2s;';
-                        div.innerHTML = `<img src="assets/icons/${filename}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">`;
-                        
-                        div.addEventListener('click', () => {
-                            document.querySelectorAll('.avatar-option').forEach(opt => {
-                                opt.style.border = '2px solid transparent';
-                                opt.classList.remove('selected');
-                            });
-                            div.style.border = '3px solid #007bff';
-                            div.classList.add('selected');
-                            selectedAvatar = `assets/icons/${filename}`;
-                            localStorage.setItem('domino_player_avatar', JSON.stringify({
-                                type: 'image',
-                                data: selectedAvatar
-                            }));
-                        });
-                        
-                        container.appendChild(div);
-                    });
-                    
-                    console.log('✅ FALLBACK SUCCESS: Emoji avatars replaced with images!');
-                }
-            } catch (error) {
-                console.error('❌ Fallback replacement failed:', error);
-            }
-        }
-    }, 1000);
+    // 🎯 POPULATE AVATAR GRID WITH REAL AVATARS (DISABLED for now to restore emoji system)
+    // populateAvatarGrid();
 
     // Handle avatar selection from grid
     avatarOptions.forEach(option => {
