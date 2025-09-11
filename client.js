@@ -3664,25 +3664,26 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName) {
         hostname: window.location.hostname
     });
     
-    if (isMobileBrowser && !window.location.hostname.includes('localhost')) {
-        console.log('📱🚨 FORCING EMOJI AVATAR for mobile:', displayName);
-        const avatarDiv = imgElement.parentElement;
-        if (avatarDiv) {
-            // Clear any existing content and set emoji
-            avatarDiv.innerHTML = '';
-            avatarDiv.textContent = '�'; // Changed to phone emoji to confirm mobile detection
-            avatarDiv.style.fontSize = '24px';
-            avatarDiv.style.color = '#0066CC'; // Blue color to stand out
-            avatarDiv.style.display = 'flex';
-            avatarDiv.style.alignItems = 'center';
-            avatarDiv.style.justifyContent = 'center';
-            avatarDiv.title = 'Mobile Mode Active'; // Tooltip
-        }
-        // Hide the image element completely
-        imgElement.style.display = 'none';
-        imgElement.remove();
-        return;
-    }
+    // FIXED: Removed mobile blocking - let default jugador avatars try to load on mobile too
+    // if (isMobileBrowser && !window.location.hostname.includes('localhost')) {
+    //     console.log('📱🚨 FORCING EMOJI AVATAR for mobile:', displayName);
+    //     const avatarDiv = imgElement.parentElement;
+    //     if (avatarDiv) {
+    //         // Clear any existing content and set emoji
+    //         avatarDiv.innerHTML = '';
+    //         avatarDiv.textContent = '📱'; // Changed to phone emoji to confirm mobile detection
+    //         avatarDiv.style.fontSize = '24px';
+    //         avatarDiv.style.color = '#0066CC'; // Blue color to stand out
+    //         avatarDiv.style.display = 'flex';
+    //         avatarDiv.style.alignItems = 'center';
+    //         avatarDiv.style.justifyContent = 'center';
+    //         avatarDiv.title = 'Mobile Mode Active'; // Tooltip
+    //     }
+    //     // Hide the image element completely
+    //     imgElement.style.display = 'none';
+    //     imgElement.remove();
+    //     return;
+    // }
     
     // Create multiple filename variations to try
     const baseVariations = [
@@ -3704,7 +3705,7 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName) {
     
     const match = internalPlayerName.match(/\d+/);
     const playerNumber = match ? match[0] : 'default';
-    const defaultAvatarSrc = `assets/icons/jugador${playerNumber}_avatar.jpg${cacheBuster}`;
+    const defaultAvatarSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg${cacheBuster}`;
     
     let attemptIndex = 0;
     
@@ -3715,14 +3716,14 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName) {
     const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
     const isSafariMobile = (isSafari && isMobile) || isIOS; // More aggressive detection
     
-    // MOBILE EMERGENCY FALLBACK: If mobile browser, skip file loading and use emoji directly
-    if (isMobile && !window.location.hostname.includes('localhost')) {
-        console.log(`📱🚨 MOBILE EMERGENCY: Skipping file avatars, using emoji for ${displayName}`);
-        avatarDiv.textContent = '👤';
-        avatarDiv.style.fontSize = '24px';
-        avatarDiv.style.color = '#666';
-        return;
-    }
+    // FIXED: Removed mobile emergency fallback - let default jugador avatars try to load
+    // if (isMobile && !window.location.hostname.includes('localhost')) {
+    //     console.log(`📱🚨 MOBILE EMERGENCY: Skipping file avatars, using emoji for ${displayName}`);
+    //     avatarDiv.textContent = '👤';
+    //     avatarDiv.style.fontSize = '24px';
+    //     avatarDiv.style.color = '#666';
+    //     return;
+    // }
     
     console.log(`🔍 Browser Detection:`, {
         userAgent,
@@ -3955,13 +3956,14 @@ function updatePlayersUI() {
             const isTouchDevice = 'ontouchstart' in window;
             const isMobileBrowser = isMobileUA || isMobileWidth || isTouchDevice;
             
-            if (isMobileBrowser && !window.location.hostname.includes('localhost')) {
-                console.log('📱🚨 MOBILE: Skipping custom avatar, using emoji for', playerData.displayName);
-                avatarDiv.textContent = '📱';
-                avatarDiv.style.fontSize = '24px';
-                avatarDiv.style.color = '#0066CC';
-                return;
-            }
+            // FIXED: Let custom avatars try to load on mobile, fall back to default if needed
+            // if (isMobileBrowser && !window.location.hostname.includes('localhost')) {
+            //     console.log('📱🚨 MOBILE: Skipping custom avatar, using emoji for', playerData.displayName);
+            //     avatarDiv.textContent = '📱';
+            //     avatarDiv.style.fontSize = '24px';
+            //     avatarDiv.style.color = '#0066CC';
+            //     return;
+            // }
             
             const customImg = document.createElement('img');
             
@@ -4005,12 +4007,9 @@ function updatePlayersUI() {
             customImg.style.height = '40px';
             customImg.style.borderRadius = '50%';
             avatarDiv.appendChild(customImg);
-        } else if (playerData.avatar && playerData.avatar.type === 'emoji') {
-            // Emoji avatar
-            avatarDiv.textContent = playerData.avatar.data;
-            avatarDiv.style.fontSize = '24px';
         } else {
-            // No avatar data - try file first, then default
+            // FIXED PRIORITY: Always try default jugador avatars first, regardless of emoji selection
+            // This ensures players see proper default avatars instead of emojis
             const img = document.createElement('img');
             img.style.width = '40px';
             img.style.height = '40px';
@@ -4019,16 +4018,19 @@ function updatePlayersUI() {
             img.style.transition = 'opacity 0.3s ease';
             avatarDiv.appendChild(img);
             
+            // Store the emoji as fallback
+            const emojiData = playerData.avatar && playerData.avatar.type === 'emoji' ? playerData.avatar.data : '👤';
+            
             getPlayerIcon(img, playerData.displayName, playerData.name);
             
             setTimeout(() => {
                 if (img.style.opacity === '0') {
-                    // No file found, use default
-                    avatarDiv.textContent = '👤';
+                    // No jugador avatar found, use emoji fallback
+                    avatarDiv.textContent = emojiData;
                     avatarDiv.style.fontSize = '24px';
                     img.remove();
                 } else {
-                    // Avatar file loaded successfully
+                    // Jugador avatar loaded successfully
                 }
             }, 1000);
         }
