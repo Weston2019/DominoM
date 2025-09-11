@@ -665,17 +665,12 @@ io.on('connection', (socket) => {
             
             // Assign default avatar based on player name if no avatar was provided
             if (avatarData === null) {
-                // For now, always use emoji avatars as defaults since image files are unreliable
-                // Users can upload custom avatars which will work properly
+                // Use default jugador avatars since they exist and are reliable
                 const match = availableSlot.name.match(/\d+/);
                 const playerNumber = match ? match[0] : '1';
                 
-                // Use distinctive emoji based on slot
-                const emojiMap = { '1': '🎯', '2': '🎲', '3': '🎮', '4': '🏆' };
-                const slotEmoji = emojiMap[playerNumber] || '👤';
-                
-                avatarData = { type: 'emoji', data: slotEmoji };
-                console.log(`[AVATAR] Using reliable emoji ${slotEmoji} for ${displayName} (${availableSlot.name})`);
+                console.log(`[AVATAR] Using default jugador${playerNumber} avatar for ${displayName} (${availableSlot.name})`);
+                avatarData = { type: 'file', data: null }; // Will trigger default avatar loading on client
             }
             
             availableSlot.avatar = avatarData;
@@ -1153,12 +1148,33 @@ app.get('/debug/avatars', (req, res) => {
             iconsDirExists: fs.existsSync(iconsDir),
             defaultsDirExists: fs.existsSync(defaultsDir),
             iconsPath: iconsDir,
-            defaultsPath: defaultsDir
+            defaultsPath: defaultsDir,
+            serverInfo: {
+                platform: process.platform,
+                nodeVersion: process.version,
+                workingDir: process.cwd()
+            }
         });
     } catch (error) {
         res.json({ 
             success: false, 
             error: error.message 
+        });
+    }
+});
+
+// Test endpoint for default avatar accessibility
+app.get('/test/default-avatar/:playerNumber', (req, res) => {
+    const playerNumber = req.params.playerNumber;
+    const avatarPath = path.join(__dirname, 'assets', 'defaults', `jugador${playerNumber}_avatar.jpg`);
+    
+    if (fs.existsSync(avatarPath)) {
+        res.sendFile(avatarPath);
+    } else {
+        res.status(404).json({ 
+            error: 'Default avatar not found',
+            requestedPath: avatarPath,
+            playerNumber: playerNumber
         });
     }
 });

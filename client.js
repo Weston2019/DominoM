@@ -1658,25 +1658,15 @@ function setupLobby() {
 
             // Don't save name to localStorage - keep it fresh each session
             // localStorage.setItem('domino_player_name', name);
-            // ALWAYS check for avatar file FIRST - highest priority
-            const testImg = new Image();
-            const avatarFilePath = `assets/icons/${name}_avatar.jpg`;
-            testImg.onload = function() {
-                // console.log('🎯 PRIORITY 1: Found avatar file for', name, '- using file (ignoring localStorage)');
-                connectToServer(name, { type: 'file', data: null }, roomId, targetScore); 
+            
+            // FIXED: Skip file check since uploaded avatars get erased on deployment
+            // Use custom avatar data if available, otherwise use emoji selection or default
+            const avatarData = {
+                type: customAvatarData ? 'custom' : 'emoji',
+                data: customAvatarData || selectedAvatar
             };
-            testImg.onerror = function() {
-                // console.log('ℹ️ No avatar file for', name, '- checking localStorage and selections');
-                // PRIORITY 2: Use selected avatar (custom upload or emoji)
-                const avatarData = {
-                    type: customAvatarData ? 'custom' : 'emoji',
-                    data: customAvatarData || selectedAvatar
-                };
-                // console.log('PRIORITY 2: Using selected avatar:', avatarData);
-                connectToServer(name, avatarData, roomId, targetScore); 
-            };
-            // Always test for the file first
-            testImg.src = avatarFilePath;
+            console.log('🎯 PRIORITY: Using selected avatar:', avatarData);
+            connectToServer(name, avatarData, roomId, targetScore);
         }
     };
     
