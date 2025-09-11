@@ -3930,13 +3930,8 @@ function updatePlayersUI() {
         // 4th: Default avatar
         
         if (playerData.avatar && playerData.avatar.type === 'file') {
-            // REMOVED: Complex getPlayerIcon logic that was causing 404s
-            // Server indicated to use file - but files get erased, so fallback to default
-            console.log(`⚠️ File avatar type detected for ${playerData.displayName}, using default instead`);
-            
-            const match = playerData.name.match(/(\d+)/);
-            const playerNumber = match ? match[1] : '1';
-            const defaultAvatarSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg`;
+            // Try uploaded avatar file FIRST, then fallback to default
+            console.log(`🎯 File avatar type detected for ${playerData.displayName}, trying uploaded file first`);
             
             const img = document.createElement('img');
             img.style.width = '40px';
@@ -3944,18 +3939,52 @@ function updatePlayersUI() {
             img.style.borderRadius = '50%';
             img.alt = `${playerData.displayName} avatar`;
             
+            // Try multiple variations of uploaded avatar filename
+            const displayName = playerData.displayName;
+            const avatarVariations = [
+                `assets/icons/${displayName}_avatar.jpg`,           // Original case
+                `assets/icons/${displayName.toLowerCase()}_avatar.jpg`, // All lowercase  
+                `assets/icons/${displayName.toUpperCase()}_avatar.jpg`, // All uppercase
+                `assets/icons/${displayName.charAt(0).toUpperCase() + displayName.slice(1).toLowerCase()}_avatar.jpg` // Title case
+            ];
+            
+            let currentVariation = 0;
+            
+            const tryNextVariation = () => {
+                if (currentVariation < avatarVariations.length) {
+                    const currentSrc = avatarVariations[currentVariation];
+                    console.log(`🔍 Trying uploaded avatar: ${currentSrc}`);
+                    img.src = currentSrc;
+                    currentVariation++;
+                } else {
+                    // All uploaded avatar attempts failed, try default
+                    const match = playerData.name.match(/(\d+)/);
+                    const playerNumber = match ? match[1] : '1';
+                    const defaultAvatarSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg`;
+                    console.log(`🎯 All uploaded attempts failed, trying default: ${defaultAvatarSrc}`);
+                    img.src = defaultAvatarSrc;
+                }
+            };
+            
             img.onload = function() {
-                console.log(`✅ DEFAULT: Avatar loaded for ${playerData.displayName}`);
+                console.log(`✅ AVATAR LOADED: ${this.src} for ${playerData.displayName}`);
             };
             
             img.onerror = function() {
-                console.log(`❌ DEFAULT: Avatar failed for ${playerData.displayName}`);
-                avatarDiv.textContent = '👤';
-                avatarDiv.style.fontSize = '24px';
-                this.remove();
+                console.log(`❌ AVATAR FAILED: ${this.src} for ${playerData.displayName}`);
+                if (currentVariation <= avatarVariations.length) {
+                    tryNextVariation();
+                } else {
+                    // Even default failed, use emoji
+                    console.log(`❌ ALL AVATARS FAILED for ${playerData.displayName}, using emoji`);
+                    avatarDiv.textContent = '👤';
+                    avatarDiv.style.fontSize = '24px';
+                    this.remove();
+                }
             };
             
-            img.src = defaultAvatarSrc;
+            // Start with first uploaded avatar variation
+            tryNextVariation();
             avatarDiv.appendChild(img);
         } else if (playerData.avatar && playerData.avatar.type === 'custom') {
             // Custom uploaded avatar
