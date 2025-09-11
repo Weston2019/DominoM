@@ -4244,20 +4244,41 @@ function updatePlayersUI() {
         // 3rd: Selected emojis (type='emoji')
         // 4th: Default avatar
         
-        // 🔧 MOBILE AVATAR FORCE FIX: Only apply to actual mobile devices
-        const isMobileDevice = /iPhone|iPad|iPod|Android|Mobile|Phone|Tablet/i.test(navigator.userAgent) && window.innerWidth <= 1024;
+        // 🔧 SIMPLE UNIFIED FIX: Everyone gets the same logic - try jugador defaults
+        // Since uploaded avatars get erased by deployments anyway
+        console.log(`🎯 UNIFIED: Loading avatar for ${playerData.displayName}`);
         
-        if (isMobileDevice) {
-            // Force ALL mobile devices to use jugador avatars (uploaded avatars get erased by deployments)
-            console.log(`📱 MOBILE FORCE: Using jugador avatar for ${playerData.displayName} on mobile device`);
-            const match = playerData.name.match(/(\d+)/);
-            const playerNumber = match ? match[1] : '1';
-            const jugadorSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg?v=${Date.now()}`;
-            
-            const img = document.createElement('img');
-            img.style.width = '40px';
-            img.style.height = '40px';
-            img.style.borderRadius = '50%';
+        const playerMatch = playerData.name.match(/(\d+)/);
+        const playerNumber = playerMatch ? playerMatch[1] : '1';
+        const jugadorSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg?v=${Date.now()}`;
+        
+        const img = document.createElement('img');
+        img.style.width = '40px';
+        img.style.height = '40px';
+        img.style.borderRadius = '50%';
+        img.style.objectFit = 'cover';
+        img.alt = `${playerData.displayName} avatar`;
+        img.src = jugadorSrc;
+        
+        img.onload = () => {
+            console.log(`✅ UNIFIED: Jugador${playerNumber} loaded for ${playerData.displayName}`);
+        };
+        
+        img.onerror = () => {
+            console.log(`❌ UNIFIED: Jugador failed, using emoji for ${playerData.displayName}`);
+            avatarDiv.innerHTML = '';
+            avatarDiv.textContent = '🎯';
+            avatarDiv.style.fontSize = '28px';
+            avatarDiv.style.display = 'flex';
+            avatarDiv.style.alignItems = 'center';
+            avatarDiv.style.justifyContent = 'center';
+            avatarDiv.style.width = '40px';
+            avatarDiv.style.height = '40px';
+            avatarDiv.style.borderRadius = '50%';
+            avatarDiv.style.backgroundColor = '#f8f9fa';
+        };
+        
+        avatarDiv.appendChild(img);
             img.style.objectFit = 'cover';
             img.alt = `${playerData.displayName} avatar`;
             img.src = jugadorSrc;
@@ -4286,208 +4307,6 @@ function updatePlayersUI() {
             };
             
             avatarDiv.appendChild(img);
-            return; // Exit early for mobile devices - skip all other avatar logic
-        } else if (playerData.avatar && playerData.avatar.type === 'file') {
-            // DEPLOYMENT AWARE: Try uploaded avatar file first, but expect it might be erased
-            console.log(`🎯 File avatar type for ${playerData.displayName} - trying uploaded file (may be erased by deployment)`);
-            
-            const img = document.createElement('img');
-            img.style.width = '40px';
-            img.style.height = '40px';
-            img.style.borderRadius = '50%';
-            img.alt = `${playerData.displayName} avatar`;
-            
-            // Try uploaded avatar first (fast fail if erased)
-            const displayName = playerData.displayName;
-            const uploadedAvatarSrc = `assets/icons/${displayName}_avatar.jpg`;
-            
-            img.onload = function() {
-                console.log(`✅ UPLOADED AVATAR FOUND: ${this.src} for ${playerData.displayName}`);
-            };
-            
-            img.onerror = function() {
-                console.log(`❌ Uploaded avatar missing (likely erased by deployment): ${uploadedAvatarSrc}`);
-                console.log(`🎯 Falling back to default avatar for ${playerData.displayName}`);
-                
-                // Extract player number from internal name for default avatar
-                const match = playerData.name.match(/(\d+)/);
-                const playerNumber = match ? match[1] : '1';
-                const defaultAvatarSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg`;
-                
-                // 🔧 MOBILE FIX: Add cache buster for mobile browsers
-                const isMobileDevice = window.innerWidth <= 900 || /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent);
-                const cacheBuster = isMobileDevice ? `?v=${Date.now()}` : '';
-                const defaultAvatarWithCache = defaultAvatarSrc + cacheBuster;
-                
-                console.log(`🎯 MOBILE DEBUG: Using default avatar ${defaultAvatarWithCache} for ${playerData.displayName} (mobile: ${isMobileDevice})`);
-                
-                this.onerror = function() {
-                    console.log(`❌ Even default avatar failed for ${playerData.displayName}, using emoji fallback`);
-                    // 🔧 MOBILE FIX: Ensure avatar div shows properly on mobile
-                    avatarDiv.innerHTML = ''; // Clear any existing content
-                    avatarDiv.textContent = '👤';
-                    avatarDiv.style.fontSize = '28px';
-                    avatarDiv.style.color = '#666';
-                    avatarDiv.style.display = 'flex';
-                    avatarDiv.style.alignItems = 'center';
-                    avatarDiv.style.justifyContent = 'center';
-                    avatarDiv.style.width = '40px';
-                    avatarDiv.style.height = '40px';
-                    avatarDiv.style.borderRadius = '50%';
-                    avatarDiv.style.backgroundColor = '#f0f0f0';
-                    this.remove();
-                };
-                
-                this.onload = function() {
-                    console.log(`✅ DEFAULT AVATAR LOADED: ${this.src} for ${playerData.displayName}`);
-                };
-                
-                // Try default avatar with cache buster
-                this.src = defaultAvatarWithCache;
-            };
-            
-            // Start with uploaded avatar attempt
-            img.src = uploadedAvatarSrc;
-            avatarDiv.appendChild(img);
-        } else if (playerData.avatar && playerData.avatar.type === 'custom') {
-            // Custom uploaded avatar
-            avatarDiv.classList.add('custom-avatar');
-            
-            // MOBILE FIX: Check if mobile and use emoji instead
-            const isMobileUA = /iPhone|iPad|iPod|Android|Mobile|Phone|Tablet/i.test(navigator.userAgent) || /iPhone/i.test(navigator.userAgent) || navigator.platform === 'iPhone';
-            const isMobileWidth = window.innerWidth <= 900;
-            const isTouchDevice = 'ontouchstart' in window;
-            const isMobileBrowser = isMobileUA || isMobileWidth || isTouchDevice;
-            
-            // FIXED: Let custom avatars try to load on mobile, fall back to default if needed
-            // if (isMobileBrowser && !window.location.hostname.includes('localhost')) {
-            //     console.log('📱🚨 MOBILE: Skipping custom avatar, using emoji for', playerData.displayName);
-            //     avatarDiv.textContent = '📱';
-            //     avatarDiv.style.fontSize = '24px';
-            //     avatarDiv.style.color = '#0066CC';
-            //     return;
-            // }
-            
-            const customImg = document.createElement('img');
-            
-            // Safari mobile detection for custom avatars
-            const userAgent = navigator.userAgent;
-            const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
-            const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
-            const isSafariMobile = (isSafari && /iPhone|iPad|iPod|Android/i.test(userAgent)) || isIOS;
-            
-            if (isSafariMobile) {
-                console.log(`🍎📱 CUSTOM AVATAR - Safari mobile detected for ${playerData.displayName}`);
-                console.log(`🍎 Avatar data length: ${playerData.avatar.data.length}`);
-                
-                // For Safari mobile, set up image differently
-                customImg.style.opacity = '0';
-                customImg.style.transition = 'opacity 0.3s';
-                
-                customImg.onload = function() {
-                    console.log(`🍎✅ Custom avatar loaded successfully for ${playerData.displayName}`);
-                    this.style.opacity = '1';
-                };
-                
-                customImg.onerror = function() {
-                    console.log(`🍎❌ Custom avatar failed for ${playerData.displayName}, forcing jugador fallback`);
-                    // 🔧 MOBILE FIX: Force jugador avatar instead of emoji
-                    const match = playerData.name.match(/(\d+)/);
-                    const playerNumber = match ? match[1] : '1';
-                    const jugadorSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg?v=${Date.now()}`;
-                    
-                    this.onerror = null;
-                    this.src = jugadorSrc;
-                    this.onload = () => {
-                        console.log(`🍎✅ Safari custom->jugador fallback success: jugador${playerNumber}`);
-                        this.style.opacity = '1';
-                    };
-                    this.onerror = () => {
-                        console.log(`🍎❌ Safari jugador fallback failed, using styled emoji`);
-                        avatarDiv.innerHTML = '';
-                        avatarDiv.textContent = '🎯';
-                        avatarDiv.style.fontSize = '28px';
-                        avatarDiv.style.color = '#0066CC';
-                        avatarDiv.style.display = 'flex';
-                        avatarDiv.style.alignItems = 'center';
-                        avatarDiv.style.justifyContent = 'center';
-                        avatarDiv.style.width = '40px';
-                        avatarDiv.style.height = '40px';
-                        avatarDiv.style.borderRadius = '50%';
-                        avatarDiv.style.backgroundColor = '#f8f9fa';
-                        this.remove();
-                    };
-                };
-                
-                // Set source after event handlers for Safari
-                setTimeout(() => {
-                    customImg.src = playerData.avatar.data;
-                }, 10);
-            } else {
-                // Non-Safari browsers: direct assignment
-                customImg.src = playerData.avatar.data;
-            }
-            
-            customImg.alt = `${playerData.displayName} avatar`;
-            customImg.style.width = '40px';
-            customImg.style.height = '40px';
-            customImg.style.borderRadius = '50%';
-            avatarDiv.appendChild(customImg);
-        } else {
-            // SIMPLE FIX: Try default avatar FIRST, then fallback to emoji if it fails
-            const match = playerData.name.match(/(\d+)/);
-            const playerNumber = match ? match[1] : '1';
-            const defaultAvatarSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg`;
-            
-            // 🔧 MOBILE FIX: Add cache buster and mobile-specific handling
-            const isMobileDevice = window.innerWidth <= 900 || /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent);
-            const cacheBuster = isMobileDevice ? `?v=${Date.now()}` : '';
-            const defaultAvatarWithCache = defaultAvatarSrc + cacheBuster;
-            
-            console.log(`🎯 SIMPLE FIX: Loading default avatar ${defaultAvatarWithCache} for ${playerData.displayName} (mobile: ${isMobileDevice})`);
-            
-            const img = document.createElement('img');
-            img.style.width = '40px';
-            img.style.height = '40px';
-            img.style.borderRadius = '50%';
-            img.alt = `${playerData.displayName} avatar`;
-            
-            // 🔧 MOBILE FIX: Ensure proper loading and fallback
-            img.style.objectFit = 'cover';
-            img.style.backgroundColor = '#f0f0f0'; // Fallback background
-            
-            // Simple load/error handling
-            img.onload = function() {
-                console.log(`✅ SIMPLE FIX: Default avatar loaded for ${playerData.displayName}`);
-                this.style.opacity = '1';
-            };
-            
-            img.onerror = function() {
-                console.log(`❌ SIMPLE FIX: Default avatar failed for ${playerData.displayName}`);
-                console.log(`❌ Failed URL: ${this.src}`);
-                console.log(`❌ Complete: ${this.complete}, Natural width: ${this.naturalWidth}`);
-                console.log(`❌ Current URL: ${window.location.href}`);
-                
-                // 🔧 MOBILE FIX: Enhanced emoji fallback with proper styling
-                avatarDiv.innerHTML = ''; // Clear any existing content
-                const emojiToShow = playerData.avatar && playerData.avatar.type === 'emoji' ? playerData.avatar.data : '👤';
-                avatarDiv.textContent = emojiToShow;
-                avatarDiv.style.fontSize = '28px';
-                avatarDiv.style.color = '#666';
-                avatarDiv.style.display = 'flex';
-                avatarDiv.style.alignItems = 'center';
-                avatarDiv.style.justifyContent = 'center';
-                avatarDiv.style.width = '40px';
-                avatarDiv.style.height = '40px';
-                avatarDiv.style.borderRadius = '50%';
-                avatarDiv.style.backgroundColor = '#f0f0f0';
-                this.remove();
-            };
-            
-            // Use the cache-busted URL for mobile
-            img.src = defaultAvatarWithCache;
-            avatarDiv.appendChild(img);
-        }
 
         const infoDiv = document.createElement('div');
         infoDiv.className = 'player-info-text';
