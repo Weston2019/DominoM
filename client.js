@@ -4304,13 +4304,17 @@ function updatePlayersUI() {
             // PRIORITY 1: Try uploaded avatar with multiple case variations
             const displayName = playerData.displayName;
             const avatarVariations = [
-                `assets/icons/${displayName}_avatar.jpg`,                    // Original case (da)
-                `assets/icons/${displayName.toUpperCase()}_avatar.jpg`,      // Uppercase (DA)
-                `assets/icons/${displayName.toLowerCase()}_avatar.jpg`,      // Lowercase (da)
-                `assets/icons/${displayName.charAt(0).toUpperCase() + displayName.slice(1).toLowerCase()}_avatar.jpg` // Title case (Da)
+                `assets/icons/${displayName}_avatar.jpg`,                    // Original case (e.g., KK)
+                `assets/icons/${displayName.toUpperCase()}_avatar.jpg`,      // Force uppercase (KK)
+                `assets/icons/${displayName.toLowerCase()}_avatar.jpg`,      // Force lowercase (kk) 
+                `assets/icons/${displayName.toLowerCase()}_AVATAR.jpg`,      // lowercase + AVATAR (kk_AVATAR)
+                `assets/icons/${displayName.toUpperCase()}_AVATAR.jpg`,      // All caps (KK_AVATAR)
+                // Skip problematic title case for all-uppercase names
+                ...(displayName === displayName.toUpperCase() ? [] : 
+                    [`assets/icons/${displayName.charAt(0).toUpperCase() + displayName.slice(1).toLowerCase()}_avatar.jpg`])
             ];
             
-            console.log(`🔍 UNIFIED: Trying avatar variations for ${displayName}:`, avatarVariations);
+            console.log(`🔍 UNIFIED: Trying ${avatarVariations.length} avatar variations for "${displayName}":`, avatarVariations);
             
             const img = document.createElement('img');
             img.style.width = '40px';
