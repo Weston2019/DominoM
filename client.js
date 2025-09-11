@@ -1464,13 +1464,27 @@ function setupLobby() {
                     } else {
                         selectedAvatar = avatarData.data;
                         customAvatarData = null;
-                        // Select the correct emoji option
-                        avatarOptions.forEach(opt => {
-                            if (opt.dataset.avatar === selectedAvatar) {
-                                opt.classList.add('selected');
-                            }
-                        });
-                        // console.log('Restored emoji avatar from localStorage:', selectedAvatar);
+                        // Check if this is an image path or emoji
+                        if (selectedAvatar && selectedAvatar.includes('assets/')) {
+                            // New image avatar system - wait for grid to populate
+                            setTimeout(() => {
+                                const avatarOptions = document.querySelectorAll('.avatar-option');
+                                avatarOptions.forEach(opt => {
+                                    if (opt.dataset.avatar === selectedAvatar) {
+                                        opt.classList.add('selected');
+                                    }
+                                });
+                            }, 500);
+                            console.log('Restored image avatar from localStorage:', selectedAvatar);
+                        } else {
+                            // Old emoji system
+                            avatarOptions.forEach(opt => {
+                                if (opt.dataset.avatar === selectedAvatar) {
+                                    opt.classList.add('selected');
+                                }
+                            });
+                            // console.log('Restored emoji avatar from localStorage:', selectedAvatar);
+                        }
                     }
                 } catch (e) {
                     // console.log('Could not restore saved avatar, using default');
@@ -1496,12 +1510,27 @@ function setupLobby() {
                 } else {
                     selectedAvatar = avatarData.data;
                     customAvatarData = null;
-                    avatarOptions.forEach(opt => {
-                        if (opt.dataset.avatar === selectedAvatar) {
-                            opt.classList.add('selected');
-                        }
-                    });
-                    // console.log('Restored emoji avatar from localStorage:', selectedAvatar);
+                    // Check if this is an image path or emoji
+                    if (selectedAvatar && selectedAvatar.includes('assets/')) {
+                        // New image avatar system - wait for grid to populate
+                        setTimeout(() => {
+                            const avatarOptions = document.querySelectorAll('.avatar-option');
+                            avatarOptions.forEach(opt => {
+                                if (opt.dataset.avatar === selectedAvatar) {
+                                    opt.classList.add('selected');
+                                }
+                            });
+                        }, 500);
+                        console.log('Restored image avatar from localStorage:', selectedAvatar);
+                    } else {
+                        // Old emoji system
+                        avatarOptions.forEach(opt => {
+                            if (opt.dataset.avatar === selectedAvatar) {
+                                opt.classList.add('selected');
+                            }
+                        });
+                        // console.log('Restored emoji avatar from localStorage:', selectedAvatar);
+                    }
                 }
             } catch (e) {
                 // console.log('Could not restore saved avatar, using default');
@@ -1513,12 +1542,98 @@ function setupLobby() {
     }
     
     function useDefaultAvatar() {
-        // No saved avatar - select default target emoji
-        const defaultOption = document.querySelector('[data-avatar="🎯"]');
-        if (defaultOption) {
-            defaultOption.classList.add('selected');
-            // console.log('Set default target emoji avatar');
+        // Use default jugador avatar instead of emoji
+        const defaultPath = 'assets/defaults/jugador1_avatar.jpg';
+        selectedAvatar = defaultPath;
+        customAvatarData = null;
+        
+        // Wait for avatar grid to populate, then select the first default
+        setTimeout(() => {
+            const avatarOptions = document.querySelectorAll('.avatar-option');
+            const defaultOption = Array.from(avatarOptions).find(opt => 
+                opt.dataset.avatar && opt.dataset.avatar.includes('jugador1')
+            );
+            if (defaultOption) {
+                defaultOption.classList.add('selected');
+                console.log('Set default jugador1 avatar');
+            } else {
+                // Fallback to emoji if no image avatars available
+                const emojiDefault = document.querySelector('[data-avatar="🎯"]');
+                if (emojiDefault) {
+                    emojiDefault.classList.add('selected');
+                    selectedAvatar = '🎯';
+                }
+            }
+        }, 600);
+    }
+    
+    // 🎯 POPULATE AVATAR GRID WITH REAL IMAGE AVATARS
+    async function populateAvatarGrid() {
+        try {
+            console.log('🎯 Fetching real avatars for selection grid...');
+            const response = await fetch('/debug/avatars');
+            const data = await response.json();
+            
+            if (data.success) {
+                const avatarContainer = document.querySelector('#avatar-selection .avatar-grid');
+                if (avatarContainer) {
+                    // Clear existing emoji avatars
+                    avatarContainer.innerHTML = '';
+                    
+                    // Add default avatars first (jugador1, jugador2, etc.)
+                    data.defaultFiles.forEach(filename => {
+                        if (filename.startsWith('jugador') && filename.endsWith('.jpg')) {
+                            const avatarElement = createAvatarOption(`assets/defaults/${filename}`, filename);
+                            avatarContainer.appendChild(avatarElement);
+                        }
+                    });
+                    
+                    // Add uploaded avatars
+                    data.avatarFiles.forEach(filename => {
+                        const avatarElement = createAvatarOption(`assets/icons/${filename}`, filename);
+                        avatarContainer.appendChild(avatarElement);
+                    });
+                    
+                    console.log('✅ Avatar grid populated with real images:', {
+                        defaults: data.defaultFiles.length,
+                        uploaded: data.avatarFiles.length
+                    });
+                } else {
+                    console.error('❌ Avatar grid container not found');
+                }
+            }
+        } catch (error) {
+            console.error('❌ Failed to populate avatar grid:', error);
         }
+    }
+    
+    function createAvatarOption(imagePath, filename) {
+        const div = document.createElement('div');
+        div.className = 'avatar-option';
+        div.dataset.avatar = imagePath; // Use image path as avatar identifier
+        div.innerHTML = `<img src="${imagePath}" alt="${filename}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">`;
+        
+        // Add click handler for this new avatar option
+        div.addEventListener('click', () => {
+            // Remove selected class from all options
+            document.querySelectorAll('.avatar-option').forEach(opt => opt.classList.remove('selected'));
+            // Add selected class to clicked option
+            div.classList.add('selected');
+            // Update selected avatar
+            selectedAvatar = imagePath; // Use the image path
+            customAvatarData = null;
+            const customAvatarPreview = document.getElementById('custom-avatar-preview');
+            if (customAvatarPreview) customAvatarPreview.style.display = 'none';
+            
+            // Save to localStorage
+            localStorage.setItem('domino_player_avatar', JSON.stringify({
+                type: 'image',
+                data: imagePath
+            }));
+            console.log('✅ Image avatar selected:', imagePath);
+        });
+        
+        return div;
     }
     
     nameInput.focus(); 
@@ -1529,6 +1644,9 @@ function setupLobby() {
     // Setup STUBBORN mobile suggestion box
     // console.log('🎯 Setting up STUBBORN mobile suggestion box...');
     setupStubbornBox();
+    
+    // 🎯 POPULATE AVATAR GRID WITH REAL AVATARS
+    populateAvatarGrid();
     
     // Handle avatar selection from grid
     avatarOptions.forEach(option => {
@@ -3930,8 +4048,8 @@ function updatePlayersUI() {
         // 4th: Default avatar
         
         if (playerData.avatar && playerData.avatar.type === 'file') {
-            // Try uploaded avatar file FIRST, then fallback to default
-            console.log(`🎯 File avatar type detected for ${playerData.displayName}, trying uploaded file first`);
+            // DEPLOYMENT AWARE: Try uploaded avatar file first, but expect it might be erased
+            console.log(`🎯 File avatar type for ${playerData.displayName} - trying uploaded file (may be erased by deployment)`);
             
             const img = document.createElement('img');
             img.style.width = '40px';
@@ -3939,52 +4057,39 @@ function updatePlayersUI() {
             img.style.borderRadius = '50%';
             img.alt = `${playerData.displayName} avatar`;
             
-            // Try multiple variations of uploaded avatar filename
+            // Try uploaded avatar first (fast fail if erased)
             const displayName = playerData.displayName;
-            const avatarVariations = [
-                `assets/icons/${displayName}_avatar.jpg`,           // Original case
-                `assets/icons/${displayName.toLowerCase()}_avatar.jpg`, // All lowercase  
-                `assets/icons/${displayName.toUpperCase()}_avatar.jpg`, // All uppercase
-                `assets/icons/${displayName.charAt(0).toUpperCase() + displayName.slice(1).toLowerCase()}_avatar.jpg` // Title case
-            ];
-            
-            let currentVariation = 0;
-            
-            const tryNextVariation = () => {
-                if (currentVariation < avatarVariations.length) {
-                    const currentSrc = avatarVariations[currentVariation];
-                    console.log(`🔍 Trying uploaded avatar: ${currentSrc}`);
-                    img.src = currentSrc;
-                    currentVariation++;
-                } else {
-                    // All uploaded avatar attempts failed, try default
-                    const match = playerData.name.match(/(\d+)/);
-                    const playerNumber = match ? match[1] : '1';
-                    const defaultAvatarSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg`;
-                    console.log(`🎯 All uploaded attempts failed, trying default: ${defaultAvatarSrc}`);
-                    img.src = defaultAvatarSrc;
-                }
-            };
+            const uploadedAvatarSrc = `assets/icons/${displayName}_avatar.jpg`;
             
             img.onload = function() {
-                console.log(`✅ AVATAR LOADED: ${this.src} for ${playerData.displayName}`);
+                console.log(`✅ UPLOADED AVATAR FOUND: ${this.src} for ${playerData.displayName}`);
             };
             
             img.onerror = function() {
-                console.log(`❌ AVATAR FAILED: ${this.src} for ${playerData.displayName}`);
-                if (currentVariation <= avatarVariations.length) {
-                    tryNextVariation();
-                } else {
-                    // Even default failed, use emoji
-                    console.log(`❌ ALL AVATARS FAILED for ${playerData.displayName}, using emoji`);
+                console.log(`❌ Uploaded avatar missing (likely erased by deployment): ${uploadedAvatarSrc}`);
+                console.log(`🎯 Falling back to default avatar for ${playerData.displayName}`);
+                
+                // Immediately try default avatar
+                const match = playerData.name.match(/(\d+)/);
+                const playerNumber = match ? match[1] : '1';
+                const defaultAvatarSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg`;
+                
+                this.onerror = function() {
+                    console.log(`❌ Even default avatar failed for ${playerData.displayName}, using emoji`);
                     avatarDiv.textContent = '👤';
                     avatarDiv.style.fontSize = '24px';
                     this.remove();
-                }
+                };
+                
+                this.onload = function() {
+                    console.log(`✅ DEFAULT AVATAR LOADED: ${this.src} for ${playerData.displayName}`);
+                };
+                
+                this.src = defaultAvatarSrc;
             };
             
-            // Start with first uploaded avatar variation
-            tryNextVariation();
+            // Start with uploaded avatar attempt
+            img.src = uploadedAvatarSrc;
             avatarDiv.appendChild(img);
         } else if (playerData.avatar && playerData.avatar.type === 'custom') {
             // Custom uploaded avatar
