@@ -3664,18 +3664,20 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName) {
         hostname: window.location.hostname
     });
     
-    if ((window.innerWidth <= 900 || /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent)) && !window.location.hostname.includes('localhost')) {
+    if ((window.innerWidth <= 900 || /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent) || /iPhone/i.test(navigator.userAgent)) && !window.location.hostname.includes('localhost')) {
         console.log('📱🚨 FORCING EMOJI AVATAR for mobile:', displayName);
         const avatarDiv = imgElement.parentElement;
         if (avatarDiv) {
             // Clear any existing content and set emoji
             avatarDiv.innerHTML = '';
-            avatarDiv.textContent = '�'; // Changed to phone emoji to confirm mobile detection
+            avatarDiv.textContent = '📱'; // Phone emoji
             avatarDiv.style.fontSize = '24px';
             avatarDiv.style.color = '#0066CC'; // Blue color to stand out
             avatarDiv.style.display = 'flex';
             avatarDiv.style.alignItems = 'center';
             avatarDiv.style.justifyContent = 'center';
+            avatarDiv.style.backgroundColor = '#f0f0f0';
+            avatarDiv.style.border = '2px solid #0066CC';
             avatarDiv.title = 'Mobile Mode Active'; // Tooltip
         }
         // Hide the image element completely
@@ -3955,11 +3957,13 @@ function updatePlayersUI() {
             const isTouchDevice = 'ontouchstart' in window;
             const isMobileBrowser = isMobileUA || isMobileWidth || isTouchDevice;
             
-            if ((window.innerWidth <= 900 || /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent)) && !window.location.hostname.includes('localhost')) {
+            if ((window.innerWidth <= 900 || /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent) || /iPhone/i.test(navigator.userAgent)) && !window.location.hostname.includes('localhost')) {
                 console.log('📱🚨 MOBILE: Skipping custom avatar, using emoji for', playerData.displayName);
                 avatarDiv.textContent = '📱';
                 avatarDiv.style.fontSize = '24px';
                 avatarDiv.style.color = '#0066CC';
+                avatarDiv.style.backgroundColor = '#f0f0f0';
+                avatarDiv.style.border = '2px solid #0066CC';
                 return;
             }
             
