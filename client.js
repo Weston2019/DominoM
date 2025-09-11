@@ -3902,7 +3902,10 @@ function showMessage(text) {
 }
 
 function getPlayerIcon(imgElement, displayName, internalPlayerName) {
-    if (!internalPlayerName) return; 
+    // 🚫 DISABLED: This function was causing conflicts with unified avatar solution
+    // Just return early - let the unified avatar logic handle everything
+    console.log(`🚫 getPlayerIcon called for ${displayName} but DISABLED - unified avatar handles this`);
+    return; 
     
     // AGGRESSIVE MOBILE FIX: Multiple detection methods and debugging
     const userAgent = navigator.userAgent;
@@ -4279,34 +4282,6 @@ function updatePlayersUI() {
         };
         
         avatarDiv.appendChild(img);
-            img.style.objectFit = 'cover';
-            img.alt = `${playerData.displayName} avatar`;
-            img.src = jugadorSrc;
-            
-            img.onload = () => {
-                console.log(`📱✅ MOBILE FORCE: Jugador${playerNumber} loaded for ${playerData.displayName}`);
-            };
-            
-            img.onerror = () => {
-                console.log(`📱❌ MOBILE FORCE: Even jugador${playerNumber} failed, trying jugador1_avatar.jpg`);
-                this.src = `assets/defaults/jugador1_avatar.jpg?v=${Date.now()}`;
-                this.onerror = () => {
-                    console.log(`📱❌ MOBILE FORCE: All jugador avatars failed, using styled emoji`);
-                    avatarDiv.innerHTML = '';
-                    avatarDiv.textContent = '🎯';
-                    avatarDiv.style.fontSize = '28px';
-                    avatarDiv.style.color = '#0066CC';
-                    avatarDiv.style.display = 'flex';
-                    avatarDiv.style.alignItems = 'center';
-                    avatarDiv.style.justifyContent = 'center';
-                    avatarDiv.style.width = '40px';
-                    avatarDiv.style.height = '40px';
-                    avatarDiv.style.borderRadius = '50%';
-                    avatarDiv.style.backgroundColor = '#f8f9fa';
-                };
-            };
-            
-            avatarDiv.appendChild(img);
 
         const infoDiv = document.createElement('div');
         infoDiv.className = 'player-info-text';
