@@ -43,6 +43,59 @@ if (!window.acquireAvatarProbe) {
     };
 }
 
+// Cache and deduplicate avatar probe requests so repeated per-frame probing
+// doesn't hammer the network. probeAvatarSrc returns a Promise that resolves
+// { ok: boolean, src: string } and caches successful/failed results for a short TTL.
+if (!window.probeAvatarSrc) {
+    window.__avatarProbeCache = window.__avatarProbeCache || { map: new Map(), ttlMs: 60 * 1000 };
+    window.probeAvatarSrc = async function(testSrc) {
+        const cache = window.__avatarProbeCache;
+        const now = Date.now();
+        const existing = cache.map.get(testSrc);
+        if (existing) {
+            // If cached and still valid, return it (existing.promise may be in-flight)
+            if (existing.expiresAt > now) return existing.promise;
+            // expired entry — remove and continue
+            cache.map.delete(testSrc);
+        }
+
+        // Create a promise that performs HEAD then Image fallback.
+        const p = (async () => {
+            try {
+                await window.acquireAvatarProbe();
+            } catch (e) {}
+            try {
+                try {
+                    const headResp = await fetch(testSrc, { method: 'HEAD' });
+                    const ct = headResp.headers.get && headResp.headers.get('content-type');
+                    if (headResp.ok && ct && ct.toLowerCase().startsWith('image/')) {
+                        return { ok: true, src: testSrc };
+                    }
+                } catch (e) {
+                    // HEAD failed; fall through to Image probe
+                }
+
+                // Image probe
+                await new Promise((resolve, reject) => {
+                    const img = new Image();
+                    let done = false;
+                    img.onload = () => { if (!done) { done = true; resolve(); } };
+                    img.onerror = () => { if (!done) { done = true; reject(new Error('img load failed')); } };
+                    img.src = testSrc;
+                });
+                return { ok: true, src: testSrc };
+            } catch (e) {
+                return { ok: false, src: testSrc };
+            } finally {
+                try { window.releaseAvatarProbe(); } catch (e) {}
+            }
+        })();
+
+        cache.map.set(testSrc, { promise: p, expiresAt: now + cache.ttlMs });
+        return p;
+    };
+}
+
 // Ensure small no-op globals exist early so event listeners won't throw
 if (typeof window.createPointsTableNow !== 'function') {
     window.createPointsTableNow = function() { /* placeholder until real implementation loads */ };
@@ -3763,6 +3816,58 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVar
             return;
         }
 
+        // QUICK PATH: if the hint is same-origin under /assets/icons or the same origin
+        // (e.g. '/assets/icons/TEST_avatar.jpg' or absolute URL on same host), assign
+        // it immediately and let the browser load the image. This avoids HEAD probes
+        // that have been triggering net::ERR_INSUFFICIENT_RESOURCES on some hosts.
+        try {
+            const isSameOriginPath = srcHint.startsWith('/') || srcHint.indexOf(window.location.hostname) !== -1 || srcHint.startsWith(window.location.origin);
+            const isIconsPath = srcHint.indexOf('/assets/icons/') !== -1;
+            if (isSameOriginPath && isIconsPath) {
+                try {
+                    const parent = imgElement.parentElement;
+                    if (parent) {
+                        parent.dataset.assignedSrc = srcHint;
+                        parent.style.backgroundImage = `url(${srcHint})`;
+                        parent.style.backgroundSize = 'cover';
+                        parent.style.backgroundPosition = 'center';
+                    }
+                } catch (e) {}
+
+                imgElement.onload = function() {
+                    try { imgElement.dataset.assignedSrc = srcHint; } catch (e) {}
+                    try {
+                        if (!window.avatarAssigned) window.avatarAssigned = {};
+                        if (internalPlayerName) window.avatarAssigned[internalPlayerName] = srcHint;
+                        if (displayName) { window.avatarAssigned[displayName] = srcHint; window.avatarAssigned[(displayName || '').toLowerCase()] = srcHint; }
+                    } catch (e) {}
+                    try { imgElement.style.display = 'none'; } catch (e) {}
+                    console.info('Assigned img.src (same-origin quick path) =>', srcHint);
+                };
+                imgElement.onerror = function() {
+                    try { imgElement.style.display = 'none'; } catch (e) {};
+                    // fallback to default avatar
+                    try {
+                        const parent = imgElement.parentElement;
+                        if (parent) {
+                            parent.dataset.assignedSrc = defaultAvatarSrc;
+                            parent.style.backgroundImage = `url(${defaultAvatarSrc})`;
+                            parent.style.backgroundSize = 'cover';
+                            parent.style.backgroundPosition = 'center';
+                        }
+                    } catch (er) {}
+                    try {
+                        if (!window.avatarAssigned) window.avatarAssigned = {};
+                        if (internalPlayerName) window.avatarAssigned[internalPlayerName] = defaultAvatarSrc;
+                        if (displayName) { window.avatarAssigned[displayName] = defaultAvatarSrc; window.avatarAssigned[(displayName || '').toLowerCase()] = defaultAvatarSrc; }
+                    } catch (e) {}
+                    console.warn('Avatar same-origin quick path failed, falling back to default:', defaultAvatarSrc);
+                };
+                try { imgElement.src = srcHint; } catch (e) {}
+                return;
+            }
+        } catch (e) {}
+
         // Verify the hinted URL with HEAD first to ensure it's an image; fall back to Image probe
         (async () => {
             try {
@@ -3913,13 +4018,11 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVar
             }
         } catch (e) {}
 
-        // Try HEAD first to validate the resource is an image (avoids HTML/text fallbacks)
+        // Use cached/in-flight probe helper to avoid hammering server each frame
         (async () => {
-            try { await window.acquireAvatarProbe(); } catch (e) {}
             try {
-                const headResp = await fetch(testSrc, { method: 'HEAD' });
-                const ct = headResp.headers.get('content-type') || '';
-                if (headResp.ok && ct.toLowerCase().startsWith('image/')) {
+                const res = await window.probeAvatarSrc(testSrc);
+                if (res && res.ok) {
                     // Good image — assign
                     try {
                         const parent = imgElement.parentElement;
@@ -3939,46 +4042,18 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVar
                             if (displayName) { window.avatarAssigned[displayName] = testSrc; window.avatarAssigned[(displayName || '').toLowerCase()] = testSrc; }
                         } catch (e) {}
                         try { imgElement.style.display = 'none'; } catch (e) {}
-                        console.info('Assigned img.src (HEAD verified) =>', testSrc);
+                        console.info('Assigned img.src (probe helper) =>', testSrc);
                     };
                     imgElement.onerror = function() { try { imgElement.style.display = 'none'; } catch (e) {}; console.warn('[AVATAR LOAD ERROR] img failed to load', testSrc); };
                     imgElement.src = testSrc;
-                    try { window.releaseAvatarProbe(); } catch (e) {}
                     return;
                 }
             } catch (e) {
-                // HEAD failed (server might not support it) — fall back to Image probe below
+                // fall through to try next candidate
             }
 
-            // Fallback: probe by loading an Image
-            const tester = new Image();
-            tester.onload = () => {
-                try {
-                    const parent = imgElement.parentElement;
-                    if (parent) {
-                        parent.dataset.assignedSrc = testSrc;
-                        parent.style.backgroundImage = `url(${testSrc})`;
-                        parent.style.backgroundSize = 'cover';
-                        parent.style.backgroundPosition = 'center';
-                    }
-                } catch (e) {}
-
-                imgElement.onload = function() {
-                    try { imgElement.dataset.assignedSrc = testSrc; } catch (e) {}
-                    try {
-                        if (!window.avatarAssigned) window.avatarAssigned = {};
-                        if (internalPlayerName) window.avatarAssigned[internalPlayerName] = testSrc;
-                        if (displayName) { window.avatarAssigned[displayName] = testSrc; window.avatarAssigned[(displayName || '').toLowerCase()] = testSrc; }
-                    } catch (e) {}
-                    try { imgElement.style.display = 'none'; } catch (e) {}
-                    console.info('Assigned img.src (probed onload) =>', testSrc);
-                };
-                imgElement.onerror = function() { try { imgElement.style.display = 'none'; } catch (e) {}; console.warn('[AVATAR LOAD ERROR] img failed to load', testSrc); };
-                tester.onerror = () => { try { console.debug('[AVATAR PROBE] candidate not found:', testSrc); } catch (e) {} ; tryLoadSequential(list, idx + 1); try { window.releaseAvatarProbe(); } catch (e) {}; };
-                tester.src = testSrc;
-            };
-            tester.onerror = () => { try { console.debug('[AVATAR PROBE] candidate not found (image):', testSrc); } catch (e) {} ; tryLoadSequential(list, idx + 1); try { window.releaseAvatarProbe(); } catch (e) {}; };
-            tester.src = testSrc;
+            // Not found — continue to next candidate
+            tryLoadSequential(list, idx + 1);
         })();
     };
 
