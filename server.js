@@ -1,6 +1,6 @@
 
 // =============================================================================
-// == server.js          Domino4  -  August 6 by DAM Productions              ==
+// == server.js          DominoM  -  August 27 by DAM Productions              ==
 // =============================================================================
 const express = require('express');
 const http = require('http');
@@ -10,6 +10,94 @@ const path = require('path');
 const analytics = require('./analytics');
 
 const app = express();
+
+// =============================================================================
+// == RENDER-ONLY AVATAR SYSTEM - Creates avatars that exist only on server ==
+// =============================================================================
+
+// Create avatars directory if it doesn't exist
+const serverAvatarsDir = path.join(__dirname, 'assets', 'icons');
+const serverDefaultsDir = path.join(__dirname, 'assets', 'defaults');
+
+if (!fs.existsSync(serverAvatarsDir)) {
+    fs.mkdirSync(serverAvatarsDir, { recursive: true });
+}
+if (!fs.existsSync(serverDefaultsDir)) {
+    fs.mkdirSync(serverDefaultsDir, { recursive: true });
+}
+
+// Generate SVG avatar for a given name and color
+function generateSVGAvatar(initials, color) {
+    return `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="20" cy="20" r="20" fill="${color}"/>
+        <text x="20" y="26" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle">${initials}</text>
+    </svg>`;
+}
+
+// Server-side avatar endpoint - creates avatars on-demand
+app.get('/assets/icons/:filename', (req, res) => {
+    const filename = req.params.filename;
+    const filePath = path.join(serverAvatarsDir, filename);
+    
+    // If file exists, serve it
+    if (fs.existsSync(filePath)) {
+        return res.sendFile(filePath);
+    }
+    
+    // If it's an avatar request, generate one dynamically
+    const match = filename.match(/^([A-Za-z0-9]+)_avatar\.(jpg|png|svg)$/);
+    if (match) {
+        const username = match[1].toUpperCase();
+        const initials = username.substring(0, 2);
+        
+        // Color based on username hash
+        const colors = ['#007bff', '#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6f42c1', '#fd7e14', '#20c997'];
+        let hash = 0;
+        for (let i = 0; i < username.length; i++) {
+            hash = username.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const color = colors[Math.abs(hash) % colors.length];
+        
+        // Generate SVG avatar
+        const svgContent = generateSVGAvatar(initials, color);
+        
+        res.setHeader('Content-Type', 'image/svg+xml');
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+        return res.send(svgContent);
+    }
+    
+    // File not found
+    res.status(404).send('Avatar not found');
+});
+
+// Default jugador avatars endpoint
+app.get('/assets/defaults/:filename', (req, res) => {
+    const filename = req.params.filename;
+    const filePath = path.join(serverDefaultsDir, filename);
+    
+    // If file exists, serve it
+    if (fs.existsSync(filePath)) {
+        return res.sendFile(filePath);
+    }
+    
+    // Generate default jugador avatar
+    const match = filename.match(/^jugador(\d+)_avatar\.(jpg|png|svg)$/);
+    if (match) {
+        const playerNum = parseInt(match[1]);
+        const colors = ['#007bff', '#28a745', '#ffc107', '#dc3545'];
+        const color = colors[(playerNum - 1) % colors.length];
+        const initials = `J${playerNum}`;
+        
+        const svgContent = generateSVGAvatar(initials, color);
+        
+        res.setHeader('Content-Type', 'image/svg+xml');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        return res.send(svgContent);
+    }
+    
+    res.status(404).send('Default avatar not found');
+});
+
 // Endpoint to get active rooms and their player counts
 app.get('/active-rooms', (req, res) => {
     const rooms = [];
@@ -48,6 +136,168 @@ const server = http.createServer(app);
 const io = socketIo(server);
 
 app.use(express.static(__dirname));
+
+// Serve avatars from persistent storage
+app.use('/assets/icons', express.static(global.AVATAR_ICONS_PATH || path.join(__dirname, 'assets', 'icons')));
+
+// Serve individual avatar files from memory storage
+app.get('/assets/icons/:filename', (req, res) => {
+    const filename = req.params.filename;
+    
+    // Try to get from memory storage first
+    const avatarData = getAvatar(filename);
+    
+    if (avatarData) {
+        res.set('Content-Type', 'image/jpeg');
+        res.set('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+        res.send(avatarData);
+    } else {
+        res.status(404).json({ error: 'Avatar not found' });
+    }
+});
+
+// =============================================================================
+// == ENSURE REQUIRED DIRECTORIES EXIST ON SERVER STARTUP                    ==
+// =============================================================================
+
+// =============================================================================
+// == AVATAR STORAGE CONFIGURATION - PERSISTENT ACROSS DEPLOYMENTS          ==
+// =============================================================================
+
+function setupAvatarStorage() {
+    // Check if we're on Render with persistent disk
+    const persistentPath = process.env.RENDER_PERSISTENT_DISK_PATH;
+    
+    if (persistentPath) {
+        // 🎯 PRODUCTION: Use Render persistent disk
+        console.log('🔄 [AVATAR-STORAGE] Using Render persistent disk:', persistentPath);
+        
+        global.AVATAR_ICONS_PATH = path.join(persistentPath, 'avatars');
+        global.AVATAR_DEFAULTS_PATH = path.join(__dirname, 'assets', 'defaults');
+        
+        // Create persistent avatar directory
+        if (!fs.existsSync(global.AVATAR_ICONS_PATH)) {
+            fs.mkdirSync(global.AVATAR_ICONS_PATH, { recursive: true });
+            console.log('✅ [AVATAR-STORAGE] Created persistent avatars:', global.AVATAR_ICONS_PATH);
+        } else {
+            const existingFiles = fs.readdirSync(global.AVATAR_ICONS_PATH);
+            console.log(`🎉 [AVATAR-STORAGE] Persistent avatars found: ${existingFiles.length} files`);
+        }
+    } else {
+        // 🔧 FALLBACK: Use in-memory avatar storage (database approach)
+        console.log('🔄 [AVATAR-STORAGE] Using in-memory storage with database backup');
+        
+        global.AVATAR_STORAGE = new Map(); // In-memory avatar storage
+        global.AVATAR_ICONS_PATH = path.join(__dirname, 'assets', 'icons');
+        global.AVATAR_DEFAULTS_PATH = path.join(__dirname, 'assets', 'defaults');
+        
+        // Create local directories for fallback
+        if (!fs.existsSync(global.AVATAR_ICONS_PATH)) {
+            fs.mkdirSync(global.AVATAR_ICONS_PATH, { recursive: true });
+            console.log('✅ [AVATAR-STORAGE] Created local avatars directory');
+        }
+        
+        // Load any existing avatars into memory
+        loadAvatarsIntoMemory();
+    }
+    
+    // Always ensure defaults directory exists
+    if (!fs.existsSync(global.AVATAR_DEFAULTS_PATH)) {
+        fs.mkdirSync(global.AVATAR_DEFAULTS_PATH, { recursive: true });
+        console.log('✅ [AVATAR-STORAGE] Created defaults directory');
+    }
+    
+    console.log('📁 [AVATAR-STORAGE] Paths configured:', {
+        icons: global.AVATAR_ICONS_PATH,
+        defaults: global.AVATAR_DEFAULTS_PATH,
+        persistent: !!persistentPath,
+        inMemoryStorage: !persistentPath
+    });
+}
+
+// Load existing avatars into memory storage
+function loadAvatarsIntoMemory() {
+    try {
+        if (fs.existsSync(global.AVATAR_ICONS_PATH)) {
+            const files = fs.readdirSync(global.AVATAR_ICONS_PATH);
+            files.forEach(filename => {
+                if (filename.endsWith('_avatar.jpg')) {
+                    const filepath = path.join(global.AVATAR_ICONS_PATH, filename);
+                    const data = fs.readFileSync(filepath, 'base64');
+                    global.AVATAR_STORAGE.set(filename, data);
+                }
+            });
+            console.log(`📦 [AVATAR-STORAGE] Loaded ${global.AVATAR_STORAGE.size} avatars into memory`);
+        }
+    } catch (error) {
+        console.error('❌ [AVATAR-STORAGE] Failed to load avatars into memory:', error);
+    }
+}
+
+// Save avatar to memory and try to write to disk
+function saveAvatar(filename, imageBuffer) {
+    if (global.AVATAR_STORAGE) {
+        // Store in memory first
+        const base64Data = imageBuffer.toString('base64');
+        global.AVATAR_STORAGE.set(filename, base64Data);
+        console.log(`💾 [AVATAR-STORAGE] Saved ${filename} to memory storage`);
+    }
+    
+    // Also try to save to disk (will be lost on deployment but that's ok)
+    const filepath = path.join(global.AVATAR_ICONS_PATH, filename);
+    fs.writeFileSync(filepath, imageBuffer);
+}
+
+// Get avatar from memory or disk
+function getAvatar(filename) {
+    if (global.AVATAR_STORAGE && global.AVATAR_STORAGE.has(filename)) {
+        return Buffer.from(global.AVATAR_STORAGE.get(filename), 'base64');
+    }
+    
+    // Fallback to disk
+    const filepath = path.join(global.AVATAR_ICONS_PATH, filename);
+    if (fs.existsSync(filepath)) {
+        return fs.readFileSync(filepath);
+    }
+    
+    return null;
+}
+
+// List all avatars from memory storage
+function listAvatars() {
+    if (global.AVATAR_STORAGE) {
+        return Array.from(global.AVATAR_STORAGE.keys());
+    }
+    
+    // Fallback to disk listing
+    if (fs.existsSync(global.AVATAR_ICONS_PATH)) {
+        return fs.readdirSync(global.AVATAR_ICONS_PATH).filter(f => f.endsWith('_avatar.jpg'));
+    }
+    
+    return [];
+}
+
+// Initialize avatar storage
+setupAvatarStorage();
+
+// Legacy support - remove these after updating all references
+// Create avatars directory if it doesn't exist
+const iconsDir = global.AVATAR_ICONS_PATH || path.join(__dirname, 'assets', 'icons');
+if (!fs.existsSync(iconsDir)) {
+    fs.mkdirSync(iconsDir, { recursive: true });
+    console.log(`🚀 [STARTUP] Created avatars directory: ${iconsDir}`);
+} else {
+    console.log(`✅ [STARTUP] Avatars directory exists: ${iconsDir}`);
+}
+
+// Create defaults directory for default avatars
+const defaultsDir = global.AVATAR_DEFAULTS_PATH || path.join(__dirname, 'assets', 'defaults');
+if (!fs.existsSync(defaultsDir)) {
+    fs.mkdirSync(defaultsDir, { recursive: true });
+    console.log(`🚀 [STARTUP] Created defaults directory: ${defaultsDir}`);
+} else {
+    console.log(`✅ [STARTUP] Defaults directory exists: ${defaultsDir}`);
+}
 
 // =============================================================================
 // == GLOBAL VARIABLES & GAME STATE MANAGEMENT                                ==
@@ -97,7 +347,7 @@ function findOrCreateRoom(playerName = null) {
             if (wasInThisRoom) {
                 const connectedCount = room.jugadores.filter(p => p.isConnected).length;
                 if (connectedCount < 4) {
-                    console.log(`[ROOM PRIORITY] ${playerName} returning to previous room: ${roomId}`);
+                    // // console.log(`[ROOM PRIORITY] ${playerName} returning to previous room: ${roomId}`);
                     return room;
                 }
             }
@@ -116,7 +366,7 @@ function findOrCreateRoom(playerName = null) {
     const newRoomId = `Sala-${nextRoomId++}`;
     const newRoom = createGameRoom(newRoomId);
     gameRooms.set(newRoomId, newRoom);
-    console.log(`[ROOM SYSTEM] Created new room: ${newRoomId}`);
+    // // console.log(`[ROOM SYSTEM] Created new room: ${newRoomId}`);
     
     // Track room creation for analytics
     analytics.trackRoomCreated(newRoomId, 70).catch(err => 
@@ -177,7 +427,16 @@ function createNewGameState() {
         gameBlocked: false // Flag to indicate blocked game state
     };
 }
-
+function showSystemMessage(message, type = 'info') {
+    const messagesDiv = document.getElementById('chat-messages');
+    if (!messagesDiv) return;
+    const msg = document.createElement('p');
+    msg.innerHTML = `<b>System:</b> ${message}`;
+    msg.style.color = type === 'error' ? '#ff4444' : (type === 'success' ? '#44ff44' : '#ffaa00');
+    msg.style.fontWeight = 'bold';
+    messagesDiv.appendChild(msg);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
 
 // =============================================================================
 // == CORE GAME UTILITY FUNCTIONS                                             ==
@@ -235,16 +494,27 @@ function broadcastGameState(room) {
         tileCount: room.gameState.hands[p.name] ? room.gameState.hands[p.name].length : 0,
         avatar: p.avatar || { type: 'emoji', data: '👤' }
     }));
+    
+    // Debug: Log avatar data being sent
+    // // console.log('[BROADCAST] Avatar data for each player:');
+    room.gameState.jugadoresInfo.forEach(p => {
+        // // console.log(`  ${p.displayName} (${p.name}): ${p.avatar.type} - ${p.avatar.data}`);
+    });
+    
     const stateToSend = { ...room.gameState };
     stateToSend.readyPlayers = Array.from(room.gameState.readyPlayers);
     stateToSend.roomId = room.roomId; // Add room info
     stateToSend.targetScore = room.targetScore || 70; // Always include targetScore
     const { hands, ...finalState } = stateToSend;
 
+    // // console.log(`[BROADCAST] Sending gameState to ${room.jugadores.filter(p => p.isConnected).length} players in ${room.roomId}`);
+    // // console.log(`[BROADCAST] GameState: initialized=${finalState.gameInitialized}, currentTurn=${finalState.currentTurn}, firstMove=${finalState.isFirstMove}`);
+
     // Emit only to players in this room
     room.jugadores.forEach(player => {
         if (player.isConnected && player.socketId) {
             io.to(player.socketId).emit('gameState', finalState);
+            // // console.log(`[BROADCAST] Emitted gameState to ${player.name} (${player.socketId})`);
         }
     });
 }
@@ -260,10 +530,13 @@ function dealHands(room) {
     let dominoesPool = generateDominoes();
     shuffleArray(dominoesPool);
     const connectedPlayers = room.jugadores.filter(p => p.isConnected);
+    // // console.log(`[DEAL-HANDS] Dealing to ${connectedPlayers.length} players in ${room.roomId}`);
     connectedPlayers.forEach(player => {
         room.gameState.hands[player.name] = dominoesPool.splice(0, 7);
+        // // console.log(`[DEAL-HANDS] Dealt ${room.gameState.hands[player.name].length} tiles to ${player.name}`);
         if (player.socketId) {
             io.to(player.socketId).emit('playerHand', room.gameState.hands[player.name]);
+            // // console.log(`[DEAL-HANDS] Emitted playerHand to ${player.name} (${player.socketId})`);
         }
     });
 }
@@ -308,6 +581,7 @@ function nextTurn(room) {
  */
 function initializeRound(room) {
     room.gameState.gameInitialized = true;
+    room.gameState.isInitializing = false; // Reset initialization flag
     room.gameState.isFirstMove = true;
     room.gameState.board = [];
     room.gameState.leftEnd = null;
@@ -349,7 +623,7 @@ function initializeRound(room) {
         // After tied blocked game: find who has double 6
         const double6Holder = findDouble6Holder(room);
         room.gameState.currentTurn = double6Holder || room.gameState.lastWinner || room.gameState.seating[0] || "Jugador 1";
-        console.log(`[TIE RULE] Double 6 holder ${room.gameState.currentTurn} starts the round and can play any tile.`);
+        // // console.log(`[TIE RULE] Double 6 holder ${room.gameState.currentTurn} starts the round and can play any tile.`);
     } else {
         room.gameState.currentTurn = room.gameState.lastWinner && connectedPlayerNames.includes(room.gameState.lastWinner) ? room.gameState.lastWinner : (room.gameState.seating[0] || "Jugador 1");
         room.gameState.isAfterTiedBlockedGame = false;
@@ -503,7 +777,7 @@ function checkRoundEnd(room) {
 io.on('connection', (socket) => {
 
     socket.on('setPlayerName', async (data) => {
-        console.log('🎯 Received setPlayerName data:', data);
+        // // console.log('🎯 Received setPlayerName data:', data);
 
         // Handle both old string format and new object format
         let displayName, avatarData, roomId, targetScore;
@@ -515,7 +789,7 @@ io.on('connection', (socket) => {
             targetScore = 70;
         } else if (data.avatar === null) {
             displayName = data.name.trim().substring(0, 12);
-            avatarData = { type: 'file', data: displayName };
+            avatarData = null; // Will be assigned based on player slot
             roomId = data.roomId || null;
             targetScore = data.targetScore || 70;
         } else {
@@ -525,7 +799,7 @@ io.on('connection', (socket) => {
             targetScore = data.targetScore || 70;
         }
 
-        console.log('🎯 Processed - Name:', displayName, 'Avatar:', avatarData, 'Room:', roomId, 'TargetScore:', targetScore);
+        // // console.log('🎯 Processed - Name:', displayName, 'Avatar:', avatarData, 'Room:', roomId, 'TargetScore:', targetScore);
 
         if (!displayName) return;
 
@@ -540,19 +814,38 @@ io.on('connection', (socket) => {
                 reconnectingPlayer.isConnected = true;
                 if (typeof data === 'object' && data.avatar) {
                     reconnectingPlayer.avatar = data.avatar;
-                    console.log(`[RECONNECT] ${displayName} reconnected to ${rid} with updated avatar ${data.avatar.type === 'emoji' ? data.avatar.data : 'custom'}.`);
+                    // // console.log(`[RECONNECT] ${displayName} reconnected to ${rid} with updated avatar ${data.avatar.type === 'emoji' ? data.avatar.data : 'custom'}.`);
                 } else {
-                    console.log(`[RECONNECT] ${displayName} reconnected to ${rid} with existing avatar ${reconnectingPlayer.avatar ? (reconnectingPlayer.avatar.type === 'emoji' ? reconnectingPlayer.avatar.data : 'custom') : 'default'}.`);
+                    // // console.log(`[RECONNECT] ${displayName} reconnected to ${rid} with existing avatar ${reconnectingPlayer.avatar ? (reconnectingPlayer.avatar.type === 'emoji' ? reconnectingPlayer.avatar.data : reconnectingPlayer.avatar.type + ':' + reconnectingPlayer.avatar.data) : 'default'}.`);
                 }
                 socket.jugadorName = reconnectingPlayer.name;
                 socket.roomId = rid;
                 socket.join(rid);
-                socket.emit('playerAssigned', reconnectingPlayer.name);
+                
+                const connectedCount = room.jugadores.filter(p => p.isConnected).length;
+                socket.emit('playerAssigned', {
+                    playerName: reconnectingPlayer.name,
+                    isRoomFull: connectedCount >= 4
+                });
+                
                 if (room.gameState.gameInitialized) {
                     const playerHand = room.gameState.hands[reconnectingPlayer.name];
                     io.to(socket.id).emit('playerHand', playerHand);
                 }
+                
+                // Send playerCount update after reconnection
+                const updatedConnectedCount = room.jugadores.filter(p => p.isConnected).length;
+                io.to(room.roomId).emit('playerCount', { 
+                    count: updatedConnectedCount, 
+                    roomFull: updatedConnectedCount >= 4 
+                });
+                // // console.log(`[RECONNECT] Emitted playerCount update: ${updatedConnectedCount} players, roomFull: ${updatedConnectedCount >= 4}`);
+                
                 broadcastGameState(room);
+                // Emit playerReconnected to all players in the room
+                io.to(room.roomId).emit('playerReconnected', {
+                    playerName: reconnectingPlayer.name
+                });
                 reconnectedToRoom = room;
                 break;
             }
@@ -566,7 +859,7 @@ io.on('connection', (socket) => {
                 // Create new room with this id
                 const newRoom = createGameRoom(roomId);
                 gameRooms.set(roomId, newRoom);
-                console.log(`[ROOM SYSTEM] Created new room by user: ${roomId}`);
+                // // console.log(`[ROOM SYSTEM] Created new room by user: ${roomId}`);
             }
             room = gameRooms.get(roomId);
         } else {
@@ -597,12 +890,31 @@ io.on('connection', (socket) => {
             availableSlot.socketId = socket.id;
             availableSlot.isConnected = true;
             availableSlot.assignedName = displayName;
+            
+            // Assign default avatar based on player name if no avatar was provided
+            if (avatarData === null) {
+                // Use default jugador avatars since they exist and are reliable
+                const match = availableSlot.name.match(/\d+/);
+                const playerNumber = match ? match[0] : '1';
+                
+                console.log(`[AVATAR] Using default jugador${playerNumber} avatar for ${displayName} (${availableSlot.name})`);
+                avatarData = { type: 'file', data: null }; // Will trigger default avatar loading on client
+            }
+            
             availableSlot.avatar = avatarData;
             socket.jugadorName = availableSlot.name;
             socket.roomId = room.roomId;
             socket.join(room.roomId);
-            socket.emit('playerAssigned', availableSlot.name);
-            console.log(`[NEW PLAYER] ${displayName} connected as ${availableSlot.name} in ${room.roomId} with avatar ${avatarData.type === 'emoji' ? avatarData.data : 'custom'}.`);
+            
+            let currentConnectedCount = room.jugadores.filter(p => p.isConnected).length;
+            
+            // Send player assignment with room status
+            socket.emit('playerAssigned', {
+                playerName: availableSlot.name,
+                isRoomFull: currentConnectedCount >= 4
+            });
+            
+            // // console.log(`[NEW PLAYER] ${displayName} connected as ${availableSlot.name} in ${room.roomId} with avatar ${avatarData.type === 'emoji' ? avatarData.data : avatarData.type + ':' + avatarData.data}.`);
 
             // Track player join for analytics
             await analytics.trackPlayerJoin(
@@ -613,9 +925,57 @@ io.on('connection', (socket) => {
             );
 
             const connectedCount = room.jugadores.filter(p => p.isConnected).length;
-            if (connectedCount === 4 && !room.gameState.gameInitialized && !room.gameState.endRoundMessage && !room.gameState.matchOver) {
-                initializeRound(room);
+            
+            // Send player count update for waiting message management
+            io.to(room.roomId).emit('playerCount', { 
+                count: connectedCount, 
+                roomFull: connectedCount >= 4 
+            });
+            
+            if (connectedCount === 4 && !room.gameState.gameInitialized && !room.gameState.endRoundMessage && !room.gameState.matchOver && !room.gameState.isInitializing) {
+                // // console.log(`[AUTO-START] Conditions met - starting game for ${room.roomId}`);
+                room.gameState.isInitializing = true; // Prevent multiple simultaneous initializations
+                // First broadcast gameState with 4 players so clients can hide waiting messages
+                broadcastGameState(room);
+                // Give clients a moment to process the 4-player state
+                setTimeout(() => {
+                    // // console.log(`[AUTO-START] Initializing round for ${room.roomId}`);
+                    room.gameState.isFirstRoundOfMatch = true;
+                    initializeRound(room);
+                }, 100);
             } else {
+                // // console.log(`[AUTO-START] Conditions NOT met for ${room.roomId}:`, {
+                // connectedCount,
+                //  gameInitialized: room.gameState.gameInitialized,
+                //  endRoundMessage: room.gameState.endRoundMessage,
+                //   matchOver: room.gameState.matchOver,
+                //isInitializing: room.gameState.isInitializing
+                //  });
+                
+                // If game is already initialized, check if this player needs tiles
+                if (room.gameState.gameInitialized) {
+                    // // // console.log(`[RECONNECT] Checking if ${availableSlot.name} needs tiles in initialized game`);
+                    // // console.log(`[RECONNECT] Current hands for ${availableSlot.name}:`, room.gameState.hands[availableSlot.name]);
+                    
+                    if (!room.gameState.hands[availableSlot.name] || room.gameState.hands[availableSlot.name].length === 0) {
+                        // // console.log(`[RECONNECT] Dealing tiles to ${availableSlot.name} who rejoined initialized game`);
+                        
+                        // Generate fresh dominoes and deal to this player only
+                        let dominoesPool = generateDominoes();
+                        shuffleArray(dominoesPool);
+                        room.gameState.hands[availableSlot.name] = dominoesPool.splice(0, 7);
+                        
+                        // Send tiles to this specific player
+                        socket.emit('playerHand', room.gameState.hands[availableSlot.name]);
+                        // // console.log(`[RECONNECT] Dealt ${room.gameState.hands[availableSlot.name].length} tiles to ${availableSlot.name}`);
+                    } else {
+                        // // console.log(`[RECONNECT] ${availableSlot.name} already has ${room.gameState.hands[availableSlot.name].length} tiles`);
+                        // Send existing tiles to the reconnecting player
+                        socket.emit('playerHand', room.gameState.hands[availableSlot.name]);
+                        // // console.log(`[RECONNECT] Resent existing ${room.gameState.hands[availableSlot.name].length} tiles to ${availableSlot.name}`);
+                    }
+                }
+                
                 broadcastGameState(room);
             }
         } else {
@@ -656,7 +1016,7 @@ io.on('connection', (socket) => {
                 return socket.emit('gameError', { message: 'Primera ficha debe ser 6|6!' });
             } else if (room.gameState.isAfterTiedBlockedGame) {
                 // After tied blocked game: player with double 6 can play any tile
-                console.log(`[TIE RULE] ${player} playing any tile after tied blocked game: ${tile.left}|${tile.right}`);
+                // // console.log(`[TIE RULE] ${player} playing any tile after tied blocked game: ${tile.left}|${tile.right}`);
             }
             const firstTile = hand[tileIndex];
             room.gameState.board.push(firstTile);
@@ -791,7 +1151,7 @@ socket.on('voiceMessage', async (data) => {
         const player = room.jugadores.find(p => p.socketId === socket.id);
         if (!player) return;
 
-        console.log(`[RESTART GAME] ${player.assignedName || player.name} initiated game restart in ${room.roomId}.`);
+        // // console.log(`[RESTART GAME] ${player.assignedName || player.name} initiated game restart in ${room.roomId}.`);
         
         // Reset all game state while keeping connected players
         const connectedPlayers = room.jugadores.filter(p => p.isConnected);
@@ -845,6 +1205,70 @@ socket.on('voiceMessage', async (data) => {
             });
         }
     });
+
+    socket.on('leaveGame', (data) => {
+        // console.log(`[LEAVE GAME] Received leaveGame event from socket ${socket.id}`);
+        // console.log(`[LEAVE GAME] Data received:`, data);
+        // console.log(`[LEAVE GAME] Player ${data.playerName} (${data.playerId}) requesting to leave room ${data.roomCode}`);
+        
+        const room = gameRooms.get(data.roomCode);
+        if (!room) {
+            // console.log('[LEAVE GAME] Room not found in gameRooms');
+            // console.log('[LEAVE GAME] Available rooms:', Array.from(gameRooms.keys()));
+            socket.emit('leaveGameResponse', { success: false, message: 'Room not found' });
+            return;
+        }
+
+        const playerSlot = room.jugadores.find(p => p.socketId === socket.id);
+        if (!playerSlot) {
+            // console.log('[LEAVE GAME] Player not found in room');
+            socket.emit('leaveGameResponse', { success: false, message: 'Player not found in room' });
+            return;
+        }
+
+        // Mark player as disconnected
+        playerSlot.socketId = null;
+        playerSlot.isConnected = false;
+        room.gameState.readyPlayers.delete(playerSlot.name);
+
+        // console.log(`[LEAVE GAME] ${playerSlot.name} (${playerSlot.assignedName}) left room ${room.roomId}`);
+
+        // Notify all players in the room (including disconnected ones)
+        room.jugadores.forEach(p => {
+            if (p.socketId) {
+                io.to(p.socketId).emit('playerLeft', {
+                    playerName: playerSlot.assignedName || playerSlot.name,
+                    remainingPlayers: room.jugadores.filter(j => j.isConnected).length
+                });
+            }
+        });
+
+        // Send success response to leaving player
+        socket.emit('leaveGameResponse', { 
+            success: true, 
+            message: 'Successfully left the game',
+            redirect: true
+        });
+
+        // Clean up room if empty
+        const connectedPlayers = room.jugadores.filter(p => p.isConnected);
+        const connectedCount = connectedPlayers.length;
+        if (connectedCount === 0) {
+            // console.log(`[CLEANUP] Room ${room.roomId} is empty, removing...`);
+            gameRooms.delete(room.roomId);
+        } else {
+            // Update room state for remaining players
+            connectedPlayers.forEach(p => {
+                if (p.socketId) {
+                    io.to(p.socketId).emit('gameStateUpdate', {
+                        jugadoresInfo: room.gameState.jugadoresInfo,
+                        currentPlayer: room.gameState.currentPlayer,
+                        gamePhase: room.gameState.gamePhase
+                    });
+                }
+            });
+        }
+    });
     
     socket.on('disconnect', () => {
         const room = findPlayerRoom(socket.id);
@@ -852,19 +1276,26 @@ socket.on('voiceMessage', async (data) => {
         
         const playerSlot = room.jugadores.find(p => p.socketId === socket.id);
         if (playerSlot) {
-            console.log(`[DISCONNECTED] ${playerSlot.name} (${playerSlot.assignedName}) from ${room.roomId}.`);
+            // console.log(`[DISCONNECTED] ${playerSlot.name} (${playerSlot.assignedName}) from ${room.roomId}.`);
             playerSlot.socketId = null;
             playerSlot.isConnected = false;
             room.gameState.readyPlayers.delete(playerSlot.name);
             
             const connectedCount = room.jugadores.filter(p => p.isConnected).length;
+            
+            // Send updated player count for waiting message management
+            io.to(room.roomId).emit('playerCount', { 
+                count: connectedCount, 
+                roomFull: connectedCount >= 4 
+            });
+            
             if (connectedCount < 4 && room.gameState.gameInitialized) {
                 // If a player disconnects mid-game, pause or handle accordingly
-                console.log(`[SERVER] A player disconnected mid-game in ${room.roomId}. Pausing.`);
+                // console.log(`[SERVER] A player disconnected mid-game in ${room.roomId}. Pausing.`);
                 // For now, we just update clients. A more robust solution could pause the turn timer.
                 broadcastGameState(room);
             } else if (connectedCount === 0) {
-                console.log(`[SERVER] All players disconnected from ${room.roomId}. Removing room.`);
+                // console.log(`[SERVER] All players disconnected from ${room.roomId}. Removing room.`);
                 gameRooms.delete(room.roomId);
             } else {
                 broadcastGameState(room);
@@ -895,20 +1326,81 @@ app.post('/save-avatar', express.json({ limit: '1mb' }), (req, res) => {
     const imageType = matches[1]; // jpg, png, etc.
     const imageBuffer = Buffer.from(matches[2], 'base64');
     
-    // Create the filename (always save as .jpg for consistency)
-    const filename = `${playerName}_avatar.jpg`;
-    const filepath = path.join(__dirname, 'assets', 'icons', filename);
+    // Create avatars directory structure if it doesn't exist
+    const iconsDir = path.join(__dirname, 'assets', 'icons');
+    if (!fs.existsSync(iconsDir)) {
+        fs.mkdirSync(iconsDir, { recursive: true });
+        console.log(`📁 Created avatars directory: ${iconsDir}`);
+    }
     
-    // Save the file
-    fs.writeFile(filepath, imageBuffer, (err) => {
-        if (err) {
-            console.error('Error saving avatar file:', err);
-            return res.status(500).json({ error: 'Failed to save avatar file' });
+    // Create the filename using exact case provided by user
+    const filename = `${playerName}_avatar.jpg`;
+    
+    try {
+        // Save using the new storage system
+        saveAvatar(filename, imageBuffer);
+        
+        console.log(`✅ Avatar saved to memory storage: ${filename}`);
+        res.json({ success: true, filename: filename });
+    } catch (error) {
+        console.error('Error saving avatar:', error);
+        res.status(500).json({ error: 'Failed to save avatar' });
+    }
+});
+
+// Debug endpoint to list avatar files (remove after testing)
+app.get('/debug/avatars', (req, res) => {
+    const fs = require('fs');
+    const path = require('path');
+    
+    try {
+        const iconsDir = global.AVATAR_ICONS_PATH || path.join(__dirname, 'assets', 'icons');
+        const defaultsDir = global.AVATAR_DEFAULTS_PATH || path.join(__dirname, 'assets', 'defaults');
+        
+        // Get avatar files from memory storage or disk
+        let iconFiles = listAvatars();
+        let defaultFiles = [];
+        
+        if (fs.existsSync(defaultsDir)) {
+            defaultFiles = fs.readdirSync(defaultsDir).filter(file => file.includes('avatar'));
         }
         
-        console.log(`✅ Avatar saved as file: ${filename}`);
-        res.json({ success: true, filename: filename });
-    });
+        res.json({ 
+            success: true, 
+            avatarFiles: iconFiles.sort(),
+            defaultFiles: defaultFiles.sort(),
+            iconsDirExists: fs.existsSync(iconsDir),
+            defaultsDirExists: fs.existsSync(defaultsDir),
+            iconsPath: iconsDir,
+            defaultsPath: defaultsDir,
+            serverInfo: {
+                platform: process.platform,
+                nodeVersion: process.version,
+                workingDir: process.cwd()
+            }
+        });
+    } catch (error) {
+        res.json({ 
+            success: false, 
+            error: error.message 
+        });
+    }
+});
+
+// Test endpoint for default avatar accessibility
+app.get('/test/default-avatar/:playerNumber', (req, res) => {
+    const playerNumber = req.params.playerNumber;
+    const avatarPath = path.join(__dirname, 'assets', 'defaults', `jugador${playerNumber}_avatar.jpg`);
+    
+    if (fs.existsSync(avatarPath)) {
+        res.sendFile(avatarPath);
+    } else {
+        res.status(404).json({ 
+            error: 'Default avatar not found',
+            requestedPath: avatarPath,
+            playerNumber: playerNumber
+        });
+    }
 });
 
 // Endpoint to submit suggestions
@@ -959,8 +1451,8 @@ app.post('/submit-suggestion', express.json({ limit: '1mb' }), (req, res) => {
         // Write back to file
         fs.writeFileSync(filename, JSON.stringify(suggestions, null, 2));
         
-        console.log(`📝 New suggestion saved: ${suggestionData.id}`);
-        console.log(`💡 Suggestion preview: "${suggestion.substring(0, 50)}${suggestion.length > 50 ? '...' : ''}"`);
+        // console.log(`📝 New suggestion saved: ${suggestionData.id}`);
+        // console.log(`💡 Suggestion preview: "${suggestion.substring(0, 50)}${suggestion.length > 50 ? '...' : ''}"`);
         
         // Track suggestion for analytics if available
         if (analytics && analytics.trackSuggestion) {
@@ -1018,7 +1510,7 @@ app.get('/suggestions', (req, res) => {
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Domino4 - Buzón de Sugerencias</title>
+            <title>DominoM - Buzón de Sugerencias</title>
             <meta charset="UTF-8">
             <style>
                 body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
@@ -1032,7 +1524,7 @@ app.get('/suggestions', (req, res) => {
         </head>
         <body>
             <div class="header">
-                <h1>🎯 Domino4 - Buzón de Sugerencias</h1>
+                <h1>🎯 DominoM - Buzón de Sugerencias</h1>
                 <p>Feedback y sugerencias de los usuarios</p>
             </div>
             
@@ -1083,7 +1575,7 @@ app.get('/suggestions', (req, res) => {
 setInterval(async () => {
     try {
         const dailyStats = analytics.getDailySummary();
-        console.log('📊 Daily Stats:', dailyStats);
+        // console.log('📊 Daily Stats:', dailyStats);
     } catch (error) {
         console.error('Analytics daily stats error:', error);
     }
@@ -1093,7 +1585,7 @@ setInterval(async () => {
 setInterval(async () => {
     try {
         const quickStats = await analytics.getQuickStats();
-        console.log('📊 Hourly Update:', quickStats.today);
+        // console.log('📊 Hourly Update:', quickStats.today);
     } catch (error) {
         console.error('Analytics hourly stats error:', error);
     }

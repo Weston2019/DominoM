@@ -27,3 +27,9 @@
 {"timestamp":"2025-08-18T16:43:03.756Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 2","tile":{"left":0,"right":3},"position":"left"}
 {"timestamp":"2025-08-18T16:43:08.114Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 4","tile":{"left":0,"right":5},"position":"right"}
 {"timestamp":"2025-08-18T16:43:19.831Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 3","tile":{"left":5,"right":4},"position":"right"}
+{"timestamp":"2025-08-20T13:41:02.691Z","eventType":"room_created","roomId":"Sala-1","targetScore":70}
+{"timestamp":"2025-08-20T13:41:02.693Z","eventType":"player_join","playerName":"Jugador 1","roomId":"Sala-1","displayName":"Da","userAgent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"}
+{"timestamp":"2025-08-20T13:41:16.207Z","eventType":"player_join","playerName":"Jugador 2","roomId":"Sala-1","displayName":"fv","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0"}
+{"timestamp":"2025-08-20T13:41:23.782Z","eventType":"player_join","playerName":"Jugador 3","roomId":"Sala-1","displayName":"lk","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0"}
+{"timestamp":"2025-08-20T13:41:29.848Z","eventType":"player_join","playerName":"Jugador 4","roomId":"Sala-1","displayName":"kk","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0"}
+{"timestamp":"2025-08-20T13:41:48.495Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 3","tile":{"left":6,"right":6},"position":"right"}

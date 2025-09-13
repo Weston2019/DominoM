@@ -1,181 +1,399 @@
-<!-- =============================================================================
-     == index.html          Domino4  -  August 6 by DAM Productions             ==
-     ============================================================================= -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Block Dominoes</title>
-    <link rel="stylesheet" href="/styles.css">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4CAF50">
+  <meta charset="UTF-8" />
+  <!-- iOS Safari full screen -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="DominoM">
+
+  <title>Block Dominoes</title>
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' fill='%234CAF50'/><text x='90' y='110' text-anchor='middle' font-size='72' fill='white'>🎲</text></svg>">
+
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/mobile.css" />
+  <link rel="stylesheet" href="/mobile.css" media="(max-width: 900px)" />
+  <style>
+    .desktop-only { display: block; }
+    .mobile-only { display: none; }
+    @media (max-width: 900px) {
+      .desktop-only { display: none; }
+      .mobile-only { display: block; }
+    }
+  </style>
 </head>
 <body>
-    <div id="lobby-container">
-        <div id="logo-container">
-            <div id="game-logo">Domino4 <span class="by-text">by</span> <span class="producer">DAM Productions</span></div>
+  <!-- Lobby/sign-in UI -->
+  <div id="lobby-container">
+    <!-- Suggestion Box (header moved here) -->
+    <div id="suggestion-box-container">
+      <div id="dam-header" class="logo-header">
+        <div class="logo-box">
+          <span class="logo-title">DominoM</span>
+          <span class="logo-by"> by <a href="#" class="logo-producer">DAM Productions</a></span>
         </div>
-        
-        <!-- Suggestion Box -->
-        <div id="suggestion-box-container">
-            <button id="toggle-suggestion-btn">💡 Buzón de Sugerencias</button>
-            <div id="suggestion-box" class="hidden">
-                <h4>🎯 Ayúdanos a Mejorar</h4>
-                <textarea id="suggestion-text" placeholder="Comparte tus ideas, sugerencias o reporta problemas..." maxlength="500"></textarea>
-                <div id="suggestion-actions">
-                    <button id="submit-suggestion-btn">📤 Enviar</button>
-                    <button id="cancel-suggestion-btn">❌ Cancelar</button>
-                </div>
-                <div id="suggestion-status"></div>
-            </div>
+      </div>
+      <div class="logo-spacer"></div>
+      <button id="toggle-suggestion-btn">💡 <span data-translate="suggestions_box">Buzón de Sugerencias</span></button>
+      <div id="suggestion-box" class="hidden">
+        <h4>🎯 <span data-translate="help_us_improve">Ayúdanos a Mejorar</span></h4>
+        <textarea id="suggestion-text" data-translate-placeholder="share_ideas_placeholder" placeholder="Comparte tus ideas, sugerencias o reporta problemas..." maxlength="500"></textarea>
+        <div id="suggestion-actions">
+          <button id="submit-suggestion-btn">📤 <span data-translate="send">Enviar</span></button>
+          <button id="cancel-suggestion-btn" type="button">❌ <span data-translate="cancel">Cancelar</span></button>
         </div>
-        
-        <h2>Crear Su Perfil</h2>
-        <button id="show-rules-btn">📖 Domino4 - Reglas del Juego</button>
-        <div id="profile-status"></div>
-        <div class="avatar-flex-row-wrapper">
-            <div class="avatar-flex-row">
-                <div id="avatar-selection">
-                    <h3>Seleccione Su Avatar</h3>
-                    <div id="avatar-grid">
-                        <div class="avatar-option" data-avatar="😎">😎</div>
-                        <div class="avatar-option" data-avatar="🤠">🤠</div>
-                        <div class="avatar-option" data-avatar="🥳">🥳</div>
-                        <div class="avatar-option selected" data-avatar="🎯">🎯</div>
-                        <div class="avatar-option" data-avatar="🎲">🎲</div>
-                        <div class="avatar-option" data-avatar="🎮">🎮</div>
-                        <div class="avatar-option" data-avatar="🤩">🤩</div>
-                        <div class="avatar-option" data-avatar="😈">😈</div>
-                        <div class="avatar-option" data-avatar="⚡">⚡</div>
-                        <div class="avatar-option" data-avatar="🔥">🔥</div>
-                        <div class="avatar-option" data-avatar="💎">💎</div>
-                        <div class="avatar-option" data-avatar="🤖">🤖</div>
-                        <div class="avatar-option" data-avatar="🌟">🌟</div>
-                        <div class="avatar-option" data-avatar="🏆">🏆</div>
-                        <div class="avatar-option" data-avatar="👑">👑</div>
-                        <div class="avatar-option" data-avatar="🎊">🎊</div>
-                    </div>
-                    <div id="custom-avatar-section">
-                        <h4>O Suba Su Propia Imagen</h4>
-                        <label for="avatar-upload" class="custom-file-upload">
-                            📁 Seleccionar Archivo
-                        </label>
-                        <input type="file" id="avatar-upload" accept="image/*" title="Suba su avatar personalizado">
-                        <div id="custom-avatar-preview"></div>
-                    </div>
-                </div>
-            </div>
-            <div id="available-rooms"></div>
-        </div>
-        <input type="text" id="name-input" placeholder="Su Nombre o Iniciales" maxlength="9">
-        <div class="flex-row">
-            <input type="text" id="room-input" placeholder="Sala nombre(opcional)">
-            <label for="target-score" class="puntaje-label">Puntaje:</label>
-            <select id="target-score" class="puntaje-select">
-                <option value="70" selected>70</option>
-                <option value="100">100</option>
-                <option value="50">50</option>
-                <option value="30">30</option>
-            </select>
-        </div>
-        <div id="profile-actions">
-            <button id="set-name-btn">Entrar al Juego</button>
-            <button id="clear-profile-btn" type="button">Borrar Perfil Guardado</button>
-        </div>
-        <!-- Game Rules Modal -->
-        <!-- Game Rules Modal moved to end of body -->
-    </div>
-    <div id="canvas-container"></div>
-    <div id="game-ui">
-        <div class="game-ui-top-row">
-            <div class="game-ui-main">
-                <div class="team-room-row">
-                    <div id="team-info"></div>
-
-                </div>
-                <div id="player-display-bottom" class="player-display"></div>
-                <div id="player-display-left" class="player-display vertical-layout"></div>
-                <div id="player-display-top" class="player-display"></div>
-                <div id="player-display-right" class="player-display vertical-layout"></div>
-                <div id="scoreboard"></div>
-                <div id="matches-won-container"></div>
-                <div id="restart-game-container">
-                    <button id="restart-game-btn">🔄 Reiniciar Juego</button>
-                </div>
-                <div id="message-display"></div>
-                <div id="game-buttons">
-                    <button id="playLeftBtn">Izquierda</button>
-                    <button id="playRightBtn">Derecha</button>
-                    <button id="passBtn">Paso</button>
-                </div>
-                <div id="new-round-container"> 
-                    <div id="round-over-message"></div>
-                    <button id="newRoundBtn">Empezar Mano Nueva</button>
-                </div>
-                <div id="chat-container">
-                    <div id="chat-messages"></div>
-                    <form id="chat-input-form">
-                        <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off">
-                        <button type="submit">Send</button>
-                        <button id="voice-chat-btn" type="button">🎤Presione y hable
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
+        <div id="suggestion-status"></div>
+      </div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <!-- Game Rules Modal moved here for visibility -->
-    <div id="rules-modal">
-        <div id="rules-modal-content">
-            <button id="close-rules-btn">✖</button>
-            <h2>Domino4 - Reglas del Juego</h2>
-            <ol>
-                <li>El juego es para 4 jugadores en equipos de 2.</li>
-                <li>El juego empieza cuando los 4 jugadores esten inscritos</li>
-                <li>El juego se encarga de rotar las parejas despues de cada match</li>
-                <li>Cada jugador recibe 7 fichas de dominó.</li>
-                <li>El jugador con el doble 6 inicia la partida.</li>
-                <li>Los turnos son en sentido contra del reloj.</li>
-                <li>Debe colocar una ficha que coincida con los extremos del tablero.</li>
-                <li>Si no puede jugar, debe pasar su turno.</li>
-                <li>Gana la mano el primer equipo en quedarse sin fichas, o el equipo con menos puntos si el juego se cierra.</li>
-                <li>Si hay cierre y empate en puntos, nadie gana y sale el que tenga el doble 6 en la proxima mano</li>
-                <li>El primer equipo en alcanzar el puntaje (70) objetivo gana el juego, este valor se puede cambiar al registrarse.</li>
-                <li>Usted puede crear su propio salon de juego o unirse a uno existente.</li>
-            </ol>
-                <p>Consulte las reglas completas con el organizador o en línea.</p>
+    <h2>Crear Su Perfil</h2>
+    
+    <!-- Force Install Banner Button (for testing) - Mobile Only -->
+    <button onclick="forceShowInstallBanner()" class="mobile-only" style="position: fixed; top: 60px; right: 10px; z-index: 9999; background: orange; color: white; padding: 8px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 12px;">📱 Install Instructions</button>
+    
+    <button id="show-rules-btn">📖 DominoM - Reglas del Juego</button>
+    <div id="profile-status"></div>
+
+    <div class="avatar-flex-row-wrapper">
+      <div class="avatar-flex-row">
+        <div id="avatar-selection">
+          <h3>Seleccione Su Avatar</h3>
+          <div id="avatar-grid">
+            <!-- avatar options -->
+            <div class="avatar-option" data-avatar="😎">😎</div>
+            <div class="avatar-option" data-avatar="🤠">🤠</div>
+            <div class="avatar-option" data-avatar="🥳">🥳</div>
+            <div class="avatar-option selected" data-avatar="🎯">🎯</div>
+            <div class="avatar-option" data-avatar="🎲">🎲</div>
+            <div class="avatar-option" data-avatar="🎮">🎮</div>
+            <div class="avatar-option" data-avatar="🤩">🤩</div>
+            <div class="avatar-option" data-avatar="😈">😈</div>
+            <div class="avatar-option" data-avatar="⚡">⚡</div>
+            <div class="avatar-option" data-avatar="🔥">🔥</div>
+            <div class="avatar-option" data-avatar="💎">💎</div>
+            <div class="avatar-option" data-avatar="🤖">🤖</div>
+            <div class="avatar-option" data-avatar="🌟">🌟</div>
+            <div class="avatar-option" data-avatar="🏆">🏆</div>
+            <div class="avatar-option" data-avatar="👑">👑</div>
+            <div class="avatar-option" data-avatar="🎊">🎊</div>
+          </div>
+          <div id="custom-avatar-section">
+            <h4>O Suba Su Propia Imagen</h4>
+            <label for="avatar-upload" class="custom-file-upload">📁 Seleccionar Archivo</label>
+            <input type="file" id="avatar-upload" accept="image/*" title="Suba su avatar personalizado" />
+            <div id="custom-avatar-preview"></div>
+          </div>
         </div>
+      </div>
+      <div id="available-rooms"></div>
     </div>
-    <script>
-    // Show/hide rules modal logic
-    document.addEventListener('DOMContentLoaded', function() {
-        var showBtn = document.getElementById('show-rules-btn');
-        var modal = document.getElementById('rules-modal');
-        var closeBtn = document.getElementById('close-rules-btn');
-        var lobby = document.getElementById('lobby-container');
-        if (showBtn && modal && closeBtn && lobby) {
-            showBtn.onclick = function() {
-                modal.classList.add('show');
-                lobby.classList.add('modal-open');
-            };
-            closeBtn.onclick = function() {
-                modal.classList.remove('show');
-                lobby.classList.remove('modal-open');
-            };
-            modal.onclick = function(e) {
-                if (e.target === modal) {
-                    modal.classList.remove('show');
-                    lobby.classList.remove('modal-open');
-                }
-            };
-        }
-    });
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.5.0/p5.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.5.0/addons/p5.sound.min.js"></script>
+
+    <input type="text" id="name-input" placeholder="Su Nombre o Iniciales" maxlength="9" />
+    <div class="flex-row">
+      <input type="text" id="room-input" placeholder="Sala nombre(opcional)" />
+      <label for="target-score" class="puntaje-label">Puntaje:</label>
+      <select id="target-score" class="puntaje-select">
+        <option value="70" selected>70</option>
+        <option value="100">100</option>
+        <option value="50">50</option>
+        <option value="30">30</option>
+      </select>
+    </div>
+
+    <div id="profile-actions">
+      <button id="set-name-btn">Entrar al Juego</button>
+      <button id="clear-profile-btn" type="button">Borrar Perfil Guardado</button>
+    </div>
+  </div>
+
+  <!-- Game UI -->
+  <div id="canvas-container"></div>
+  <div id="game-ui" >
+    <!-- Waiting for players message -->
+    <div id="waiting-for-players">
+      <div>⏳</div>
+      <div id="waiting-message-text">Waiting for 4 players to connect to start...</div>
+      <div id="player-count-text">0 players connected</div>
+    </div>
+    
+    <!-- Visual separator line under player hand - FULL WIDTH -->
+    <div id="hand-separator"></div>
+    
+    <div class="game-ui-top-row">
+      <div class="game-ui-main">
+        <div class="team-room-row">
+          <div id="team-info"></div>
+        </div>
+        <div id="player-display-bottom" class="player-display"></div>
+        <div id="player-display-left" class="player-display vertical-layout"></div>
+        <div id="player-display-top" class="player-display"></div>
+        <div id="player-display-right" class="player-display vertical-layout"></div>
+        <div id="scoreboard"></div>
+        <div id="matches-won-container"></div>
+         
+        <div id="restart-game-container">
+          <button id="restart-game-btn-desktop">🔄 Restart Game</button>
+        </div>
+        
+        <div id="leave-game-container">
+          <button id="leave-game-btn-desktop" data-translate="leave_game">🚪 Leave Game</button>
+        </div>
+        
+        <!-- Main Game UI (Desktop Only) -->
+        <div class="desktop-only">
+          <!-- Desktop-only content -->
+        </div>
+        
+        <!-- Chat/Scroll Area (Mobile Only) -->
+        <div class="mobile-only mobile-container-padding">
+          <button id="stubborn-toggle-btn" 
+                  onclick="if(!this.touchHandled) { var box = document.getElementById('stubborn-container'); if(box) { var isHidden = box.style.display === 'none' || box.style.display === ''; if(isHidden) { box.style.setProperty('display', 'block', 'important'); } else { box.style.setProperty('display', 'none', 'important'); } } }" 
+                  ontouchstart="this.touchHandled = true; var box = document.getElementById('stubborn-container'); if(box) { var isHidden = box.style.display === 'none' || box.style.display === ''; if(isHidden) { box.style.setProperty('display', 'block', 'important'); } else { box.style.setProperty('display', 'none', 'important'); } } setTimeout(() => { this.touchHandled = false; }, 500);">💡 <span id="stubborn-btn-text" data-translate="suggestions_box_short">Buzón</span></button>
+          <button id="show-rules-btn-mobile">📖 Game Rules</button>
+        </div>
+        
+        <!-- STUBBORN Mobile Suggestion Box - Fresh Start -->
+        <div id="stubborn-container" class="mobile-only">
+          <h4>🎯 <span id="stubborn-title" data-translate="help_us_improve">Ayúdanos a Mejorar</span></h4>
+          <textarea id="stubborn-text" data-translate-placeholder="share_ideas_placeholder" placeholder="Comparte tus ideas, sugerencias o reporta problemas..." maxlength="500"></textarea>
+          <div class="stubborn-button-container">
+            <button id="stubborn-send-btn">📤 <span id="stubborn-send-text" data-translate="send">Enviar</span></button>
+            <button id="stubborn-close-btn" onclick="document.getElementById('stubborn-container').style.setProperty('display', 'none', 'important');">❌ <span id="stubborn-close-text" data-translate="close">Cerrar</span></button>
+          </div>
+          <div id="stubborn-status"></div>
+        </div>
+        
+        <div id="message-display"></div>
+        <div id="game-buttons">
+          <button id="playLeftBtn">Izquierda</button>
+          <button id="playRightBtn">Derecha</button>
+          <button id="passBtn">Paso</button>
+        </div>
+        <div id="new-round-container">
+          <div id="round-over-message"></div>
+          <button id="newRoundBtn">Empezar Mano Nueva</button>
+        </div>
+        <div id="chat-container">
+          <div id="chat-messages"></div>
+          <form id="chat-input-form">
+            <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off" />
+            <button type="submit">Send</button>
+            <button id="voice-chat-btn" type="button">🎤Presione y hable</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile-only scroll/chat area (hidden on desktop) -->
+  <div id="scroll-panel" class="mobile-only">
+    <div id="mobile-chat"></div>
+    <div id="matches-won-container"></div>
+    <div id="mobile-points-table"></div>
+    <button id="scroll-rules-btn" class="scroll-panel-btn">📖 Game Rules</button>
+  </div>
  
-    <script src="/client.js"></script>
+  <!-- Game Rules Modal -->
+  <div id="rules-modal">
+    <div id="rules-modal-content">
+      <button id="close-rules-btn" class="close">✖</button>
+      <h2>DominoM - Reglas del Juego</h2>
+      <ol>
+        <li>El juego es para 4 jugadores en equipos de 2.</li>
+        <li>El juego empieza cuando los 4 jugadores esten inscritos</li>
+        <li>El juego rota las parejas despues de cada match</li>
+        <li>Cada jugador recibe 7 fichas de dominó.</li>
+        <li>El jugador con el doble 6 inicia la partida.</li>
+        <li>Los turnos son en sentido contra del reloj.</li>
+        <li>Debe colocar una ficha que coincida con los extremos del tablero.</li>
+        <li>Si no puede jugar, debe pasar su turno.</li>
+        <li>El primer equipo que se quede sin fichas gana la mano, o el equipo con menos puntos si el juego se cierra.</li>
+        <li>Si hay un cierre y empate en puntos, nadie gana y quien tenga el doble 6 inicia la siguiente mano</li>
+        <li>El primer equipo en alcanzar el puntaje objetivo (70) gana el juego, este valor se puede cambiar al registrarse.</li>
+        <li>Puede crear su propia sala de juego o unirse a una existente.</li>
+      </ol>
+      <p>Consulte las reglas completas con el organizador o en línea.</p>
+    </div>
+  </div>
+  <!-- Scripts -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.5.0/p5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.5.0/addons/p5.sound.min.js"></script>
+  <script src="/client.js?v=20241211002"></script>
+  
+  <!-- Gentle landscape mode script -->
+  <script>
+// GENTLE LANDSCAPE MODE ENCOURAGEMENT
+function encourageLandscapeMode() {
+  if (window.innerWidth <= 900) {
+    // Try to encourage landscape orientation
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape').catch(err => {
+        // console.log('Landscape suggestion failed:', err);
+      });
+    }
+    
+    // Set viewport for landscape preference
+    let viewport = document.querySelector('meta[name="viewport"]');
+    if (!viewport) {
+      viewport = document.createElement('meta');
+      viewport.name = 'viewport';
+      document.head.appendChild(viewport);
+    }
+    viewport.content = 'width=device-width, initial-scale=1.0, user-scalable=no';
+  }
+}
 
+// Apply gentle encouragement
+document.addEventListener('DOMContentLoaded', encourageLandscapeMode);
+window.addEventListener('orientationchange', encourageLandscapeMode);
+window.addEventListener('resize', encourageLandscapeMode);
+</script>
+  
+  <script>
+function showGameUI() {
+  // console.log('🎯 Transitioning to Game UI...');
+  
+  // Mark as signed in to hide rotation messages
+  document.body.classList.add('signed-in');
+  
+  // AGGRESSIVE AUTO-SWITCH TO LANDSCAPE AFTER SIGN-IN
+  if (window.innerWidth <= 900) {
+    // console.log('📱 Forcing landscape mode with multiple methods...');
+    
+    // Method 1: Screen Orientation API (if supported)
+    const tryOrientationLock = () => {
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').then(() => {
+          // console.log('✅ Landscape locked via Screen Orientation API');
+        }).catch(err => {
+          // console.log('⚠️ Screen Orientation API failed:', err);
+        });
+      }
+    };
+    
+    // Method 2: CSS Transform approach for immediate visual effect
+    if (window.innerHeight > window.innerWidth) {
+      // console.log('📱 Device in portrait - applying CSS landscape force');
+      document.body.style.setProperty('transform', 'rotate(90deg)', 'important');
+      document.body.style.setProperty('transform-origin', '50% 50%', 'important');
+      document.body.style.setProperty('width', '100vh', 'important');
+      document.body.style.setProperty('height', '100vw', 'important');
+      document.body.style.setProperty('position', 'fixed', 'important');
+      document.body.style.setProperty('top', '0', 'important');
+      document.body.style.setProperty('left', '0', 'important');
+      document.body.classList.add('force-landscape-transform');
+      
+      // Adjust canvas for transform
+      const canvas = document.querySelector('canvas');
+      if (canvas) {
+        canvas.style.setProperty('width', '100vh', 'important');
+        canvas.style.setProperty('height', '100vw', 'important');
+      }
+    }
+    
+    // Method 3: Try orientation lock immediately
+    tryOrientationLock();
+    
+    // Method 4: Set up persistent orientation attempts
+    const orientationInterval = setInterval(() => {
+      if (window.innerWidth > window.innerHeight) {
+        // Success! We're in landscape, remove transforms
+        document.body.classList.remove('force-landscape-transform');
+        document.body.style.removeProperty('transform');
+        document.body.style.removeProperty('transform-origin');
+        document.body.style.removeProperty('width');
+        document.body.style.removeProperty('height');
+        document.body.style.removeProperty('position');
+        document.body.style.removeProperty('top');
+        document.body.style.removeProperty('left');
+        
+        const canvas = document.querySelector('canvas');
+        if (canvas) {
+          canvas.style.removeProperty('width');
+          canvas.style.removeProperty('height');
+        }
+        
+        clearInterval(orientationInterval);
+        // console.log('✅ Natural landscape detected, removed transforms');
+      } else {
+        // Still in portrait, keep trying orientation lock
+        tryOrientationLock();
+      }
+    }, 1000);
+    
+    // Method 5: Listen for any user interaction to try orientation lock
+    const tryLockOnInteraction = () => {
+      tryOrientationLock();
+    };
+    
+    document.addEventListener('click', tryLockOnInteraction);
+    document.addEventListener('touchstart', tryLockOnInteraction);
+    
+    // Clean up after 30 seconds
+    setTimeout(() => {
+      clearInterval(orientationInterval);
+      document.removeEventListener('click', tryLockOnInteraction);
+      document.removeEventListener('touchstart', tryLockOnInteraction);
+    }, 30000);
+  }
+  
+  document.getElementById('lobby-container').style.display = 'none';
+  document.getElementById('game-ui').style.display = 'block';
+  const scrollPanel = document.getElementById('scroll-panel');
+  if (scrollPanel) scrollPanel.style.display = 'block';
+  
+  // Setup mobile suggestion box for game UI after elements are visible
+  if (typeof setupStubbornBox === 'function') {
+    setupStubbornBox();
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  // console.log('DOM loaded, setting up buttons...');
+  setupGameButtons();
+});
+</script>
+
+<script>
+// Register service worker for PWA - TEMPORARILY DISABLED FOR DEBUGGING
+/*
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then((registration) => {
+        console.log('Service Worker registered successfully:', registration.scope);
+      })
+      .catch((error) => {
+        console.log('Service Worker registration failed:', error);
+      });
+  });
+}
+*/
+
+// Force show install banner for testing
+window.forceShowInstallBanner = function() {
+  console.log('🔧 Forcing install banner display...');
+  localStorage.removeItem('installBannerDismissed'); // Clear dismiss flag
+  
+  if (window.deferredPrompt) {
+    // Use regular banner if we have deferredPrompt
+    if (typeof showInstallBanner === 'function') {
+      showInstallBanner();
+    }
+  } else {
+    // Use fallback banner for localhost/iOS
+    if (typeof showFallbackInstallBanner === 'function') {
+      showFallbackInstallBanner();
+    } else {
+      alert('Fallback banner function not loaded yet. Try again in a moment.');
+    }
+  }
+}
+</script>
 </body>
 </html>

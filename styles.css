@@ -1,94 +1,66 @@
-@media (max-width: 900px) {
-    /* Ensure player's hand is visible and untouched for mobile */
-    #player-hand {
-        display: flex !important;
-    }
-    /* Top player display: show all tiny tiles horizontally, fit inside container */
-    #player-display-top .tiny-tiles-container {
-        display: inline-flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        align-items: center !important;
-        gap: 1px !important;
-        max-width: none !important;
-        width: auto !important;
-        overflow-x: visible !important;
-        white-space: nowrap !important;
-    }
-    /* Show tiny tiles in bottom player display for mobile */
-    #player-display-bottom .tiny-tiles-container {
-        display: inline-flex !important;
-        flex-wrap: nowrap !important;
-        align-items: center !important;
-        margin-left: 5px !important;
-        max-width: none !important;
-        gap: 1px !important;
-        white-space: nowrap !important;
-    }
+/* Avatar image styling */
+.avatar-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #fff;
+  border: 2px solid #ccc;
+  display: inline-block;
 }
-    /* Right & left player display: 2 rows, 4 in first, 3 in second */
-    #player-display-right .tiny-tiles-container,
-    #player-display-left .tiny-tiles-container {
-        display: grid !important;
-        grid-template-columns: repeat(4, 1fr) !important;
-        grid-template-rows: repeat(2, 1fr) !important;
-        gap: 1px !important;
-        max-width: 30px !important;
-        width: 100% !important;
-        align-items: center !important;
-        justify-content: center !important;
-    }
-    #player-display-right .tiny-tiles-container .tiny-domino:nth-child(n+5),
-    #player-display-left .tiny-tiles-container .tiny-domino:nth-child(n+5) {
-        grid-row: 2;
-    }
-    /* Hide tiny tiles in bottom player display for mobile */
-    /* Only hide tiny tiles in bottom player display for mobile, do not affect desktop or hand */
-    /* Desktop: Show tiny tiles for bottom player display by default */
-    #player-display-bottom .tiny-tiles-container {
-        display: inline-flex;
-        flex-wrap: nowrap;
-        align-items: center;
-        margin-left: 5px;
-        max-width: none;
-        gap: 1px;
-        white-space: nowrap;
-    }
-@media (max-width: 900px) {
-    #scoreboard {
-        padding: 4px 8px 4px 8px !important;
-        font-size: 11px !important;
-        max-width: 110px !important;
-        min-width: 80px !important;
-        height: auto !important;
-        overflow: hidden !important;
-        background: #222 !important;
-        color: #fff !important;
-    }
-    #scoreboard > div:first-child, #scoreboard b {
-        display: block !important;
-        font-size: 12px !important;
-        font-weight: bold !important;
-        color: #fff !important;
-        margin-bottom: 2px !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-    }
+/* =============================================================================
+   == styles.css          DominoM  -  August 27 by DAM Productions             ==
+   ============================================================================= */
+
+/* Hide mobile-only elements on desktop */
+.mobile-only {
+  display: none;
 }
-@media (max-width: 900px) {
-    #game-buttons {
-        position: absolute !important;
-        left: 60% !important;
-        transform: translateX(-50%) !important;
-        bottom: 77px !important; /* Just above the player's hand */
-        width: auto !important;
-        z-index: 20 !important;
-    }
+
+/* ===== WAITING FOR PLAYERS MESSAGE ===== */
+#waiting-for-players {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 123, 255, 0.95);
+  color: white;
+  padding: 30px 40px;
+  border-radius: 15px;
+  font-size: 18px;
+  text-align: center;
+  z-index: 10000;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  max-width: 400px;
+  box-sizing: border-box;
 }
-/* =============================================================================*/
-/* == styles.css          Domino4  -  August 6 by DAM Productions             ==*/
-/* =============================================================================*/
+
+#waiting-for-players > div:first-child {
+  font-size: 24px;
+  margin-bottom: 15px;
+}
+
+#player-count-text {
+  margin-top: 10px;
+  font-size: 16px;
+  opacity: 0.9;
+}
+
+/* Hide desktop suggestion box on mobile */
+@media (max-width: 900px) {
+  .desktop-only {
+    display: none !important;
+  }
+  .mobile-only {
+    display: block !important;
+  }
+  
+  /* Hide desktop suggestion box container on mobile */
+  #suggestion-box-container {
+    display: none !important;
+  }
+}
 
 /* Flex row for team info and room info inline */
 .team-room-row {
@@ -104,13 +76,38 @@
   border-radius: 8px;
   padding: 6px 14px;
   font-size: 1.05em;
-        margin-top: 3px !important;
+  margin-top: 3px !important;
   display: flex;
   align-items: center;
   gap: 10px;
   min-width: 120px;
   max-width: 200px;
 }
+#signin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 12px;
+  margin-bottom: 12px;
+}
+
+#language-selector-wrapper {
+  font-size: 14px;
+}
+
+#language-select {
+  padding: 4px 8px;
+  font-size: 14px;
+}
+
+
+
+
+/* Base layout defaults */
+#scroll-panel {
+  display: none; /* hidden until game starts */
+}
+
 /* Wrapper for avatar selection and available rooms */
 .avatar-flex-row-wrapper {
   position: relative;
@@ -125,8 +122,8 @@
   top: 0;
   margin-left: 32px;
   z-index: 2;
-  /* rest of previous styles remain */
 }
+
 /* Room info panel in lobby (right of avatar selection) */
 .lobby-room-info {
   min-width: 140px;
@@ -183,6 +180,7 @@
   background: #2e6;
   color: #111;
 }
+
 /* Game UI top row flex for room info on right */
 .game-ui-top-row {
   display: flex;
@@ -209,18 +207,7 @@
   text-align: left;
   line-height: 1.5;
 }
-@media (max-width: 900px) {
-  .game-ui-top-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-  .room-info-side {
-    margin-top: 0;
-    margin-bottom: 12px;
-    align-self: flex-end;
-  }
-}
+
 /* Flex row for avatar and available rooms */
 .avatar-flex-row {
   display: flex;
@@ -236,43 +223,7 @@
   max-width: 380px;
 }
 
-#available-rooms {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-  min-width: 120px;
-  max-width: 180px;
-  background: #222;
-  border-radius: 10px;
-  padding: 8px 10px;
-  font-size: 0.95em;
-  color: #b6fcb6;
-  box-shadow: 0 2px 8px #000a;
-  margin: 0;
-  height: fit-content;
-}
-
-#available-rooms .room-chip {
-  background: #333;
-  color: #b6fcb6;
-  border-radius: 8px;
-  padding: 3px 10px;
-  margin-bottom: 6px;
-  margin-right: 0;
-  font-size: 0.98em;
-  cursor: pointer;
-  border: 1px solid #444;
-  transition: background 0.15s, color 0.15s;
-  white-space: nowrap;
-}
-#available-rooms .room-chip:last-child {
-  margin-bottom: 0;
-}
-#available-rooms .room-chip:hover {
-  background: #2e6;
-  color: #111;
-}
+/* Room chips for available rooms */
 #available-rooms {
   font-size: 14px;
   margin-bottom: 6px;
@@ -303,6 +254,8 @@
   background: #007bff;
   color: #fff;
 }
+
+/* Rules modal styles */
 #rules-modal-content {
   background: #fff;
   color: #222;
@@ -346,42 +299,153 @@
 #rules-modal {
   display: none;
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0,0,0,0.65);
-  z-index: 100000;
-  align-items: center;
-  justify-content: center;
+  top: 15%;
+  left: 30%;
+  z-index: 9999;
+  background: white;
+  border: 2px solid #333;
+  padding: 20px;
 }
+#rules-modal.show {
+  display: block;
+}
+
+
 #lobby-container.modal-open {
   pointer-events: none !important;
   -webkit-user-select: none !important;
   user-select: none !important;
   opacity: 0.7;
 }
-#rules-modal.show {
-  display: flex;
+
+/* Allow stubborn suggestion button to receive clicks even when modal is open */
+#stubborn-toggle-btn,
+#stubborn-container,
+#stubborn-container * {
+  pointer-events: auto !important;
 }
+
+/* Ensure stubborn container is hidden by default, overriding mobile-only display */
+#stubborn-container.mobile-only {
+  display: none !important;
+}
+
+/* ===== ADDITIONAL INLINE STYLES MOVED TO CSS ===== */
+
+/* Hand separator line */
+#hand-separator {
+  position: absolute;
+  bottom: 30px;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(to right, #007bff 0%, #007bff 100%);
+  box-shadow: 0 2px 4px rgba(0,123,255,0.4);
+  z-index: 10;
+}
+
+/* Mobile container padding */
+.mobile-container-padding {
+  padding: 10px;
+  margin: 10px;
+}
+
+/* Stubborn toggle button styles */
+#stubborn-toggle-btn {
+  background: #ffc107;
+  color: black;
+  border: 1px solid #ccc;
+  padding: 8px 12px;
+  border-radius: 5px;
+  margin-right: 10px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+/* Stubborn container mobile */
+#stubborn-container {
+  display: none;
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  background: white;
+  border: 2px solid #007bff;
+  border-radius: 10px;
+  padding: 15px;
+  max-width: 90%;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+/* Stubborn title */
+#stubborn-container h4 {
+  margin: 0 0 10px 0;
+  color: #007bff;
+}
+
+/* Stubborn textarea */
+#stubborn-text {
+  width: 100%;
+  height: 80px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 8px;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+/* Stubborn button container */
+.stubborn-button-container {
+  margin-top: 10px;
+  text-align: center;
+}
+
+/* Stubborn send button */
+#stubborn-send-btn {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 5px;
+  margin-right: 10px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+/* Stubborn close button */
+#stubborn-close-btn {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+/* Stubborn status */
+#stubborn-status {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 14px;
+}
+
 .puntaje-label {
   margin-left: 16px;
 }
 .puntaje-select {
   margin-left: 3px;
 }
-/* ================================================================== */
-/* --- UI POSITIONING & SIZING VARIABLES --- */
-/* You can easily modify these values to move UI elements around. */
-/* ================================================================== */
+
+/* UI positioning & sizing variables */
 :root {
     --ui-edge-padding: 3px;
     --side-avatar-width: 82px;
     --buttons-bottom-position: 125px;
 }
-/* ================================================================== */
 
-/* UPDATED: Added a universal box-sizing rule for more predictable layouts. */
+/* Universal box-sizing rule */
 * {
     box-sizing: border-box;
 }
@@ -411,13 +475,12 @@ html, body {
     pointer-events: none;
 }
 
-
-/* --- Player Display Box Styles --- */
+/* Player Display Box Styles */
 .player-display {
     position: absolute;
     background: rgba(0, 0, 0, 0.7);
     color: white;
-    padding: 4px 6px; /* Default padding for left/right players */
+    padding: 4px 6px;
     border-radius: 6px;
     border: 2px solid #555;
     pointer-events: auto;
@@ -427,40 +490,37 @@ html, body {
     justify-content: center;
 }
 
-/* Specific compact styling for TOP and BOTTOM players only */
 #player-display-top {
-    width: 220px; /* Increased from 260px to accommodate tiny tiles */
+    width: 220px;
     flex-direction: row;
-    padding: 2px 4px; /* Reduced padding only for top/bottom */
+    padding: 2px 4px;
 }
 
 #player-display-bottom {
-    width: 260px; /* Increased from 260px to accommodate tiny tiles */
+    width: 260px;
     height:70px;
     flex-direction: row;
-    padding: 2px 4px; /* Reduced padding only for top/bottom */
+    padding: 2px 4px;
 }
 
-/* Regular styling for LEFT and RIGHT players */
 #player-display-left,
 #player-display-right {
-    padding: 4px 6px; /* Keep original padding */
+    padding: 4px 6px;
 }
 
 .vertical-layout {
-    width: var(--side-avatar-width); /* Restored to original */
-    height: 165px; /* Restored to original */
+    width: var(--side-avatar-width);
+    height: 165px;
     flex-direction: column;
 }
 
 .vertical-layout .player-info-text {
-    margin-top: 0px; /* Reduced from 2px to 0px */
+    margin-top: 0px;
 }
 
 .vertical-layout img {
     margin-right: 0;
 }
-
 
 .player-display.disconnected {
     opacity: 0.6;
@@ -475,13 +535,40 @@ html, body {
     width: 40px;
     height: 40px;
     border-radius: 5px;
-    margin-right: 10px; /* Default margin for all players */
+    margin-right: 10px;
 }
 
-/* Reduced avatar margin only for top/bottom players */
 #player-display-top img,
 #player-display-bottom img {
-    margin-right: 6px; /* Reduced margin only for top/bottom */
+    margin-right: 6px;
+}
+
+/* Player Avatar Styles */
+.player-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 10px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  background-color: transparent;
+  border: 2px solid rgba(0,0,0,0.15);
+    position: relative;
+    z-index: 9999; /* Bring avatars above overlapping UI (chat/input) */
+}
+
+.player-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+  display: block;
+}
+
+.player-avatar.custom-avatar {
+    border-color: #4CAF50;
 }
 
 .player-info-text {
@@ -498,10 +585,7 @@ html, body {
     margin-top: 4px;
 }
 
-
-/* --- Player Display Positioning --- */
-
-/* UPDATED: Changed positioning to be perfectly centered at the bottom. */
+/* Player Display Positioning */
 #player-display-bottom {
     bottom: var(--ui-edge-padding);
     left: 77%;
@@ -519,14 +603,12 @@ html, body {
     transform: translateX(-50%);
 }
 
-
 #player-display-right {
     right: var(--ui-edge-padding);
     top: 250px;
 }
 
-
-/* --- Team and Scoreboard Info --- */
+/* Team and Scoreboard Info */
 #team-info {
     position: absolute;
     top: 0;
@@ -568,11 +650,11 @@ html, body {
     z-index: 20;
 }
 
-/* --- Restart Game Button --- */
+/* Restart Game Button */
 #restart-game-container {
     position: absolute;
-    bottom: 5px;
-    right: 10px;
+    bottom: 43px; /* Moved down 2px from 45px */
+    right: 20px; /* Aligned with POINTS table */
     z-index: 30;
 }
 
@@ -580,13 +662,14 @@ html, body {
     background-color: #dc3545;
     color: white;
     border: 2px solid #c82333;
-    padding: 8px 15px;
-    border-radius: 8px;
-    font-size: 14px;
+    padding: 6px 12px; /* Slightly smaller padding */
+    border-radius: 6px;
+    font-size: 12px; /* Smaller font */
     font-weight: bold;
     cursor: pointer;
     pointer-events: auto;
     transition: background-color 0.3s ease;
+    margin-bottom: 5px; /* Add spacing between buttons */
 }
 
 #restart-game-btn:hover {
@@ -598,7 +681,88 @@ html, body {
     background-color: #bd2130;
 }
 
-/* --- Other UI Elements --- */
+/* Leave Game Container */
+#leave-game-container {
+    position: absolute;
+    bottom: 8px; /* Moved down 2px from 10px */
+    right: 20px; /* Aligned with POINTS table and Restart button */
+    z-index: 30;
+}
+
+/* Leave Game Button - Desktop Only */
+#leave-game-btn-desktop {
+    background-color: #6c757d !important;
+    color: white !important;
+    border: 2px solid #5a6268 !important;
+    padding: 6px 12px !important; /* Matching the Restart button */
+    border-radius: 6px !important;
+    font-size: 12px !important; /* Matching the Restart button */
+    font-weight: bold !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    transition: background-color 0.3s ease !important;
+    position: relative !important;
+    z-index: 9999 !important; 
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+#leave-game-btn-desktop:hover {
+    background-color: #5a6268 !important;
+    border-color: #545b62 !important;
+}
+
+#leave-game-btn-desktop:active {
+    background-color: #545b62 !important;
+}
+
+#game-area {
+  position: relative;
+  min-height: 600px;
+  overflow-y: auto;
+  display: block;
+}
+
+/* #points-table-container block is defined below with all properties and media queries */
+
+@media (min-width: 900px) {
+  #points-table-container {
+    position: absolute;
+    bottom: 80px;
+    right: 20px;
+    z-index: 9999;
+    height: 130px; /* You can tweak this value */
+    padding: 4px 8px; /* Smaller padding for easier tweaking */
+    font-size: 10px; /* Smaller font for easier tweaking */
+    background: rgba(139, 117, 86, 0.9);
+    color: white;
+    border: 1px solid #8B7556;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    display: block;
+    overflow: hidden; /* Prevent content overflow */
+  }
+}
+
+
+.points-title {
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 4px; /* Further reduced from 5px */
+  border-bottom: 1px solid #A0926B;
+  padding-bottom: 2px;
+  color: #F0F0F0;
+  font-size: 11px; /* Further reduced font size */
+}
+
+.points-content {
+  color: #E0E0E0;
+  font-size: 9px; /* Further reduced font size */
+}
+
+
+/* Other UI Elements */
 #waiting-for-players-msg {
     position: fixed !important;
     top: 50% !important;
@@ -666,12 +830,11 @@ html, body {
     padding: 20px;
     pointer-events: auto;
     z-index: 100;
-    /* HIDE BY DEFAULT - Show only when needed via JavaScript */
     display: none !important;
     visibility: hidden !important;
     opacity: 0;
-    max-width: 340px; /* Added width control */
-    max-height: 140px; /* Added height control */
+    max-width: 340px;
+    max-height: 140px;
 }
 #round-over-message {
     color: white;
@@ -696,10 +859,7 @@ html, body {
     cursor: not-allowed;
 }
 
-/* ================================================================== */
-/* --- NAME ASSIGNMENT LOBBY --- */
-/* ================================================================== */
-
+/* NAME ASSIGNMENT LOBBY */
 #lobby-container {
     position: absolute;
     top: 0;
@@ -716,7 +876,7 @@ html, body {
     pointer-events: auto;
 }
 
-#lobby-container h2 {                /* crear su perfil*/
+#lobby-container h2 {
     font-size: 26px;
     margin-bottom: 15px;
     text-shadow: 2px 2px 4px black;
@@ -774,10 +934,7 @@ html, body {
     text-align: center;
 }
 
-/* ================================================================== */
-/* --- SUGGESTION BOX --- */
-/* ================================================================== */
-
+/* SUGGESTION BOX */
 #suggestion-box-container {
     position: absolute;
     left: 20px;
@@ -927,11 +1084,10 @@ html, body {
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
 }
 
-/* ================================================================== */
-
+/* Matches won container */
 #matches-won-container {
     position: absolute;
-    top: 100px; /* Adjust as needed */
+    top: 80px; /* Raised from 100px to 80px (one line up) */
     left: 5px;
     color: rgb(249, 247, 247);
     font-family: sans-serif;
@@ -939,319 +1095,68 @@ html, body {
 }
 
 #matches-won-container p {
-    margin: 4px 0; /* Adds a little space between names */
-}
-/* Add this to your styles.css */
-.player-display.current-turn {
-    border: 3px solid #ffcc00; /* Yellow border to highlight */
-    box-shadow: 0 0 15px rgba(255, 204, 0, 0.8); /* Glow effect */
-    background: rgba(0, 50, 0, 0.9); /* Slightly darker background when active */
+    margin: 4px 0;
 }
 
-/* Optional: Style for the current player's own display ("YO") */
+/* Current turn highlight */
+.player-display.current-turn {
+    border: 3px solid #ffcc00;
+    box-shadow: 0 0 15px rgba(255, 204, 0, 0.8);
+    background: rgba(0, 50, 0, 0.9);
+}
+
+/* Style for the current player's own display ("YO") */
 .player-name.me-player {
-    color: #aaffaa; /* Lighter green for "YO" */
+    color: #aaffaa;
     font-weight: bold;
 }
 
-/* Hide POINTS table and puntaje-label on mobile devices */
-@media (max-width: 900px) {
-    #chat-container {
-        display: none !important;
-    }
-    table {
-        display: none !important;
-    }
-    #matches-won-container {
-        display: none !important;
-    }
-    #restart-game-container {
-        display: none !important;
-    }
-    #points-table-container {
-        display: none !important;
-    }
-    /* === MOBILE AVATAR STYLES: Tweak these as needed === */
-    .avatar-option {
-        width: 36px !important;
-        height: 36px !important;
-        font-size: 1.6em !important;
-        margin: 2px !important;
-    }
-    #avatar-selection {
-        padding: 4px !important;
-    }
-    .avatar-flex-row-wrapper {
-        flex-direction: column !important;
-        gap: 6px !important;
-    }
-    /* === MOBILE PLAYER INFO BOXES === */
-    #player-display-top, #player-display-bottom, #player-display-left, #player-display-right {
-        width: 130px !important;
-        height: 30px !important;
-        font-size: 11px !important;
-        padding: 1px 2px !important;
-        border-radius: 4px !important;
-        margin: 0 !important;
-        box-sizing: border-box !important;
-        top: unset !important;
-        bottom: unset !important;
-        left: unset !important;
-        right: unset !important;
-    }
-    #player-display-top {
-        top: 15px !important;
-        left: 70% !important;
-        transform: translateX(-50%) !important;
-    }
-    #player-display-bottom {
-        bottom: 12px !important;
-        left: 25% !important;
-        transform: translateX(-50%) !important;
-    }
-    #player-display-left {
-        top: 87% !important;
-        left: 0; 
-        transform: translateY(-50%) !important;
-    }
-    #player-display-right {
-        top: 87% !important;
-        right: 0px !important;
-        transform: translateY(-50%) !important;
-    }
-    .player-avatar {
-        width: 16px !important;
-        height: 16px !important;
-        font-size: 9px !important;
-        margin-right: 2px !important;
-    }
-    .player-info-text {
-        font-size: 10px !important;
-        padding: 2px 2px !important;
-        margin: 0 !important;
-        min-width: 0 !important;
-        max-width: 60px !important;
-    }
-    .tile-count {
-        font-size: 9px !important;
-        margin-top: 0 !important;
-        gap: 1px !important;
-        max-width: 60px !important;
-    }
-
-    /* === MOBILE SCOREBOARD STYLES === */
-    #scoreboard {
-            top: -12px !important;
-            right: 0 !important;
-        padding: 10px 12px 6px 12px !important; /* Add bottom padding for content */
-            border-radius: 6px !important;
-            font-size: 12px !important;
-            min-width: 80px !important;
-            max-width: 120px !important;
-            height: 42px !important; /* 50% taller than 28px */
-        line-height: 1.1 !important; /* Reduce line spacing */
-            display: flex !important;
-            flex-direction: column !important;
-            justify-content: center !important;
-            align-items: flex-start !important;
-            box-sizing: border-box !important;
-    }
-        #scoreboard > div {
-            width: 100%;
-            box-sizing: border-box;
-            margin: 0 !important;
-        padding: 0 0 0 0 !important;
-            color: white !important;
-            text-align: left !important;
-            display: block !important;
-        overflow: hidden !important;
-        white-space: normal !important;
-        }
-    #scoreboard > div:first-child {
-        padding-top: 2px !important;
-        padding-bottom: 0 !important;
-        font-weight: bold !important;
-        font-size: 13px !important;
-        overflow: hidden !important;
-        white-space: nowrap !important;
-        text-overflow: ellipsis !important;
-        margin-bottom: 0 !important;
-    }
-
-    /* Move top player info as high as possible */
-    #player-display-top {
-        top: 0 !important;
-    }
-    /* Align tiny tiles with tile count for top player */
-    #player-display-top .tile-count {
-        display: flex !important;
-        align-items: center !important;
-        gap: 2px !important;
-        margin-top: 1px !important;
-    }
-    #player-display-top .tiny-tiles-container,
-    /* Desktop: Show tiny tiles for bottom player display by default */
-    #player-display-bottom .tiny-tiles-container {
-        display: inline-flex;
-        flex-wrap: nowrap;
-        align-items: center;
-        margin-left: 1px;
-        max-width: none;
-        gap: 1px;
-        white-space: nowrap;
-    }
-/* Removed stray properties and fixed braces */
-
-    /* Make left and right player display vertical on mobile */
-    #player-display-left,
-    #player-display-right {
-        flex-direction: column !important;
-        align-items: center !important;
-        justify-content: center !important;
-        height: 90px !important;
-        width: 38px !important;
-    }
-}
-
-/* Landscape mobile UI optimization */
-@media (orientation: landscape) and (max-width: 900px) {
-    body, html {
-        padding: 0 !important;
-        margin: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        overflow-x: hidden !important;
-    }
-    #canvas-container {
-        width: 100vw !important;
-        height: 100vh !important;
-        min-height: 100vh !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-    #game-ui {
-        width: 100vw !important;
-        height: 100vh !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        font-size: 0.95em !important;
-    }
-    .game-ui-top-row, .game-ui-main {
-        flex-direction: row !important;
-        align-items: stretch !important;
-        gap: 6px !important;
-        width: 100vw !important;
-        height: 100vh !important;
-    }
-    .player-display {
-        font-size: 0.9em !important;
-        padding: 2px !important;
-    }
-    #game-buttons button {
-        font-size: 0.9em !important;
-        padding: 4px 8px !important;
-        margin: 2px !important;
-    }
-
-
-
-    /* Move starting tile down and shrink domino tiles by 15% */
-    #player-display-top .tiny-tiles-container,
-    #player-display-bottom .tiny-tiles-container {
-    display: inline-flex !important;
-    flex-wrap: nowrap !important; /* Prevent wrapping to multiple lines */
-    align-items: center !important;
-    margin-left: 5px !important;
-    max-width: none !important; /* Remove width restriction */
-    gap: 1px !important;
-    white-space: nowrap !important; /* Prevent line breaks */
-
-    }
-    #player-display-top .tiny-domino,
-    #player-display-bottom .tiny-domino {
-        width: 5px !important;
-        height: 10px !important;
-    background: #f5f5f5 !important;
-    border: 1px solid #333 !important;
-    border-radius: 1px !important;
-    display: inline-block !important;
-    margin: 0 0.5px !important; /* Reduced spacing */
-    position: relative !important;
-    box-shadow: 0 1px 1px rgba(0,0,0,0.3) !important;
-    flex-shrink: 0 !important; /* Prevent tiles from shrinking */
-    }
-    #player-display-top .tile-count,
-    #player-display-bottom .tile-count {
-    font-size: 12px;
-    margin-top: 1px; /* Reduced from 4px to 2px */
-    display: flex !important;
-    align-items: center !important;
-    flex-wrap: nowrap !important; /* Prevent wrapping */
-    white-space: nowrap !important; /* Keep everything on one line */
-
-}
-    #player-display-left .tiny-domino,
-    #player-display-right .tiny-domino {
-        width: 7px !important;
-        height: 12px !important;
-        margin: 0 0.25px !important;
-    }
-}
-
-
-
 /* Tiny Domino Tiles Styling */
-/* Only apply single-line styling to TOP and BOTTOM players */
-/* Only apply mobile changes inside the media query below */
-
 #player-display-top .tiny-domino,
 #player-display-bottom .tiny-domino {
-    width: 8px !important; /* Made slightly smaller */
-    height: 16px !important; /* Made slightly smaller */
+    width: 8px !important;
+    height: 16px !important;
     background: #f5f5f5 !important;
     border: 1px solid #333 !important;
     border-radius: 1px !important;
     display: inline-block !important;
-    margin: 0 0.5px !important; /* Reduced spacing */
+    margin: 0 0.5px !important;
     position: relative !important;
     box-shadow: 0 1px 1px rgba(0,0,0,0.3) !important;
-    flex-shrink: 0 !important; /* Prevent tiles from shrinking */
+    flex-shrink: 0 !important;
 }
 
 #player-display-top .tile-count,
 #player-display-bottom .tile-count {
     font-size: 12px;
-    margin-top: 2px; /* Reduced from 4px to 2px */
+    margin-top: 2px;
     display: flex !important;
     align-items: center !important;
-    flex-wrap: nowrap !important; /* Prevent wrapping */
-    white-space: nowrap !important; /* Keep everything on one line */
+    flex-wrap: nowrap !important;
+    white-space: nowrap !important;
 }
 
 /* LEFT and RIGHT players keep original tile behavior */
 #player-display-left .tiny-tiles-container,
 #player-display-right .tiny-tiles-container {
-    display: inline-flex; /* Normal flex behavior */
-    flex-wrap: wrap; /* Allow wrapping for left/right */
+    display: inline-flex;
+    flex-wrap: wrap;
     align-items: center;
     margin-left: 5px;
-    max-width: 80px; /* Restore original width restriction */
+    max-width: 80px;
     gap: 1px;
 }
 
 #player-display-left .tile-count,
 #player-display-right .tile-count {
     font-size: 12px;
-    margin-top: 4px; /* Restore original spacing */
+    margin-top: 4px;
     display: flex;
     align-items: center;
-    flex-wrap: wrap; /* Allow wrapping for left/right */
+    flex-wrap: wrap;
 }
 
-/* ================================================================== */
-/* --- CHAT BOX --- */
-/* ================================================================== */
-
+/* CHAT BOX */
 #chat-container {
     position: absolute;
     bottom: var(--ui-edge-padding);
@@ -1329,10 +1234,7 @@ html, body {
     background-color: #ff4444 !important;
 }
 
-/* ================================================================== */
-/* --- AVATAR SYSTEM --- */
-/* ================================================================== */
-
+/* AVATAR SYSTEM */
 #avatar-selection {
     background: rgba(0, 0, 0, 0.8);
     border-radius: 10px;
@@ -1411,102 +1313,34 @@ html, body {
     padding: 8px 12px;
     cursor: pointer;
     font-size: 14px;
-    transition: border-color 0.3s ease;
-    text-align: center;
-    min-width: 150px;
 }
 
-.custom-file-upload:hover {
-    border-color: #007BFF;
-    background: #444;
+/* Logo styles */
+.logo-box {
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 28px 10px 22px;
+  display: inline-block;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.13);
+  font-size: 1.08em;
+  font-weight: bold;
+  margin-bottom: 18px;
+  white-space: nowrap;
 }
-
-#custom-avatar-preview {
-    margin-top: 10px;
-    display: none;
+.logo-title {
+  font-weight: bold;
+  color: #222;
+  font-size: 1em;
 }
-
-#custom-avatar-preview img {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    border: 3px solid #007BFF;
-    object-fit: cover;
+.logo-by {
+  font-style: italic;
+  font-weight: normal;
+  color: #666;
+  font-size: 0.98em;
 }
-
-/* Player avatar styling in game */
-.player-avatar {
-    width: 35px;
-    height: 35px;
-    border-radius: 50%;
-    margin-right: 8px;
-    border: 2px solid #444;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    background: rgba(255, 255, 255, 0.1);
-    flex-shrink: 0;
-}
-
-/* Specific styling for different player positions */
-#player-display-bottom .player-avatar,
-#player-display-top .player-avatar {
-    width: 30px;
-    height: 30px;
-    font-size: 14px;
-    margin-right: 6px;
-}
-
-#player-display-left .player-avatar,
-#player-display-right .player-avatar {
-    margin-right: 0;
-    margin-bottom: 5px;
-}
-
-.player-avatar.custom-avatar {
-    background: none;
-    border-color: #007BFF;
-}
-
-.player-avatar.custom-avatar img {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    object-fit: cover;
-}
-
-/* Logo styling - positioned in middle left */
-#logo-container {
-    position: absolute;
-    left: 25px;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 10;
-}
-
-#game-logo {
-    font-family: Arial, sans-serif;
-    font-size: 1.1em;
-    font-weight: bold;
-    color: #333;
-    text-align: center;
-    padding: 8px 12px;
-    background: #f8f9fa;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    white-space: nowrap;
-}
-
-#game-logo .by-text {
-    font-size: 0.8em;
-    font-weight: normal;
-    color: #666;
-    font-style: italic;
-}
-
-#game-logo .producer {
-    font-size: 0.9em;
-    color: #007bff;
-    font-weight: bold;
+.logo-producer {
+  color: #1976d2;
+  text-decoration: underline;
+  font-style: italic;
+  font-weight: bold;
 }
