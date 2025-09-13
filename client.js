@@ -96,6 +96,158 @@ if (!window.probeAvatarSrc) {
     };
 }
 
+// Temporary helper: check a list of candidate avatar files under /assets/icons and /assets/defaults
+if (!window.checkIconFiles) {
+    window.checkIconFiles = async function(namesOrOptions) {
+        const start = Date.now();
+        const results = [];
+
+        // Normalize input: either array of names or options object
+        let names = [];
+        if (Array.isArray(namesOrOptions)) names = namesOrOptions.slice();
+        else if (namesOrOptions && Array.isArray(namesOrOptions.names)) names = namesOrOptions.names.slice();
+
+        // If no names provided, gather from gameState players + common test set
+        if (!names || names.length === 0) {
+            try {
+                if (window.gameState && Array.isArray(gameState.jugadoresInfo)) {
+                    gameState.jugadoresInfo.forEach(p => {
+                        if (p.name) names.push(p.name);
+                        if (p.displayName) names.push(p.displayName);
+                    });
+                }
+            } catch (e) {}
+            // Add common initials used in this app
+            ['DA','FV','LK','KK','TEST'].forEach(n => { if (!names.includes(n)) names.push(n); });
+        }
+
+        // Build candidate URLs to check
+        const candidates = [];
+        const addIf = (u) => { if (!candidates.includes(u)) candidates.push(u); };
+        for (const raw of names) {
+            if (!raw) continue;
+            const s = String(raw).trim();
+            if (!s) continue;
+            // variants
+            const upper = s.toUpperCase();
+            const lower = s.toLowerCase();
+            const spacelessLower = lower.replace(/\s+/g,'');
+            const asIs = s;
+            addIf(`/assets/icons/${upper}_avatar.jpg`);
+            addIf(`/assets/icons/${lower}_avatar.jpg`);
+            addIf(`/assets/icons/${spacelessLower}_avatar.jpg`);
+            addIf(`/assets/icons/${asIs}_avatar.jpg`);
+        }
+        // Add deterministic defaults for jugador1..jugador4
+        for (let i = 1; i <= 8; i++) addIf(`/assets/defaults/jugador${i}_avatar.jpg`);
+
+        // Limit concurrent checks to avoid resource exhaustion
+        const concurrency = 6;
+        let inFlight = 0;
+        let idx = 0;
+
+        const makeCheck = async (url) => {
+            try {
+                // Use cached probe helper if available
+                let probeRes = null;
+                if (window.probeAvatarSrc) {
+                    try { probeRes = await window.probeAvatarSrc(url); } catch (e) { probeRes = null; }
+                }
+
+                let ok = !!(probeRes && probeRes.ok);
+                let status = ok ? 200 : 0;
+                let contentType = '';
+
+                if (ok) {
+                    // Try HEAD to get content-type if possible
+                    try {
+                        const h = await fetch(url, { method: 'HEAD' });
+                        status = h.status;
+                        contentType = h.headers.get('content-type') || '';
+                    } catch (e) {
+                        // HEAD may be unsupported — fall back to GET for headers
+                        try {
+                            const g = await fetch(url, { method: 'GET' });
+                            status = g.status;
+                            contentType = g.headers.get('content-type') || '';
+                            if (g.body) g.body.cancel && g.body.cancel();
+                        } catch (ee) {}
+                    }
+                } else {
+                    // Not ok via probe — attempt a cheap HEAD to see server response
+                    try {
+                        const h2 = await fetch(url, { method: 'HEAD' });
+                        status = h2.status;
+                        contentType = h2.headers.get('content-type') || '';
+                    } catch (e) {
+                        status = 0;
+                    }
+                }
+
+                results.push({ url, ok: !!ok, status, contentType });
+            } catch (e) {
+                results.push({ url, ok: false, status: 0, contentType: '', error: e.message });
+            } finally {
+                inFlight--;
+            }
+        };
+
+        // Runner with concurrency
+        const runners = [];
+        while (idx < candidates.length) {
+            if (inFlight < concurrency) {
+                const u = candidates[idx++];
+                inFlight++;
+                runners.push(makeCheck(u));
+            } else {
+                // wait a bit
+                await new Promise(r => setTimeout(r, 60));
+            }
+        }
+
+        // Wait for all runners to finish
+        await Promise.all(runners);
+
+        // Console output and overlay
+        console.table(results.map(r => ({ url: r.url, ok: r.ok, status: r.status, contentType: r.contentType })));
+
+        // Small overlay
+        try {
+            let overlay = document.getElementById('icon-check-overlay');
+            if (overlay) overlay.remove();
+            overlay = document.createElement('div');
+            overlay.id = 'icon-check-overlay';
+            overlay.style.cssText = 'position:fixed;right:10px;top:10px;z-index:10020;background:rgba(0,0,0,0.85);color:#fff;padding:10px;border-radius:8px;max-height:60vh;overflow:auto;font-family:Arial,sans-serif;font-size:12px;min-width:360px;';
+            const title = document.createElement('div');
+            title.style.cssText = 'font-weight:bold;margin-bottom:6px;';
+            title.textContent = `Icon probe results (${results.length}) - ${((Date.now()-start)/1000).toFixed(2)}s`;
+            overlay.appendChild(title);
+
+            const table = document.createElement('table');
+            table.style.cssText = 'width:100%;border-collapse:collapse;font-size:12px;';
+            results.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.style.cssText = 'border-top:1px solid rgba(255,255,255,0.06);';
+                const urlTd = document.createElement('td');
+                urlTd.style.cssText = 'padding:6px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+                const a = document.createElement('a'); a.href = r.url; a.target = '_blank'; a.textContent = r.url; a.style.color = r.ok ? '#9f9' : '#f88'; a.style.textDecoration='underline';
+                urlTd.appendChild(a);
+                const statusTd = document.createElement('td'); statusTd.style.cssText='padding:6px;width:60px;text-align:right;'; statusTd.textContent = r.status || (r.ok? '200':'-');
+                const ctTd = document.createElement('td'); ctTd.style.cssText='padding:6px;width:140px;text-align:right;'; ctTd.textContent = r.contentType || '';
+                tr.appendChild(urlTd); tr.appendChild(statusTd); tr.appendChild(ctTd);
+                table.appendChild(tr);
+            });
+            overlay.appendChild(table);
+            const close = document.createElement('button'); close.textContent='Close'; close.style.cssText='margin-top:8px;background:#222;border:1px solid #555;color:#fff;padding:6px;border-radius:4px;cursor:pointer;';
+            close.onclick = ()=> overlay.remove();
+            overlay.appendChild(close);
+            document.body.appendChild(overlay);
+        } catch (e) { console.log('Overlay error', e); }
+
+        return results;
+    };
+}
+
 // Ensure small no-op globals exist early so event listeners won't throw
 if (typeof window.createPointsTableNow !== 'function') {
     window.createPointsTableNow = function() { /* placeholder until real implementation loads */ };
@@ -1533,8 +1685,8 @@ function setupLobby() {
     const currentName = nameInput.value.trim();
     if (currentName) {
         // Try to find avatar file for this user
-        const testImg = new Image();
-        const avatarFilePath = `assets/icons/${currentName}_avatar.jpg`;
+    const testImg = new Image();
+    const avatarFilePath = `/assets/icons/${currentName}_avatar.jpg`;
         
         testImg.onload = function() {
             // console.log('✅ Found avatar file for', currentName);
@@ -1883,6 +2035,17 @@ function setupLobby() {
                     statusDiv.style.fontWeight = 'bold';
                 }
                 localStorage.removeItem('domino_player_avatar');
+                // Clear any cached probe results for this player's icons (upper/lower)
+                try {
+                    const up = `/assets/icons/${playerName.toUpperCase()}_avatar.jpg`;
+                    const low = `/assets/icons/${playerName.toLowerCase()}_avatar.jpg`;
+                    if (window.__avatarProbeCache && window.__avatarProbeCache.map) {
+                        try { window.__avatarProbeCache.map.delete(up); } catch (e) {}
+                        try { window.__avatarProbeCache.map.delete(low); } catch (e) {}
+                    }
+                } catch (e) {}
+                // Force the client to reprobe avatars so the newly-saved file is picked up
+                try { if (typeof window.forceReprobeAvatars === 'function') window.forceReprobeAvatars(); } catch (e) {}
             } else {
                 console.error('❌ Failed to save avatar file:', data.error);
             }
@@ -1905,6 +2068,11 @@ function setupLobby() {
         .then(response => response.json())
         .then(data => {
             // Optionally handle response for lowercase file
+            try {
+                // clear cache for lowercase result as well
+                const low = `/assets/icons/${playerName.toLowerCase()}_avatar.jpg`;
+                if (window.__avatarProbeCache && window.__avatarProbeCache.map) window.__avatarProbeCache.map.delete(low);
+            } catch (e) {}
         })
         .catch(error => {
             console.error('❌ Error saving avatar file (lowercase):', error);
@@ -3781,6 +3949,20 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVar
     const cacheBuster = '';
     const defaultAvatarSrc = `/assets/defaults/jugador${playerNumber}_avatar.jpg${cacheBuster}`;
 
+    // Inline SVG fallback generator — use when external defaults are unavailable/blocked
+    const inlineDefaultAvatar = (num) => {
+        try {
+            const bg = '#222';
+            const mid = '#444';
+            const rect = `<rect width="100" height="100" fill="${bg}" />`;
+            const circ = `<circle cx="50" cy="40" r="20" fill="${mid}" />`;
+            const bar = `<rect x="15" y="65" width="70" height="18" rx="9" fill="${mid}" />`;
+            const label = `<text x="50" y="54" font-size="22" fill="#ddd" text-anchor="middle" font-family="Arial,Helvetica,sans-serif">J${num}</text>`;
+            const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>${rect}${circ}${bar}${label}</svg>`;
+            return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+        } catch (e) { return ''; }
+    };
+
     // If the calling code provided a direct URL or data URI in imgElement.dataset.srcHint, use it.
     const srcHintRaw = imgElement.dataset && imgElement.dataset.srcHint;
     if (srcHintRaw && typeof srcHintRaw === 'string') {
@@ -3844,24 +4026,25 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVar
                     try { imgElement.style.display = 'none'; } catch (e) {}
                     console.info('Assigned img.src (same-origin quick path) =>', srcHint);
                 };
-                imgElement.onerror = function() {
+                    imgElement.onerror = function() {
                     try { imgElement.style.display = 'none'; } catch (e) {};
-                    // fallback to default avatar
+                    // fallback to inline default avatar (avoid external fetch)
                     try {
                         const parent = imgElement.parentElement;
+                        const inline = inlineDefaultAvatar(playerNumber);
                         if (parent) {
-                            parent.dataset.assignedSrc = defaultAvatarSrc;
-                            parent.style.backgroundImage = `url(${defaultAvatarSrc})`;
+                            parent.dataset.assignedSrc = inline || defaultAvatarSrc;
+                            parent.style.backgroundImage = `url(${inline || defaultAvatarSrc})`;
                             parent.style.backgroundSize = 'cover';
                             parent.style.backgroundPosition = 'center';
                         }
                     } catch (er) {}
                     try {
                         if (!window.avatarAssigned) window.avatarAssigned = {};
-                        if (internalPlayerName) window.avatarAssigned[internalPlayerName] = defaultAvatarSrc;
-                        if (displayName) { window.avatarAssigned[displayName] = defaultAvatarSrc; window.avatarAssigned[(displayName || '').toLowerCase()] = defaultAvatarSrc; }
+                        if (internalPlayerName) window.avatarAssigned[internalPlayerName] = inlineDefaultAvatar(playerNumber) || defaultAvatarSrc;
+                        if (displayName) { window.avatarAssigned[displayName] = inlineDefaultAvatar(playerNumber) || defaultAvatarSrc; window.avatarAssigned[(displayName || '').toLowerCase()] = inlineDefaultAvatar(playerNumber) || defaultAvatarSrc; }
                     } catch (e) {}
-                    console.warn('Avatar same-origin quick path failed, falling back to default:', defaultAvatarSrc);
+                    console.warn('Avatar same-origin quick path failed, falling back to inline default');
                 };
                 try { imgElement.src = srcHint; } catch (e) {}
                 return;
@@ -3903,24 +4086,25 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVar
                 } catch (e) {}
                 try { imgElement.src = srcHint; } catch (e) {}
             };
-            tester.onerror = () => {
-                // Use default avatar as fallback
+                tester.onerror = () => {
+                // Use inline default avatar as fallback
                 try { imgElement.style.display = 'none'; } catch (e) {}
                 try {
                     const parent = imgElement.parentElement;
+                    const inline = inlineDefaultAvatar(playerNumber);
                     if (parent) {
-                        parent.dataset.assignedSrc = defaultAvatarSrc;
-                        parent.style.backgroundImage = `url(${defaultAvatarSrc})`;
+                        parent.dataset.assignedSrc = inline || defaultAvatarSrc;
+                        parent.style.backgroundImage = `url(${inline || defaultAvatarSrc})`;
                         parent.style.backgroundSize = 'cover';
                         parent.style.backgroundPosition = 'center';
                     }
                 } catch (er) {}
                 try {
                     if (!window.avatarAssigned) window.avatarAssigned = {};
-                    if (internalPlayerName) window.avatarAssigned[internalPlayerName] = defaultAvatarSrc;
-                    if (displayName) { window.avatarAssigned[displayName] = defaultAvatarSrc; window.avatarAssigned[(displayName || '').toLowerCase()] = defaultAvatarSrc; }
+                    if (internalPlayerName) window.avatarAssigned[internalPlayerName] = inlineDefaultAvatar(playerNumber) || defaultAvatarSrc;
+                    if (displayName) { window.avatarAssigned[displayName] = inlineDefaultAvatar(playerNumber) || defaultAvatarSrc; window.avatarAssigned[(displayName || '').toLowerCase()] = inlineDefaultAvatar(playerNumber) || defaultAvatarSrc; }
                 } catch (e) {}
-                console.warn('Avatar srcHint failed to load, falling back to default:', defaultAvatarSrc);
+                console.warn('Avatar srcHint failed to load, falling back to inline default');
             };
             tester.src = srcHint;
         })();
@@ -3984,24 +4168,25 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVar
     })() : [`/assets/defaults/jugador${playerNumber}_avatar.jpg` + cacheBuster];
 
     const tryLoadSequential = (list, idx = 0) => {
-        if (idx >= list.length) {
-            // None found — use default
-            imgElement.src = defaultAvatarSrc;
+            if (idx >= list.length) {
+            // None found — use inline default to avoid external fetch
+            const inline = inlineDefaultAvatar(playerNumber);
+            imgElement.src = inline || defaultAvatarSrc;
             try { imgElement.style.display = 'none'; } catch (e) {}
-            try { imgElement.dataset.assignedSrc = defaultAvatarSrc; } catch (e) {}
+            try { imgElement.dataset.assignedSrc = inline || defaultAvatarSrc; } catch (e) {}
             try {
                 const parent = imgElement.parentElement;
                 if (parent) {
-                    parent.dataset.assignedSrc = defaultAvatarSrc;
-                    parent.style.backgroundImage = `url(${defaultAvatarSrc})`;
+                    parent.dataset.assignedSrc = inline || defaultAvatarSrc;
+                    parent.style.backgroundImage = `url(${inline || defaultAvatarSrc})`;
                     parent.style.backgroundSize = 'cover';
                     parent.style.backgroundPosition = 'center';
                 }
             } catch (e) {}
             try { if (!window.avatarAssigned) window.avatarAssigned = {}; } catch (e) {}
-            try { if (internalPlayerName) window.avatarAssigned[internalPlayerName] = defaultAvatarSrc; } catch (e) {}
-            try { if (displayName) { window.avatarAssigned[displayName] = defaultAvatarSrc; window.avatarAssigned[(displayName || '').toLowerCase()] = defaultAvatarSrc; } } catch (e) {}
-            console.info('Assigned img.src (default after probing) =>', imgElement.src);
+            try { if (internalPlayerName) window.avatarAssigned[internalPlayerName] = inline || defaultAvatarSrc; } catch (e) {}
+            try { if (displayName) { window.avatarAssigned[displayName] = inline || defaultAvatarSrc; window.avatarAssigned[(displayName || '').toLowerCase()] = inline || defaultAvatarSrc; } } catch (e) {}
+            console.info('Assigned img.src (inline default after probing) =>', imgElement.src);
             return;
         }
         const testSrc = list[idx];
@@ -4164,7 +4349,8 @@ function updatePlayersUI() {
         } catch (e) {}
 
         // Ensure avatar container always has visible area on mobile/slow networks
-        avatarDiv.style.cssText = `width:40px;height:40px;border-radius:50%;background-color:#222;display:inline-block;flex: 0 0 40px;`; 
+    avatarDiv.style.cssText = `width:40px;height:40px;border-radius:50%;display:inline-block;flex: 0 0 40px;`; 
+    try { avatarDiv.style.setProperty('background-color', '#222', 'important'); } catch (e) {}
 
         // Pre-fill with default jugadorX avatar so UI doesn't show empty circle while loading
         try {
