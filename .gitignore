@@ -1,7 +1,13 @@
-# Protect user uploaded avatars from deployment erasure
-
-# Standard exclusions
+# Node dependencies (do not commit)
 node_modules/
+
+# Logs and env
 *.log
 .env
+.env.local
+
+# macOS metadata
 .DS_Store
+
+# Editor/IDE
+.vscode/
