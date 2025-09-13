@@ -13,6 +13,11 @@ let myJugadorName;
 let myPlayerHand = [];
 let gameState = {};
 let avatarCache = {}; // Cache to prevent repeated avatar loading attempts
+<<<<<<< HEAD
+=======
+// Clear avatar cache on page load to force fresh avatar loading
+setTimeout(() => { avatarCache = {}; }, 100);
+>>>>>>> 64c5c15de77d85efeb82228fc2841ac215bad107
 let selectedTileIndex = null;
 let messageDisplay = { text: '', time: 0 };
 let tileSound;
@@ -29,6 +34,7 @@ let animationStartTime = 0;
 let animationDuration = 1000;
 let animationPauseDuration = 500;
 
+<<<<<<< HEAD
 // Ensure small no-op globals exist early so event listeners won't throw
 if (typeof window.createPointsTableNow !== 'function') {
     window.createPointsTableNow = function() { /* placeholder until real implementation loads */ };
@@ -153,6 +159,121 @@ function showInstallBanner() {
         }, 10000);
     }
 }
+=======
+// =============================================================================
+// == PWA AUTO-INSTALL PROMPT FOR MOBILE                                      ==
+// =============================================================================
+
+let deferredPrompt;
+
+// Listen for the beforeinstallprompt event
+window.addEventListener('beforeinstallprompt', (e) => {
+    console.log('🎯 beforeinstallprompt event fired!');
+    // Prevent the mini-infobar from appearing on mobile
+    e.preventDefault();
+    // Stash the event so it can be triggered later
+    deferredPrompt = e;
+    window.deferredPrompt = e; // Also make it globally accessible
+    // Show our custom install banner
+    showInstallBanner();
+});
+
+// Also listen for any errors
+window.addEventListener('error', (e) => {
+    console.log('PWA Error:', e.message);
+});
+
+// Check PWA criteria on page load
+window.addEventListener('load', () => {
+    setTimeout(() => {
+        console.log('=== PWA Status Check ===');
+        console.log('Location:', window.location.href);
+        console.log('Protocol:', location.protocol);
+        console.log('Service Worker registered:', 'serviceWorker' in navigator);
+        console.log('beforeinstallprompt fired:', !!deferredPrompt);
+        console.log('Mobile width:', window.innerWidth <= 768);
+        
+        // Check if already installed
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            console.log('✅ App is already installed and running in standalone mode');
+        } else {
+            // If no beforeinstallprompt after 3 seconds, show fallback banner for localhost/iOS
+            if (!deferredPrompt && (location.hostname === 'localhost' || /iPad|iPhone|iPod/.test(navigator.userAgent))) {
+                console.log('🍎 Showing iOS/localhost fallback install banner');
+                showFallbackInstallBanner();
+            }
+        }
+    }, 3000); // Wait 3 seconds for beforeinstallprompt
+});
+
+function showInstallBanner() {
+    // Only show on mobile devices
+    if (window.innerWidth <= 768 && !localStorage.getItem('installBannerDismissed')) {
+        const banner = document.createElement('div');
+        banner.id = 'install-banner';
+        banner.style.cssText = `
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            right: 0; 
+            z-index: 10000;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white; 
+            padding: 12px; 
+            text-align: center;
+            font-family: Arial, sans-serif; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            animation: slideDown 0.3s ease-out;
+        `;
+        
+        banner.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px;">
+                <span style="font-size: 14px; font-weight: 500;">🎲 Install Domino Game for the best experience!</span>
+                <div>
+                    <button onclick="installApp()" style="
+                        background: white; 
+                        color: #4CAF50; 
+                        border: none; 
+                        padding: 8px 16px; 
+                        border-radius: 20px; 
+                        cursor: pointer; 
+                        font-weight: bold;
+                        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                    ">Install</button>
+                    <button onclick="dismissBanner()" style="
+                        background: transparent; 
+                        color: white; 
+                        border: 1px solid white; 
+                        padding: 6px 12px; 
+                        margin-left: 8px; 
+                        border-radius: 15px; 
+                        cursor: pointer;
+                    ">Maybe later</button>
+                </div>
+            </div>
+        `;
+        
+        // Add CSS animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideDown {
+                from { transform: translateY(-100%); }
+                to { transform: translateY(0); }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        document.body.appendChild(banner);
+        
+        // Auto-dismiss after 10 seconds if user doesn't interact
+        setTimeout(() => {
+            if (document.getElementById('install-banner')) {
+                dismissBanner();
+            }
+        }, 10000);
+    }
+}
+>>>>>>> 64c5c15de77d85efeb82228fc2841ac215bad107
 
 // Fallback install banner for iOS Safari and localhost testing
 function showFallbackInstallBanner() {
@@ -331,7 +452,10 @@ function setupButtonListeners() {
         if (typeof setupGameButtons === 'function') {
                 setupGameButtons();
         }
+<<<<<<< HEAD
                 try { console.info('Game buttons setup successfully'); } catch (e) {}
+=======
+>>>>>>> 64c5c15de77d85efeb82228fc2841ac215bad107
 }
 
 // Listen for player reconnected event (custom event from server)
@@ -1493,6 +1617,7 @@ function setupLobby() {
                     } else {
                         selectedAvatar = avatarData.data;
                         customAvatarData = null;
+<<<<<<< HEAD
                         // Select the correct emoji option
                         avatarOptions.forEach(opt => {
                             if (opt.dataset.avatar === selectedAvatar) {
@@ -1500,6 +1625,29 @@ function setupLobby() {
                             }
                         });
                         // console.log('Restored emoji avatar from localStorage:', selectedAvatar);
+=======
+                        // Check if this is an image path or emoji
+                        if (selectedAvatar && selectedAvatar.includes('assets/')) {
+                            // New image avatar system - wait for grid to populate
+                            setTimeout(() => {
+                                const avatarOptions = document.querySelectorAll('.avatar-option');
+                                avatarOptions.forEach(opt => {
+                                    if (opt.dataset.avatar === selectedAvatar) {
+                                        opt.classList.add('selected');
+                                    }
+                                });
+                            }, 500);
+                            console.log('Restored image avatar from localStorage:', selectedAvatar);
+                        } else {
+                            // Old emoji system
+                            avatarOptions.forEach(opt => {
+                                if (opt.dataset.avatar === selectedAvatar) {
+                                    opt.classList.add('selected');
+                                }
+                            });
+                            // console.log('Restored emoji avatar from localStorage:', selectedAvatar);
+                        }
+>>>>>>> 64c5c15de77d85efeb82228fc2841ac215bad107
                     }
                 } catch (e) {
                     // console.log('Could not restore saved avatar, using default');
@@ -1525,12 +1673,36 @@ function setupLobby() {
                 } else {
                     selectedAvatar = avatarData.data;
                     customAvatarData = null;
+<<<<<<< HEAD
                     avatarOptions.forEach(opt => {
                         if (opt.dataset.avatar === selectedAvatar) {
                             opt.classList.add('selected');
                         }
                     });
                     // console.log('Restored emoji avatar from localStorage:', selectedAvatar);
+=======
+                    // Check if this is an image path or emoji
+                    if (selectedAvatar && selectedAvatar.includes('assets/')) {
+                        // New image avatar system - wait for grid to populate
+                        setTimeout(() => {
+                            const avatarOptions = document.querySelectorAll('.avatar-option');
+                            avatarOptions.forEach(opt => {
+                                if (opt.dataset.avatar === selectedAvatar) {
+                                    opt.classList.add('selected');
+                                }
+                            });
+                        }, 500);
+                        console.log('Restored image avatar from localStorage:', selectedAvatar);
+                    } else {
+                        // Old emoji system
+                        avatarOptions.forEach(opt => {
+                            if (opt.dataset.avatar === selectedAvatar) {
+                                opt.classList.add('selected');
+                            }
+                        });
+                        // console.log('Restored emoji avatar from localStorage:', selectedAvatar);
+                    }
+>>>>>>> 64c5c15de77d85efeb82228fc2841ac215bad107
                 }
             } catch (e) {
                 // console.log('Could not restore saved avatar, using default');
@@ -1542,15 +1714,254 @@ function setupLobby() {
     }
     
     function useDefaultAvatar() {
+<<<<<<< HEAD
         // No saved avatar - select default target emoji
         const defaultOption = document.querySelector('[data-avatar="🎯"]');
         if (defaultOption) {
             defaultOption.classList.add('selected');
             // console.log('Set default target emoji avatar');
+=======
+        // Use default jugador avatar instead of emoji
+        const defaultPath = 'assets/defaults/jugador1_avatar.jpg';
+        selectedAvatar = defaultPath;
+        customAvatarData = null;
+        
+        // Wait for avatar grid to populate, then select the first default
+        setTimeout(() => {
+            const avatarOptions = document.querySelectorAll('.avatar-option');
+            const defaultOption = Array.from(avatarOptions).find(opt => 
+                opt.dataset.avatar && opt.dataset.avatar.includes('jugador1')
+            );
+            if (defaultOption) {
+                defaultOption.classList.add('selected');
+                console.log('Set default jugador1 avatar');
+            } else {
+                // Fallback to emoji if no image avatars available
+                const emojiDefault = document.querySelector('[data-avatar="🎯"]');
+                if (emojiDefault) {
+                    emojiDefault.classList.add('selected');
+                    selectedAvatar = '🎯';
+                }
+            }
+        }, 600);
+    }
+    
+    // 🎯 POPULATE AVATAR GRID WITH REAL IMAGE AVATARS
+    async function populateAvatarGrid() {
+        try {
+            console.log('🎯 Fetching real avatars for selection grid...');
+            const response = await fetch('/debug/avatars');
+            const data = await response.json();
+            
+            if (data.success) {
+                // Try multiple possible selectors for the avatar container
+                const possibleSelectors = [
+                    '#avatar-selection .avatar-grid',
+                    '.avatar-grid', 
+                    '#avatar-selection',
+                    '.avatar-options',
+                    '.avatar-container'
+                ];
+                
+                let avatarContainer = null;
+                for (const selector of possibleSelectors) {
+                    avatarContainer = document.querySelector(selector);
+                    if (avatarContainer) {
+                        console.log('✅ Found avatar container with selector:', selector);
+                        break;
+                    }
+                }
+                
+                if (!avatarContainer) {
+                    console.error('❌ No avatar container found. Available elements:', {
+                        avatarSelection: !!document.querySelector('#avatar-selection'),
+                        avatarOptions: document.querySelectorAll('.avatar-option').length,
+                        allClasses: [...document.querySelectorAll('*')].filter(el => el.className && el.className.includes('avatar')).map(el => el.className)
+                    });
+                    return;
+                }
+                
+                console.log('📋 Avatar container current content:', avatarContainer.innerHTML.slice(0, 200));
+                
+                // Clear existing emoji avatars but keep any structure
+                const existingOptions = avatarContainer.querySelectorAll('.avatar-option');
+                existingOptions.forEach(option => option.remove());
+                
+                let addedCount = 0;
+                
+                // Add default avatars first (jugador1, jugador2, etc.)
+                data.defaultFiles.forEach(filename => {
+                    if (filename.startsWith('jugador') && filename.endsWith('.jpg')) {
+                        const avatarElement = createAvatarOption(`assets/defaults/${filename}`, filename);
+                        avatarContainer.appendChild(avatarElement);
+                        addedCount++;
+                    }
+                });
+                
+                // Add uploaded avatars
+                data.avatarFiles.forEach(filename => {
+                    const avatarElement = createAvatarOption(`assets/icons/${filename}`, filename);
+                    avatarContainer.appendChild(avatarElement);
+                    addedCount++;
+                });
+                
+                console.log('✅ Avatar grid populated with real images:', {
+                    defaults: data.defaultFiles.length,
+                    uploaded: data.avatarFiles.length,
+                    addedToGrid: addedCount
+                });
+                
+                console.log('📋 Avatar container after update:', avatarContainer.innerHTML.slice(0, 200));
+            }
+        } catch (error) {
+            console.error('❌ Failed to populate avatar grid:', error);
+>>>>>>> 64c5c15de77d85efeb82228fc2841ac215bad107
         }
     }
     
+    function createAvatarOption(imagePath, filename) {
+        const div = document.createElement('div');
+        div.className = 'avatar-option';
+        div.dataset.avatar = imagePath; // Use image path as avatar identifier
+        div.innerHTML = `<img src="${imagePath}" alt="${filename}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">`;
+        
+        // Add click handler for this new avatar option
+        div.addEventListener('click', () => {
+            // Remove selected class from all options
+            document.querySelectorAll('.avatar-option').forEach(opt => opt.classList.remove('selected'));
+            // Add selected class to clicked option
+            div.classList.add('selected');
+            // Update selected avatar
+            selectedAvatar = imagePath; // Use the image path
+            customAvatarData = null;
+            const customAvatarPreview = document.getElementById('custom-avatar-preview');
+            if (customAvatarPreview) customAvatarPreview.style.display = 'none';
+            
+            // Save to localStorage
+            localStorage.setItem('domino_player_avatar', JSON.stringify({
+                type: 'image',
+                data: imagePath
+            }));
+            console.log('✅ Image avatar selected:', imagePath);
+        });
+        
+        return div;
+    }
+    
     nameInput.focus(); 
+    
+    // 📱 REPLACE EMOJI AVATAR SELECTION WITH JUGADOR AVATARS
+    function replaceEmojiAvatarsWithJugador() {
+        console.log('🎯 Replacing emoji avatar selection with jugador avatars...');
+        
+        setTimeout(() => {
+            const avatarOptions = document.querySelectorAll('.avatar-option');
+            console.log('🔍 Found', avatarOptions.length, 'avatar options to replace');
+            
+            if (avatarOptions.length > 0) {
+                const container = avatarOptions[0].parentElement;
+                console.log('📦 Avatar container found:', container ? container.className : 'none');
+                
+                // Clear all existing emoji options
+                avatarOptions.forEach(option => option.remove());
+                
+                // Add jugador default avatars
+                const jugadorAvatars = [
+                    { src: 'assets/defaults/jugador1_avatar.jpg', name: 'Jugador 1' },
+                    { src: 'assets/defaults/jugador2_avatar.jpg', name: 'Jugador 2' },
+                    { src: 'assets/defaults/jugador3_avatar.jpg', name: 'Jugador 3' },
+                    { src: 'assets/defaults/jugador4_avatar.jpg', name: 'Jugador 4' }
+                ];
+                
+                jugadorAvatars.forEach((avatar, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'avatar-option';
+                    div.dataset.avatar = avatar.src;
+                    div.style.cssText = `
+                        display: inline-block;
+                        margin: 5px;
+                        cursor: pointer;
+                        border: 2px solid transparent;
+                        border-radius: 50%;
+                        transition: border-color 0.2s;
+                        width: 44px;
+                        height: 44px;
+                        overflow: hidden;
+                    `;
+                    
+                    const img = document.createElement('img');
+                    img.src = avatar.src;
+                    img.alt = avatar.name;
+                    img.style.cssText = `
+                        width: 40px;
+                        height: 40px;
+                        border-radius: 50%;
+                        object-fit: cover;
+                        display: block;
+                    `;
+                    
+                    img.onload = () => {
+                        console.log(`✅ Loaded avatar: ${avatar.src}`);
+                    };
+                    
+                    img.onerror = () => {
+                        console.log(`❌ Failed to load: ${avatar.src}`);
+                        // Fallback to emoji
+                        div.innerHTML = '';
+                        div.textContent = ['🎯', '🎲', '🎮', '🏆'][index] || '👤';
+                        div.style.fontSize = '28px';
+                        div.style.display = 'flex';
+                        div.style.alignItems = 'center';
+                        div.style.justifyContent = 'center';
+                        div.style.color = '#0066CC';
+                        div.style.backgroundColor = '#f8f9fa';
+                    };
+                    
+                    div.appendChild(img);
+                    
+                    // Add click handler
+                    div.addEventListener('click', () => {
+                        // Remove selected from all options
+                        document.querySelectorAll('.avatar-option').forEach(opt => {
+                            opt.style.border = '2px solid transparent';
+                            opt.classList.remove('selected');
+                        });
+                        
+                        // Select this one
+                        div.style.border = '3px solid #007bff';
+                        div.classList.add('selected');
+                        
+                        // Update selection
+                        selectedAvatar = avatar.src;
+                        customAvatarData = null;
+                        
+                        // Hide custom preview
+                        const customPreview = document.getElementById('custom-avatar-preview');
+                        if (customPreview) customPreview.style.display = 'none';
+                        
+                        // Save to localStorage
+                        localStorage.setItem('domino_player_avatar', JSON.stringify({
+                            type: 'image',
+                            data: avatar.src
+                        }));
+                        
+                        console.log('✅ Selected jugador avatar:', avatar.src);
+                    });
+                    
+                    container.appendChild(div);
+                });
+                
+                console.log('✅ Replaced', avatarOptions.length, 'emoji options with', jugadorAvatars.length, 'jugador avatars');
+                
+                // Select first jugador avatar by default
+                if (container.children.length > 0) {
+                    container.children[0].click();
+                }
+            } else {
+                console.log('⚠️ No avatar options found to replace');
+            }
+        }, 500); // Wait for DOM to be ready
+    }
     
     // Setup suggestion box functionality
     setupSuggestionBox();
@@ -1559,6 +1970,15 @@ function setupLobby() {
     // console.log('🎯 Setting up STUBBORN mobile suggestion box...');
     setupStubbornBox();
     
+<<<<<<< HEAD
+=======
+    // 🎯 POPULATE AVATAR GRID WITH REAL AVATARS (DISABLED for now to restore emoji system)
+    // populateAvatarGrid();
+    
+    // 📱 MOBILE FIX: Replace emoji avatar selection with jugador avatars (DISABLED to prevent script display)
+    // replaceEmojiAvatarsWithJugador();
+
+>>>>>>> 64c5c15de77d85efeb82228fc2841ac215bad107
     // Handle avatar selection from grid
     avatarOptions.forEach(option => {
         option.addEventListener('click', () => {
@@ -1687,6 +2107,7 @@ function setupLobby() {
 
             // Don't save name to localStorage - keep it fresh each session
             // localStorage.setItem('domino_player_name', name);
+<<<<<<< HEAD
             // ALWAYS check for avatar file FIRST - highest priority
             // Use absolute path to avoid relative resolution issues on mobile
             const testImg = new Image();
@@ -1727,6 +2148,17 @@ function setupLobby() {
                     doConnectWith(avatarData);
                 }
             }, 500);
+=======
+            
+            // FIXED: Skip file check since uploaded avatars get erased on deployment
+            // Use custom avatar data if available, otherwise use emoji selection or default
+            const avatarData = {
+                type: customAvatarData ? 'custom' : 'emoji',
+                data: customAvatarData || selectedAvatar
+            };
+            console.log('🎯 PRIORITY: Using selected avatar:', avatarData);
+            connectToServer(name, avatarData, roomId, targetScore);
+>>>>>>> 64c5c15de77d85efeb82228fc2841ac215bad107
         }
     };
     
@@ -1737,8 +2169,11 @@ function setupLobby() {
         submitName();
     });
 
+<<<<<<< HEAD
     // (mobile fallback removed) - restoring original click-only behavior
 
+=======
+>>>>>>> 64c5c15de77d85efeb82228fc2841ac215bad107
     // Play waitingSound when newRoundBtn is clicked
     const newRoundBtn = document.getElementById('newRoundBtn');
     if (newRoundBtn) {
@@ -3697,6 +4132,7 @@ function showMessage(text) {
     messageDisplay = { text, time: millis() };
 }
 
+<<<<<<< HEAD
 function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVariations = false) {
     if (!internalPlayerName) return;
 
@@ -3804,6 +4240,218 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVar
                 console.info('Assigned img.src (default onload) =>', defaultAvatarSrc);
             };
             imgElement.onerror = function() { try { imgElement.style.display = 'none'; } catch (e) {}; console.warn('Default avatar failed to load:', defaultAvatarSrc); };
+=======
+function getPlayerIcon(imgElement, displayName, internalPlayerName) {
+    if (!internalPlayerName) return; 
+    
+    // � SIMPLIFIED: Just load jugador defaults directly - no complex logic
+    console.log(`🎯 getPlayerIcon: Loading jugador default for ${displayName}`);
+    
+    const playerMatch = internalPlayerName.match(/(\d+)/);
+    const playerNumber = playerMatch ? playerMatch[1] : '1';
+    const jugadorSrc = `assets/defaults/jugador${playerNumber}_avatar.jpg?v=${Date.now()}`;
+    
+    imgElement.onload = () => {
+        console.log(`✅ getPlayerIcon: Jugador${playerNumber} loaded for ${displayName}`);
+    };
+    
+    imgElement.onerror = () => {
+        console.log(`❌ getPlayerIcon: Jugador failed for ${displayName}, using emoji`);
+        const avatarDiv = imgElement.parentElement;
+        if (avatarDiv) {
+            avatarDiv.innerHTML = '';
+            avatarDiv.textContent = '🎯';
+            avatarDiv.style.fontSize = '28px';
+            avatarDiv.style.display = 'flex';
+            avatarDiv.style.alignItems = 'center';
+            avatarDiv.style.justifyContent = 'center';
+            avatarDiv.style.width = '40px';
+            avatarDiv.style.height = '40px';
+            avatarDiv.style.borderRadius = '50%';
+            avatarDiv.style.backgroundColor = '#f8f9fa';
+        }
+    };
+    
+    imgElement.src = jugadorSrc; 
+    
+    // AGGRESSIVE MOBILE FIX: Multiple detection methods and debugging
+    const userAgent = navigator.userAgent;
+    const isMobileUA = /iPhone|iPad|iPod|Android|Mobile|Phone|Tablet/i.test(userAgent);
+    const isMobileWidth = window.innerWidth <= 950; // Lowered threshold for testing
+    const isTouchDevice = 'ontouchstart' in window;
+    const isMobileBrowser = isMobileUA || isMobileWidth || isTouchDevice;
+    
+    console.log('🔍 MOBILE DEBUG:', {
+        userAgent: userAgent.substring(0, 50),
+        isMobileUA,
+        isMobileWidth,
+        isTouchDevice,
+        isMobileBrowser,
+        hostname: window.location.hostname
+    });
+    
+    // FIXED: Removed mobile blocking - let default jugador avatars try to load on mobile too
+    // if (isMobileBrowser && !window.location.hostname.includes('localhost')) {
+    //     console.log('📱🚨 FORCING EMOJI AVATAR for mobile:', displayName);
+    //     const avatarDiv = imgElement.parentElement;
+    //     if (avatarDiv) {
+    //         // Clear any existing content and set emoji
+    //         avatarDiv.innerHTML = '';
+    //         avatarDiv.textContent = '📱'; // Changed to phone emoji to confirm mobile detection
+    //         avatarDiv.style.fontSize = '24px';
+    //         avatarDiv.style.color = '#0066CC'; // Blue color to stand out
+    //         avatarDiv.style.display = 'flex';
+    //         avatarDiv.style.alignItems = 'center';
+    //         avatarDiv.style.justifyContent = 'center';
+    //         avatarDiv.title = 'Mobile Mode Active'; // Tooltip
+    //     }
+    //     // Hide the image element completely
+    //     imgElement.style.display = 'none';
+    //     imgElement.remove();
+    //     return;
+    // }
+    
+    // Create multiple filename variations to try
+    const baseVariations = [
+        `assets/icons/${displayName}_avatar.jpg`,           // Original case
+        `assets/icons/${displayName.toLowerCase()}_avatar.jpg`, // All lowercase  
+        `assets/icons/${displayName.toUpperCase()}_avatar.jpg`, // All uppercase
+        `assets/icons/${displayName.charAt(0).toUpperCase() + displayName.slice(1).toLowerCase()}_avatar.jpg` // Title case
+    ];
+    
+    // Add cache-busting for mobile browsers
+    const isMobileDevice = window.innerWidth <= 900 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || /iPhone/i.test(navigator.userAgent) || navigator.platform === 'iPhone';
+    const cacheBuster = isMobileDevice ? `?v=${Date.now()}` : '';
+    const avatarVariations = baseVariations.map(url => url + cacheBuster);
+    
+    console.log(`🔍 Testing avatar variations for ${displayName}:`, avatarVariations);
+    console.log(`📱 Mobile check: innerWidth=${window.innerWidth}, userAgent=${navigator.userAgent.includes('Mobile')}`);
+    console.log(`🌐 Hostname: ${window.location.hostname}`);
+    console.log(`🚫 Cache buster: ${cacheBuster} (mobile: ${isMobileDevice})`);
+    
+    const playerMatch2 = internalPlayerName.match(/\d+/);
+    const playerNumber2 = playerMatch2 ? playerMatch2[0] : 'default';
+    const defaultAvatarSrc = `assets/defaults/jugador${playerNumber2}_avatar.jpg${cacheBuster}`;
+    
+    console.log(`🎯 DEFAULT AVATAR: Attempting to load ${defaultAvatarSrc} for ${displayName}`);
+    console.log(`🔢 Player number extracted: ${playerNumber} from ${internalPlayerName}`);
+    
+    let attemptIndex = 0;
+    
+    // Enhanced Safari Detection with debug logging
+    const browserUserAgent = navigator.userAgent;
+    const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(userAgent) || window.innerWidth <= 900;
+    const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
+    const isSafariMobile = (isSafari && isMobile) || isIOS; // More aggressive detection
+    
+    // FIXED: Removed mobile emergency fallback - let default jugador avatars try to load
+    // if (isMobile && !window.location.hostname.includes('localhost')) {
+    //     console.log(`📱🚨 MOBILE EMERGENCY: Skipping file avatars, using emoji for ${displayName}`);
+    //     avatarDiv.textContent = '👤';
+    //     avatarDiv.style.fontSize = '24px';
+    //     avatarDiv.style.color = '#666';
+    //     return;
+    // }
+    
+    console.log(`🔍 Browser Detection:`, {
+        userAgent,
+        isSafari,
+        isMobile,
+        isIOS,
+        isSafariMobile,
+        innerWidth: window.innerWidth
+    });
+    
+    if (isSafariMobile) {
+        console.log(`🍎� SAFARI MOBILE DETECTED - Using special handling`);
+        
+        // For Safari Mobile, use a completely different approach
+        // Set up the image properties first
+        imgElement.style.opacity = '0';
+        imgElement.style.transition = 'opacity 0.3s';
+        
+        // Create a preloader image to test if the avatar exists
+        const testImage = new Image();
+        
+        const loadAvatar = (srcToTry) => {
+            return new Promise((resolve, reject) => {
+                const tempImg = new Image();
+                tempImg.onload = () => resolve(srcToTry);
+                tempImg.onerror = () => reject();
+                tempImg.src = srcToTry;
+            });
+        };
+        
+        // Try each avatar variation in sequence for Safari
+        const tryAvatarsSequentially = async () => {
+            for (let i = 0; i < avatarVariations.length; i++) {
+                try {
+                    console.log(`🍎 Safari trying: ${avatarVariations[i]}`);
+                    const workingSrc = await loadAvatar(avatarVariations[i]);
+                    console.log(`🍎✅ Safari found working avatar: ${workingSrc}`);
+                    imgElement.src = workingSrc;
+                    imgElement.style.opacity = '1';
+                    return;
+                } catch (e) {
+                    console.log(`🍎❌ Safari failed: ${avatarVariations[i]}`);
+                }
+            }
+            
+            // If all custom avatars failed, try default
+            try {
+                console.log(`🍎 Safari trying default: ${defaultAvatarSrc}`);
+                await loadAvatar(defaultAvatarSrc);
+                imgElement.src = defaultAvatarSrc;
+                imgElement.style.opacity = '1';
+                console.log(`🍎✅ Safari loaded default: ${defaultAvatarSrc}`);
+            } catch (e) {
+                console.log(`🍎❌ Safari even default failed, forcing jugador1`);
+                const avatarDiv = imgElement.parentElement;
+                if (avatarDiv) {
+                    // 🔧 MOBILE FIX: Force jugador1 instead of emoji on Safari mobile
+                    console.log(`🍎📱 Safari mobile: Force loading jugador1`);
+                    imgElement.onerror = null;
+                    imgElement.src = `assets/defaults/jugador1_avatar.jpg?v=${Date.now()}`;
+                    imgElement.onload = () => {
+                        console.log(`🍎✅ Safari jugador1 fallback success`);
+                        imgElement.style.opacity = '1';
+                    };
+                    imgElement.onerror = () => {
+                        console.log(`🍎❌ Safari jugador1 also failed, using styled emoji`);
+                        avatarDiv.innerHTML = '';
+                        avatarDiv.textContent = '🎯';
+                        avatarDiv.style.fontSize = '28px';
+                        avatarDiv.style.color = '#0066CC';
+                        avatarDiv.style.display = 'flex';
+                        avatarDiv.style.alignItems = 'center';
+                        avatarDiv.style.justifyContent = 'center';
+                        avatarDiv.style.width = '40px';
+                        avatarDiv.style.height = '40px';
+                        avatarDiv.style.borderRadius = '50%';
+                        avatarDiv.style.backgroundColor = '#f8f9fa';
+                        imgElement.remove();
+                    };
+                }
+            }
+        };
+        
+        // Start the Safari-specific loading
+        tryAvatarsSequentially();
+        return;
+    }
+    
+    // Function to try the next avatar variation (for non-Safari browsers)
+    const tryNextAvatar = () => {
+        if (attemptIndex < avatarVariations.length) {
+            const currentSrc = avatarVariations[attemptIndex];
+            console.log(`🔍 Trying variation ${attemptIndex + 1}/${avatarVariations.length}: ${currentSrc}`);
+            imgElement.src = currentSrc;
+            attemptIndex++;
+        } else {
+            // All custom variations failed, try default
+            console.log(`🔍 All variations failed, trying default: ${defaultAvatarSrc}`);
+>>>>>>> 64c5c15de77d85efeb82228fc2841ac215bad107
             imgElement.src = defaultAvatarSrc;
         } catch (e) {
             try { imgElement.dataset.assignedSrc = defaultAvatarSrc; } catch (e) {}
@@ -3811,6 +4459,7 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVar
             try { if (internalPlayerName) window.avatarAssigned[internalPlayerName] = defaultAvatarSrc; } catch (e) {}
             try { if (displayName) { window.avatarAssigned[displayName] = defaultAvatarSrc; window.avatarAssigned[(displayName || '').toLowerCase()] = defaultAvatarSrc; } } catch (e) {}
         }
+<<<<<<< HEAD
 
         return;
     }
@@ -3846,6 +4495,58 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVar
             try { if (displayName) { window.avatarAssigned[displayName] = defaultAvatarSrc; window.avatarAssigned[(displayName || '').toLowerCase()] = defaultAvatarSrc; } } catch (e) {}
             console.info('Assigned img.src (default after probing) =>', imgElement.src);
             return;
+=======
+    };
+    
+    // Set up error handling before setting the source (for non-Safari browsers)
+    imgElement.onerror = function() {
+        console.log(`❌ MOBILE DEBUG - Failed to load: ${this.src}`);
+        console.log(`❌ MOBILE DEBUG - Complete: ${this.complete}, Width: ${this.naturalWidth}, Height: ${this.naturalHeight}`);
+        console.log(`❌ MOBILE DEBUG - UserAgent: ${navigator.userAgent}`);
+        console.log(`❌ MOBILE DEBUG - Inner width: ${window.innerWidth}`);
+        
+        // If we're still trying custom avatar variations
+        if (attemptIndex < avatarVariations.length) {
+            tryNextAvatar();
+        } else {
+            // Even default failed, remove the image element and use emoji
+            console.log(`❌ All avatar attempts failed for ${displayName}, using default jugador fallback`);
+            const avatarDiv = this.parentElement;
+            if (avatarDiv) {
+                // 🔧 MOBILE FIX: Force default jugador avatar instead of emoji
+                const isMobileDevice = window.innerWidth <= 900 || /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent);
+                
+                if (isMobileDevice) {
+                    console.log(`📱 MOBILE FORCE: Trying jugador1 as final fallback for ${displayName}`);
+                    // Force load jugador1 as absolute fallback on mobile
+                    this.onerror = null; // Remove error handler to prevent loop
+                    this.src = `assets/defaults/jugador1_avatar.jpg?v=${Date.now()}`;
+                    this.onload = () => {
+                        console.log(`✅ MOBILE FORCE: jugador1 fallback loaded for ${displayName}`);
+                    };
+                    this.onerror = () => {
+                        console.log(`❌ MOBILE FORCE: Even jugador1 failed, using styled emoji`);
+                        avatarDiv.innerHTML = '';
+                        avatarDiv.textContent = '🎯';
+                        avatarDiv.style.fontSize = '28px';
+                        avatarDiv.style.color = '#0066CC';
+                        avatarDiv.style.display = 'flex';
+                        avatarDiv.style.alignItems = 'center';
+                        avatarDiv.style.justifyContent = 'center';
+                        avatarDiv.style.width = '40px';
+                        avatarDiv.style.height = '40px';
+                        avatarDiv.style.borderRadius = '50%';
+                        avatarDiv.style.backgroundColor = '#f8f9fa';
+                        this.remove();
+                    };
+                } else {
+                    // Desktop: use emoji as before
+                    avatarDiv.textContent = '👤';
+                    avatarDiv.style.fontSize = '24px';
+                    this.remove();
+                }
+            }
+>>>>>>> 64c5c15de77d85efeb82228fc2841ac215bad107
         }
 
         const testSrc = list[idx];
@@ -3886,8 +4587,18 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVar
             tester.onerror = () => { tryLoadSequential(list, idx + 1); };
             tester.src = testSrc;
     };
+<<<<<<< HEAD
 
     tryLoadSequential(baseVariations);
+=======
+    
+    imgElement.onload = function() {
+        console.log(`✅ SUCCESS! Avatar loaded: ${this.src}`);
+    };
+    
+    // Start with the first variation (for non-Safari browsers)
+    tryNextAvatar();
+>>>>>>> 64c5c15de77d85efeb82228fc2841ac215bad107
 }
 
 /**
@@ -3941,9 +4652,29 @@ function determinePlayerPositions() {
 }
 
 
+// Global variable to track player data changes and prevent avatar reload loops
+let lastPlayerDataHash = null;
+let forceAvatarReload = true; // Start with force reload to ensure initial load
+
 function updatePlayersUI() {
     if (!gameState || !gameState.jugadoresInfo || !myJugadorName) { return; }
 
+<<<<<<< HEAD
+=======
+    // 🔧 LOOP PREVENTION: Only reload avatars if player data actually changed
+    const currentPlayerDataHash = JSON.stringify(gameState.jugadoresInfo.map(p => ({
+        name: p.name,
+        displayName: p.displayName,
+        tileCount: p.tileCount
+    })));
+    
+    const isFirstLoad = lastPlayerDataHash === null;
+    const playersChanged = currentPlayerDataHash !== lastPlayerDataHash;
+    const shouldLoadAvatars = isFirstLoad || playersChanged || forceAvatarReload;
+    
+    console.log(`🔍 AVATAR CHECK: First load = ${isFirstLoad}, Players changed = ${playersChanged}, Force reload = ${forceAvatarReload}, Should load = ${shouldLoadAvatars}`);
+    
+>>>>>>> 64c5c15de77d85efeb82228fc2841ac215bad107
     // console.log('🎮 Updating players UI with game state:', gameState.jugadoresInfo);
 
     const playerPositions = determinePlayerPositions();
@@ -4031,18 +4762,42 @@ function updatePlayersUI() {
             // Use default CSS styling - don't override
         }
         
+        // Mobile-specific styling for better compatibility
+        if (window.innerWidth <= 900) {
+            // Use default CSS styling - don't override
+        }
+        
         // PRIORITY SYSTEM for avatar display:
         // 1st: Avatar files (type='file' or when no avatar data but file exists)
         // 2nd: Custom uploads (type='custom') 
         // 3rd: Selected emojis (type='emoji')
         // 4th: Default avatar
         
-        if (playerData.avatar && playerData.avatar.type === 'file') {
-            // Server indicated to use file - try to load image file
+        // 🔧 UNIFIED PRIORITY SYSTEM: Try uploaded avatars first, then jugador defaults
+        // 🔧 LOOP PREVENTION: Only load avatars if needed
+        if (shouldLoadAvatars) {
+            console.log(`🎯 UNIFIED: Loading avatar for ${playerData.displayName} (internal: ${playerData.name})`);
+            
+            const playerMatch = playerData.name.match(/(\d+)/);
+            const playerNumber = playerMatch ? playerMatch[1] : '1';
+            
+            // PRIORITY 1: Try uploaded avatar with multiple case variations
+            const displayName = playerData.displayName;
+            const avatarVariations = [
+                `assets/icons/${displayName}_avatar.jpg`,                    // Original case (e.g., KK)
+                `assets/icons/${displayName.toUpperCase()}_avatar.jpg`,      // Force uppercase (KK)
+                `assets/icons/${displayName.toLowerCase()}_avatar.jpg`,      // Force lowercase (kk)
+                ...(displayName === displayName.toUpperCase() ? [] : 
+                    [`assets/icons/${displayName.charAt(0).toUpperCase() + displayName.slice(1).toLowerCase()}_avatar.jpg`])
+            ];
+            
+            console.log(`🔍 UNIFIED: Trying ${avatarVariations.length} avatar variations for "${displayName}":`, avatarVariations);
+            
             const img = document.createElement('img');
             img.style.width = '40px';
             img.style.height = '40px';
             img.style.borderRadius = '50%';
+<<<<<<< HEAD
             avatarDiv.appendChild(img);
             // Update debug badge when load attempts happen
             img.onload = () => { img.style.opacity = '1'; img.dataset.status = `avatar: ${img.src.split('/').pop()}`; };
@@ -4168,6 +4923,78 @@ function updatePlayersUI() {
             getPlayerIcon(img, playerData.displayName, playerData.name, false);
             // If the image fails to load, getPlayerIcon will hide the
             // broken <img> element — do not replace it with emoji/initials.
+=======
+            img.style.objectFit = 'cover';
+            img.alt = `${playerData.displayName} avatar`;
+            
+            let currentVariationIndex = 0;
+            
+            const tryNextVariation = () => {
+                if (currentVariationIndex < avatarVariations.length) {
+                    const currentSrc = avatarVariations[currentVariationIndex] + `?v=${Date.now()}`;
+                    console.log(`🔍 UNIFIED: Trying variation ${currentVariationIndex + 1}/${avatarVariations.length}: ${currentSrc}`);
+                    
+                    img.onerror = () => {
+                        console.log(`❌ UNIFIED: Failed variation ${currentVariationIndex + 1}: ${currentSrc}`);
+                        currentVariationIndex++;
+                        tryNextVariation();
+                    };
+                    
+                    img.onload = () => {
+                        console.log(`✅ UNIFIED: Uploaded avatar loaded: ${currentSrc}`);
+                    };
+                    
+                    img.src = currentSrc;
+                } else {
+                    // All uploaded variations failed, use colored initials as fallback
+                    console.log(`🔧 UNIFIED: All uploaded variations failed for ${displayName}, creating colored initials`);
+                    
+                    // Remove the img element and create a colored div with initials
+                    img.remove();
+                    
+                    // Create colored avatar with initials
+                    const coloredAvatar = document.createElement('div');
+                    coloredAvatar.style.width = '40px';
+                    coloredAvatar.style.height = '40px';
+                    coloredAvatar.style.borderRadius = '50%';
+                    coloredAvatar.style.display = 'flex';
+                    coloredAvatar.style.alignItems = 'center';
+                    coloredAvatar.style.justifyContent = 'center';
+                    coloredAvatar.style.fontSize = '16px';
+                    coloredAvatar.style.fontWeight = 'bold';
+                    coloredAvatar.style.color = 'white';
+                    coloredAvatar.textContent = displayName.substring(0, 2).toUpperCase();
+                    
+                    // Use different colors based on player number
+                    const colors = ['#007bff', '#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6f42c1'];
+                    const colorIndex = (parseInt(playerNumber) - 1) % colors.length;
+                    coloredAvatar.style.backgroundColor = colors[colorIndex];
+                    
+                    avatarDiv.appendChild(coloredAvatar);
+                    console.log(`✅ UNIFIED: Created colored initials avatar for ${displayName}: ${displayName.substring(0, 2).toUpperCase()}`);
+                    return; // Don't continue with img loading
+                }
+            };
+            
+            tryNextVariation();
+            avatarDiv.appendChild(img);
+        } else {
+            // 🔄 REUSE: Player data hasn't changed, check if avatars actually exist
+            console.log(`🔄 REUSE: Checking cached display for ${playerData.displayName}`);
+            const existingImg = div.querySelector('.player-avatar img');
+            const existingContent = div.querySelector('.player-avatar');
+            
+            if (!existingImg && (!existingContent || existingContent.innerHTML.trim() === '')) {
+                // No avatar loaded, force a reload
+                console.log(`⚠️ REUSE: No cached avatar found for ${playerData.displayName}, forcing reload`);
+                forceAvatarReload = true;
+                // Restart the function to load avatars
+                updatePlayersUI();
+                return;
+            } else {
+                console.log(`✅ REUSE: Using valid cached display for ${playerData.displayName}`);
+            }
+>>>>>>> 64c5c15de77d85efeb82228fc2841ac215bad107
         }
 
         const infoDiv = document.createElement('div');
@@ -4246,8 +5073,15 @@ function updatePlayersUI() {
             createPointsTableNow();
         }, 100);
     }
+<<<<<<< HEAD
 
     // Diagnostic overlay and console.table removed for production/mobile
+=======
+    
+    // 🔧 LOOP PREVENTION: Update the hash to prevent unnecessary avatar reloads
+    lastPlayerDataHash = currentPlayerDataHash;
+    forceAvatarReload = false; // Reset force flag after reload attempt
+>>>>>>> 64c5c15de77d85efeb82228fc2841ac215bad107
 }
 
 // Force a re-probe of all player avatars (clears cached assignments and re-renders)
@@ -5357,7 +6191,11 @@ function isValidTilePlay(tile, position) {
 let audioAutoPlayEnabled = false;
 
 // Enhanced audio unlock system with audio pool
+<<<<<<< HEAD
 window.enableAudioAutoPlay = function() {
+=======
+function enableAudioAutoPlay() {
+>>>>>>> 64c5c15de77d85efeb82228fc2841ac215bad107
     if (window.audioSystemInitialized) return;
     window.audioSystemInitialized = true;
     
@@ -5393,10 +6231,15 @@ window.enableAudioAutoPlay = function() {
             
         } catch (error) {
             console.log('🎵 Audio system initialization failed:', error.name);
+<<<<<<< HEAD
             // Try again after a short delay
             setTimeout(() => {
                 window.audioSystemInitialized = false;
             }, 5000);
+=======
+            // Don't retry - just continue without audio to prevent infinite loop
+            console.log('🎵 Continuing without audio system to prevent blocking game start');
+>>>>>>> 64c5c15de77d85efeb82228fc2841ac215bad107
         }
     };
     
@@ -6264,8 +7107,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // console.log('🚪 Mobile Leave Game button not found');
     }
 });
+<<<<<<< HEAD
 
 
 
+=======
+>>>>>>> 64c5c15de77d85efeb82228fc2841ac215bad107
 
 

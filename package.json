@@ -2,5 +2,24 @@
   "dependencies": {
     "express": "^4.18.2",
     "socket.io": "^4.8.1"
-  }
+  },
+  "name": "dominom-github",
+  "version": "1.0.0",
+  "description": "",
+  "main": "analytics.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Weston2019/DominoM.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Weston2019/DominoM/issues"
+  },
+  "homepage": "https://github.com/Weston2019/DominoM#readme"
 }
