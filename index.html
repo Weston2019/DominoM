@@ -230,10 +230,13 @@
     const tryFetchJson = (url) => fetch(url, {cache:'no-store'}).then(r => r.ok ? r.json() : Promise.resolve(null)).catch(() => null);
     const applyBackground = (el, url) => {
       try {
-        el.style.backgroundImage = `url(${url})`;
-        el.style.backgroundSize = 'cover';
-        el.style.backgroundPosition = 'center';
-        el.dataset.assignedSrc = url;
+        // Apply to the element itself
+        try { el.style.backgroundImage = `url(${url})`; } catch(e){}
+        try { el.style.backgroundSize = 'cover'; el.style.backgroundPosition = 'center'; } catch(e){}
+        // Also apply to parent (some UI uses parent for visible background)
+        try { const p = (el.parentElement || el); if (p) { p.style.backgroundImage = `url(${url})`; p.style.backgroundSize = 'cover'; p.style.backgroundPosition = 'center'; p.dataset.assignedSrc = url; } } catch(e){}
+        // If there's an <img> child, set its src too (some flows expect an <img>)
+        try { const img = el.querySelector && el.querySelector('img'); if (img) { img.src = url; } } catch(e){}
       } catch(e){}
     };
     const guessName = el => (el.dataset && (el.dataset.playerName || el.dataset.name || el.dataset.srcHint)) || '';
