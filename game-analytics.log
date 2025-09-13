@@ -48,3 +48,10 @@
 {"timestamp":"2025-09-11T16:13:35.100Z","eventType":"player_join","playerName":"Jugador 4","roomId":"Sala-1","displayName":"kk","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"}
 {"timestamp":"2025-09-11T16:50:29.359Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 3","tile":{"left":6,"right":4},"position":"right"}
 >>>>>>> 64c5c15de77d85efeb82228fc2841ac215bad107
+{"timestamp":"2025-09-13T13:59:26.346Z","eventType":"room_created","roomId":"Sala-1","targetScore":70}
+{"timestamp":"2025-09-13T13:59:26.347Z","eventType":"player_join","playerName":"Jugador 1","roomId":"Sala-1","displayName":"da","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"}
+{"timestamp":"2025-09-13T13:59:43.820Z","eventType":"player_join","playerName":"Jugador 2","roomId":"Sala-1","displayName":"Kk","userAgent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_6_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1"}
+{"timestamp":"2025-09-13T13:59:54.955Z","eventType":"player_join","playerName":"Jugador 3","roomId":"Sala-1","displayName":"fv","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"}
+{"timestamp":"2025-09-13T14:00:03.486Z","eventType":"player_join","playerName":"Jugador 4","roomId":"Sala-1","displayName":"lk","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"}
+{"timestamp":"2025-09-13T14:01:17.199Z","eventType":"tile_placed","roomId":"Sala-1","playerName":"Jugador 3","tile":{"left":6,"right":6},"position":"right"}
+{"timestamp":"2025-09-13T14:01:30.519Z","eventType":"player_join","playerName":"Jugador 4","roomId":"Sala-1","displayName":"luis","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"}
