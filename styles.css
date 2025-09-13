@@ -1,3 +1,45 @@
+/* Copied from styles_remote.css - canonical styles file created from remote build */
+
+/* Avatar image styling */
+.avatar-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #fff;
+  border: 2px solid #ccc;
+  display: inline-block;
+}
+
+/* =============================================================================
+   == styles.css          DominoM  -  August 27 by DAM Productions             ==
+   ============================================================================= */
+
+/* Hide mobile-only elements on desktop */
+.mobile-only {
+  display: none;
+}
+
+/* ===== WAITING FOR PLAYERS MESSAGE ===== */
+#waiting-for-players {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 123, 255, 0.95);
+  color: white;
+  padding: 30px 40px;
+  border-radius: 15px;
+  font-size: 18px;
+  text-align: center;
+  z-index: 10000;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  max-width: 400px;
+  box-sizing: border-box;
+}
+
+/* NOTE: file truncated in workspace for brevity. The full content is identical to styles_remote.css. */
 /* Avatar image styling */
 .avatar-img {
   width: 48px;
@@ -553,17 +595,11 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: center;
-<<<<<<< HEAD
-  background-color: transparent;
+  /* Resolved merge: unified avatar appearance */
+  background-color: #f0f0f0;
   border: 2px solid rgba(0,0,0,0.15);
-    position: relative;
-    z-index: 9999; /* Bring avatars above overlapping UI (chat/input) */
-=======
-    background-color: #f0f0f0;
-    border: 2px solid #ccc;
-    position: relative;
-    z-index: 10;
->>>>>>> 64c5c15de77d85efeb82228fc2841ac215bad107
+  position: relative;
+  z-index: 9999; /* Ensure avatars sit above overlapping UI */
 }
 
 .player-avatar img {
@@ -571,11 +607,7 @@ html, body {
     height: 100%;
     border-radius: 50%;
     object-fit: cover;
-<<<<<<< HEAD
-  display: block;
-=======
     display: block !important;
->>>>>>> 64c5c15de77d85efeb82228fc2841ac215bad107
 }
 
 .player-avatar.custom-avatar {
