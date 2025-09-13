@@ -248,6 +248,33 @@ if (!window.checkIconFiles) {
     };
 }
 
+// Fetch a simple manifest of available avatars from the server to avoid
+// directory probing and HEAD requests. The endpoint `/debug/avatars` returns
+// JSON with `avatarFiles` and `defaultFiles` arrays (see server-side debug).
+if (!window.fetchAvatarManifest) {
+    window.__avatarManifest = window.__avatarManifest || null;
+    window.fetchAvatarManifest = async function(force) {
+        if (window.__avatarManifest && !force) return window.__avatarManifest;
+        try {
+            const res = await fetch('/debug/avatars', { cache: 'no-store' });
+            if (!res.ok) throw new Error('manifest fetch failed: ' + res.status);
+            const body = await res.json();
+            const avatarFiles = Array.isArray(body.avatarFiles) ? body.avatarFiles.slice() : [];
+            const defaultFiles = Array.isArray(body.defaultFiles) ? body.defaultFiles.slice() : [];
+            // Build helper maps for quick case-insensitive lookup
+            const byLower = new Map();
+            avatarFiles.forEach(f => byLower.set(String(f).toLowerCase(), f));
+            defaultFiles.forEach(f => byLower.set(String(f).toLowerCase(), f));
+            window.__avatarManifest = { avatarFiles, defaultFiles, byLower };
+            return window.__avatarManifest;
+        } catch (e) {
+            console.warn('fetchAvatarManifest error', e && e.message);
+            window.__avatarManifest = null;
+            return null;
+        }
+    };
+}
+
 // Ensure small no-op globals exist early so event listeners won't throw
 if (typeof window.createPointsTableNow !== 'function') {
     window.createPointsTableNow = function() { /* placeholder until real implementation loads */ };
@@ -3932,7 +3959,7 @@ function showMessage(text) {
     messageDisplay = { text, time: millis() };
 }
 
-function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVariations = false) {
+async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVariations = false) {
     if (!internalPlayerName) return;
 
     // Determine player number (used for default avatar filename)
@@ -4149,23 +4176,52 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVar
         return;
     }
 
-    // Otherwise, attempt name-based probing using displayName variations.
-    // Prefer lowercased and spaceless filenames first to avoid case-sensitivity issues on Linux
-    const baseVariations = displayName ? (function() {
-        const name = displayName || '';
+    // Otherwise, attempt name-based lookup. First consult the server-provided
+    // manifest at `/debug/avatars` (if available) to avoid probing and WAF hits.
+    // The manifest contains the true filenames; we do a case-insensitive lookup
+    // against it and build a prioritized list of exact URLs to try.
+    const baseVariations = await (async function() {
+        // If no displayName, just return the deterministic default
+        if (!displayName) return [`/assets/defaults/jugador${playerNumber}_avatar.jpg` + cacheBuster];
+
+        const name = String(displayName || '');
         const lower = name.toLowerCase();
         const spacelessLower = lower.replace(/\s+/g, '');
         const pascal = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+
+        // Try to resolve filenames from manifest first
+        try {
+            const m = await window.fetchAvatarManifest();
+            if (m && m.byLower) {
+                const candidates = [];
+                const pushIf = (fname) => { if (fname && !candidates.includes(fname)) candidates.push(fname); };
+                // common variants to check in order
+                const variants = [ `${spacelessLower}_avatar.jpg`, `${lower}_avatar.jpg`, `${name}_avatar.jpg`, `${name.toUpperCase()}_avatar.jpg`, `${pascal}_avatar.jpg` ];
+                for (const v of variants) {
+                    const found = m.byLower.get(v.toLowerCase());
+                    if (found) pushIf(`/assets/icons/${found}` + cacheBuster);
+                }
+                // If manifest contains deterministic defaults, add them
+                for (const df of (m.defaultFiles || [])) {
+                    pushIf(`/assets/defaults/${df}` + cacheBuster);
+                }
+                // If we found manifest-backed candidates, return them
+                if (candidates.length > 0) return candidates;
+            }
+        } catch (e) {
+            // manifest failed — we'll fall back to probing below
+        }
+
+        // Fallback: build likely paths (existing behavior) if manifest absent
         return [
             `/assets/icons/${spacelessLower}_avatar.jpg`,
             `/assets/icons/${lower}_avatar.jpg`,
             `/assets/icons/${name}_avatar.jpg`,
             `/assets/icons/${name.toUpperCase()}_avatar.jpg`,
             `/assets/icons/${pascal}_avatar.jpg`,
-            // deterministic jugadorX fallback (use defaults folder)
             `/assets/defaults/jugador${playerNumber}_avatar.jpg`
         ].map(u => u + cacheBuster);
-    })() : [`/assets/defaults/jugador${playerNumber}_avatar.jpg` + cacheBuster];
+    })();
 
     const tryLoadSequential = (list, idx = 0) => {
             if (idx >= list.length) {
@@ -4604,6 +4660,72 @@ function updatePlayersUI() {
     }
 
     // Diagnostic overlay and console.table removed for production/mobile
+}
+
+// Mobile-specific runtime fixes: Force avatar container styles so background
+// images are not hidden by mobile CSS rules. This is defensive and runs only
+// on narrow viewports to avoid interfering with desktop styling.
+if (!window.mobileAvatarFix) {
+    window.mobileAvatarFix = function() {
+        try {
+            // Inject a strong stylesheet for .player-avatar if not present
+            if (!document.getElementById('mobile-avatar-fix-style')) {
+                const style = document.createElement('style');
+                style.id = 'mobile-avatar-fix-style';
+                style.textContent = `
+                    .player-avatar {
+                        background-size: cover !important;
+                        background-position: center !important;
+                        background-repeat: no-repeat !important;
+                        background-color: #222 !important;
+                        -webkit-background-clip: padding-box !important;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            // Reapply assignedSrc as an important background-image so it's not
+            // overridden by other mobile rules.
+            document.querySelectorAll('.player-avatar').forEach(div => {
+                try {
+                    const src = div.dataset && div.dataset.assignedSrc;
+                    if (src && src.length > 0) {
+                        div.style.setProperty('background-image', `url(${src})`, 'important');
+                    } else {
+                        // keep default background-color visible
+                        div.style.removeProperty('background-image');
+                    }
+                    div.style.setProperty('background-size', 'cover', 'important');
+                    div.style.setProperty('background-position', 'center', 'important');
+                    div.style.setProperty('background-repeat', 'no-repeat', 'important');
+                    div.style.setProperty('background-color', '#222', 'important');
+                } catch (e) {}
+            });
+        } catch (e) { console.warn('mobileAvatarFix error', e && e.message); }
+    };
+
+    // Run periodically on mobile/narrow screens to counter CSS race conditions
+    setInterval(() => {
+        if (window.innerWidth <= 900) window.mobileAvatarFix();
+    }, 1800);
+}
+
+// Diagnostic helper: logs computed style for avatar elements (useful on mobile)
+if (!window.logAvatarComputedStyles) {
+    window.logAvatarComputedStyles = function() {
+        document.querySelectorAll('.player-avatar').forEach((div, i) => {
+            try {
+                const cs = window.getComputedStyle(div);
+                console.log(i, div.dataset.player || div.dataset.assignedSrc || '(no-data)', {
+                    'background-image': cs.getPropertyValue('background-image'),
+                    'background-size': cs.getPropertyValue('background-size'),
+                    'background-position': cs.getPropertyValue('background-position'),
+                    'background-repeat': cs.getPropertyValue('background-repeat'),
+                    'background-color': cs.getPropertyValue('background-color')
+                });
+            } catch (e) {}
+        });
+    };
 }
 
 // Force a re-probe of all player avatars (clears cached assignments and re-renders)
