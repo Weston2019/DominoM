@@ -29,6 +29,20 @@ let animationStartTime = 0;
 let animationDuration = 1000;
 let animationPauseDuration = 500;
 
+// Simple global concurrency limiter for avatar network probes
+if (!window.acquireAvatarProbe) {
+    window.__avatarProbe = { inFlight: 0, max: 6 };
+    window.acquireAvatarProbe = async function() {
+        while (window.__avatarProbe.inFlight >= window.__avatarProbe.max) {
+            await new Promise(r => setTimeout(r, 80));
+        }
+        window.__avatarProbe.inFlight++;
+    };
+    window.releaseAvatarProbe = function() {
+        try { window.__avatarProbe.inFlight = Math.max(0, window.__avatarProbe.inFlight - 1); } catch (e) {}
+    };
+}
+
 // Ensure small no-op globals exist early so event listeners won't throw
 if (typeof window.createPointsTableNow !== 'function') {
     window.createPointsTableNow = function() { /* placeholder until real implementation loads */ };
@@ -3901,6 +3915,7 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVar
 
         // Try HEAD first to validate the resource is an image (avoids HTML/text fallbacks)
         (async () => {
+            try { await window.acquireAvatarProbe(); } catch (e) {}
             try {
                 const headResp = await fetch(testSrc, { method: 'HEAD' });
                 const ct = headResp.headers.get('content-type') || '';
@@ -3928,6 +3943,7 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVar
                     };
                     imgElement.onerror = function() { try { imgElement.style.display = 'none'; } catch (e) {}; console.warn('[AVATAR LOAD ERROR] img failed to load', testSrc); };
                     imgElement.src = testSrc;
+                    try { window.releaseAvatarProbe(); } catch (e) {}
                     return;
                 }
             } catch (e) {
@@ -3958,10 +3974,10 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVar
                     console.info('Assigned img.src (probed onload) =>', testSrc);
                 };
                 imgElement.onerror = function() { try { imgElement.style.display = 'none'; } catch (e) {}; console.warn('[AVATAR LOAD ERROR] img failed to load', testSrc); };
-                tester.onerror = () => { try { console.debug('[AVATAR PROBE] candidate not found:', testSrc); } catch (e) {} ; tryLoadSequential(list, idx + 1); };
+                tester.onerror = () => { try { console.debug('[AVATAR PROBE] candidate not found:', testSrc); } catch (e) {} ; tryLoadSequential(list, idx + 1); try { window.releaseAvatarProbe(); } catch (e) {}; };
                 tester.src = testSrc;
             };
-            tester.onerror = () => { try { console.debug('[AVATAR PROBE] candidate not found (image):', testSrc); } catch (e) {} ; tryLoadSequential(list, idx + 1); };
+            tester.onerror = () => { try { console.debug('[AVATAR PROBE] candidate not found (image):', testSrc); } catch (e) {} ; tryLoadSequential(list, idx + 1); try { window.releaseAvatarProbe(); } catch (e) {}; };
             tester.src = testSrc;
         })();
     };
