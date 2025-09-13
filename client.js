@@ -3726,7 +3726,7 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVar
     const isMobileDevice = window.innerWidth <= 900 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     // Remove automatic cache-buster to avoid service-worker/cache issues on mobile
     const cacheBuster = '';
-    const defaultAvatarSrc = `/assets/icons/jugador${playerNumber}_avatar.jpg${cacheBuster}`;
+    const defaultAvatarSrc = `/assets/defaults/jugador${playerNumber}_avatar.jpg${cacheBuster}`;
 
     // If the calling code provided a direct URL or data URI in imgElement.dataset.srcHint, use it.
     const srcHintRaw = imgElement.dataset && imgElement.dataset.srcHint;
@@ -3873,10 +3873,10 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVar
             `/assets/icons/${name}_avatar.jpg`,
             `/assets/icons/${name.toUpperCase()}_avatar.jpg`,
             `/assets/icons/${pascal}_avatar.jpg`,
-            // deterministic jugadorX fallback
-            `/assets/icons/jugador${playerNumber}_avatar.jpg`
+            // deterministic jugadorX fallback (use defaults folder)
+            `/assets/defaults/jugador${playerNumber}_avatar.jpg`
         ].map(u => u + cacheBuster);
-    })() : [`/assets/icons/jugador${playerNumber}_avatar.jpg` + cacheBuster];
+    })() : [`/assets/defaults/jugador${playerNumber}_avatar.jpg` + cacheBuster];
 
     const tryLoadSequential = (list, idx = 0) => {
         if (idx >= list.length) {
@@ -4111,7 +4111,7 @@ function updatePlayersUI() {
             } else {
                 const matchNum = (playerData.name || '').match(/(\d+)/);
                 const quickNum = matchNum ? matchNum[1] : '1';
-                const quickDefault = `/assets/icons/jugador${quickNum}_avatar.jpg`;
+                const quickDefault = `/assets/defaults/jugador${quickNum}_avatar.jpg`;
                 avatarDiv.style.backgroundImage = `url(${quickDefault}), url(${svgPlaceholder})`;
                 try { avatarDiv.style.setProperty('background-image', `url(${quickDefault}), url(${svgPlaceholder})`, 'important'); } catch (e) {}
             }
@@ -4173,8 +4173,8 @@ function updatePlayersUI() {
                         // otherwise remove spaces and lowercase the name.
                         const nameMatch = (playerData.name || '').match(/(\d+)/);
                         const guessed = nameMatch ?
-                            `/assets/icons/jugador${nameMatch[1]}_avatar.jpg` :
-                            `/assets/icons/${(playerData.name||'').replace(/\s+/g,'').toLowerCase()}_avatar.jpg`;
+                            `/assets/defaults/jugador${nameMatch[1]}_avatar.jpg` :
+                            `/assets/defaults/${(playerData.name||'').replace(/\s+/g,'').toLowerCase()}_avatar.jpg`;
                         try { img.dataset.srcHint = guessed; } catch (e) {}
                         try {
                             const parent = img.parentElement;
