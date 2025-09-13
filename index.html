@@ -223,6 +223,49 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.5.0/p5.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.5.0/addons/p5.sound.min.js"></script>
+  <!-- Temporary manifest-first fallback to restore avatars if client.js is broken -->
+  <script>
+  (function(){
+    const timeout = 3000;
+    const tryFetchJson = (url) => fetch(url, {cache:'no-store'}).then(r => r.ok ? r.json() : Promise.resolve(null)).catch(() => null);
+    const applyBackground = (el, url) => {
+      try {
+        el.style.backgroundImage = `url(${url})`;
+        el.style.backgroundSize = 'cover';
+        el.style.backgroundPosition = 'center';
+        el.dataset.assignedSrc = url;
+      } catch(e){}
+    };
+    const guessName = el => (el.dataset && (el.dataset.playerName || el.dataset.name || el.dataset.srcHint)) || '';
+
+    Promise.race([tryFetchJson('/debug/avatars'), new Promise(res => setTimeout(() => res(null), timeout))])
+    .then(manifest => {
+      const icons = (manifest && manifest.avatarFiles) || [];
+      const defaults = (manifest && manifest.defaultFiles) || [];
+      const byLower = new Map();
+      icons.forEach(f => byLower.set(f.toLowerCase(), f));
+      defaults.forEach(f => byLower.set(f.toLowerCase(), f));
+
+      document.querySelectorAll('.player-avatar').forEach(el => {
+        try {
+          const parent = el.parentElement || el;
+          if (parent && parent.dataset && parent.dataset.assignedSrc) return;
+          let hint = (el.dataset && el.dataset.srcHint) || guessName(el) || (parent && parent.dataset && (parent.dataset.playerName || parent.dataset.name)) || '';
+          if (!hint) { applyBackground(parent || el, '/assets/defaults/jugador1_avatar.jpg'); return; }
+          const lower = String(hint).toLowerCase().replace(/\s+/g,'');
+          const variants = [ `${lower}_avatar.jpg`, `${String(hint)}_avatar.jpg`, `${String(hint).toUpperCase()}_avatar.jpg`, `${String(hint).charAt(0).toUpperCase()+String(hint).slice(1).toLowerCase()}_avatar.jpg` ];
+          for (const v of variants) {
+            const found = byLower.get(v.toLowerCase());
+            if (found) { applyBackground(parent || el, '/assets/icons/' + found); return; }
+          }
+          const numMatch = String(hint).match(/(\d+)/);
+          if (numMatch) { applyBackground(parent || el, `/assets/defaults/jugador${numMatch[1]}_avatar.jpg`); return; }
+          applyBackground(parent || el, `/assets/icons/${lower}_avatar.jpg`);
+        } catch(e){}
+      });
+    }).catch(()=>{});
+  })();
+  </script>
   <script src="/client.js?v=20241211002"></script>
   
   <!-- Gentle landscape mode script -->
