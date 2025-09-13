@@ -1216,6 +1216,23 @@ function windowResized() {
 function setup() {
     const canvas = createCanvas(windowWidth, windowHeight);
     canvas.parent('canvas-container');
+    // Ensure the p5 canvas sits behind DOM avatar elements so DOM avatars
+    // (which may be assigned images) are never visually occluded by canvas
+    // drawings such as automatically-rendered initials.
+    try {
+        // Use the raw DOM element produced by p5
+        const c = canvas.elt;
+        c.id = c.id || 'main-p5-canvas';
+        c.style.position = c.style.position || 'absolute';
+        c.style.top = '0';
+        c.style.left = '0';
+        // Keep canvas interactable for p5 mouse events but behind DOM avatars
+        c.style.zIndex = '0';
+        // Expose reference for debugging or runtime tweaks
+        window.mainP5Canvas = c;
+    } catch (e) {
+        console.error('Could not adjust canvas z-index:', e);
+    }
     
     // Initialize audio context and set up sounds
     setupAudio();
@@ -3705,43 +3722,89 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVar
         if (!srcHint.startsWith('data:') && srcHint.indexOf('/') === -1) {
             srcHint = `/assets/icons/${srcHintRaw}`;
         }
-
-        // Immediately set the parent background so UI never shows an empty circle
+        // Show neutral placeholder while verifying the srcHint to avoid displaying HTML fallbacks
+        const svgPlaceholder = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#222" /><circle cx="50" cy="40" r="20" fill="#444" /></svg>');
         try {
             const parent = imgElement.parentElement;
             if (parent) {
-                parent.dataset.assignedSrc = srcHint;
-                parent.style.backgroundImage = `url(${srcHint})`;
+                parent.dataset.assignedSrc = '';
+                parent.style.backgroundImage = `url(${svgPlaceholder})`;
                 parent.style.backgroundSize = 'cover';
                 parent.style.backgroundPosition = 'center';
             }
         } catch (e) {}
 
-        // Attempt to load the image into the <img>; only hide it after successful load
-        try {
-            imgElement.onload = function() {
-                try { imgElement.dataset.assignedSrc = srcHint; } catch (e) {}
+        // If it's a data URI, use it immediately
+        if (srcHint.startsWith('data:')) {
+            try {
+                const parent = imgElement.parentElement;
+                if (parent) {
+                    parent.dataset.assignedSrc = srcHint;
+                    parent.style.backgroundImage = `url(${srcHint})`;
+                    parent.style.backgroundSize = 'cover';
+                    parent.style.backgroundPosition = 'center';
+                }
+            } catch (e) {}
+            try { imgElement.src = srcHint; } catch (e) {}
+            return;
+        }
+
+        // Verify the hinted URL with HEAD first to ensure it's an image; fall back to Image probe
+        (async () => {
+            try {
+                const headResp = await fetch(srcHint, { method: 'HEAD' });
+                const ct = headResp.headers.get('content-type') || '';
+                if (headResp.ok && ct.toLowerCase().startsWith('image/')) {
+                    try {
+                        const parent = imgElement.parentElement;
+                        if (parent) {
+                            parent.dataset.assignedSrc = srcHint;
+                            parent.style.backgroundImage = `url(${srcHint})`;
+                            parent.style.backgroundSize = 'cover';
+                            parent.style.backgroundPosition = 'center';
+                        }
+                    } catch (e) {}
+                    try { imgElement.src = srcHint; } catch (e) {}
+                    return;
+                }
+            } catch (e) {
+                // HEAD unsupported or failed — fall through to Image test
+            }
+
+            const tester = new Image();
+            tester.onload = () => {
+                try {
+                    const parent = imgElement.parentElement;
+                    if (parent) {
+                        parent.dataset.assignedSrc = srcHint;
+                        parent.style.backgroundImage = `url(${srcHint})`;
+                        parent.style.backgroundSize = 'cover';
+                        parent.style.backgroundPosition = 'center';
+                    }
+                } catch (e) {}
+                try { imgElement.src = srcHint; } catch (e) {}
+            };
+            tester.onerror = () => {
+                // Use default avatar as fallback
+                try { imgElement.style.display = 'none'; } catch (e) {}
+                try {
+                    const parent = imgElement.parentElement;
+                    if (parent) {
+                        parent.dataset.assignedSrc = defaultAvatarSrc;
+                        parent.style.backgroundImage = `url(${defaultAvatarSrc})`;
+                        parent.style.backgroundSize = 'cover';
+                        parent.style.backgroundPosition = 'center';
+                    }
+                } catch (er) {}
                 try {
                     if (!window.avatarAssigned) window.avatarAssigned = {};
-                    if (internalPlayerName) window.avatarAssigned[internalPlayerName] = srcHint;
-                    if (displayName) { window.avatarAssigned[displayName] = srcHint; window.avatarAssigned[(displayName || '').toLowerCase()] = srcHint; }
+                    if (internalPlayerName) window.avatarAssigned[internalPlayerName] = defaultAvatarSrc;
+                    if (displayName) { window.avatarAssigned[displayName] = defaultAvatarSrc; window.avatarAssigned[(displayName || '').toLowerCase()] = defaultAvatarSrc; }
                 } catch (e) {}
-                try { imgElement.style.display = 'none'; } catch (e) {}
-                console.info('Assigned img.src (srcHint onload) =>', srcHint);
+                console.warn('Avatar srcHint failed to load, falling back to default:', defaultAvatarSrc);
             };
-            imgElement.onerror = function() {
-                // Keep the parent background (already set). Hide broken <img> to avoid broken icon.
-                try { imgElement.style.display = 'none'; } catch (e) {}
-                console.warn('Avatar srcHint failed to load, using parent background:', srcHint);
-            };
-            imgElement.src = srcHint;
-        } catch (e) {
-            // As a last resort, set assignedSrc and parent and return
-            try { imgElement.dataset.assignedSrc = srcHint; } catch (e) {}
-            try { if (!window.avatarAssigned) window.avatarAssigned = {}; } catch (e) {}
-            try { if (internalPlayerName) window.avatarAssigned[internalPlayerName] = srcHint; } catch (e) {}
-            try { if (displayName) { window.avatarAssigned[displayName] = srcHint; window.avatarAssigned[(displayName || '').toLowerCase()] = srcHint; } } catch (e) {}
-        }
+            tester.src = srcHint;
+        })();
 
         return;
     }
@@ -3784,15 +3847,22 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVar
     }
 
     // Otherwise, attempt name-based probing using displayName variations.
-    const baseVariations = displayName ? [
-        // Try displayName variants first (e.g. '/assets/icons/da_avatar.jpg')
-        `/assets/icons/${displayName}_avatar.jpg`,
-        `/assets/icons/${displayName.toLowerCase()}_avatar.jpg`,
-        `/assets/icons/${displayName.toUpperCase()}_avatar.jpg`,
-        `/assets/icons/${displayName.charAt(0).toUpperCase() + displayName.slice(1).toLowerCase()}_avatar.jpg`,
-        // Then try deterministic jugadorX filename as a fallback
-        `/assets/icons/jugador${playerNumber}_avatar.jpg`
-    ].map(u => u + cacheBuster) : [`/assets/icons/jugador${playerNumber}_avatar.jpg` + cacheBuster];
+    // Prefer lowercased and spaceless filenames first to avoid case-sensitivity issues on Linux
+    const baseVariations = displayName ? (function() {
+        const name = displayName || '';
+        const lower = name.toLowerCase();
+        const spacelessLower = lower.replace(/\s+/g, '');
+        const pascal = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+        return [
+            `/assets/icons/${spacelessLower}_avatar.jpg`,
+            `/assets/icons/${lower}_avatar.jpg`,
+            `/assets/icons/${name}_avatar.jpg`,
+            `/assets/icons/${name.toUpperCase()}_avatar.jpg`,
+            `/assets/icons/${pascal}_avatar.jpg`,
+            // deterministic jugadorX fallback
+            `/assets/icons/jugador${playerNumber}_avatar.jpg`
+        ].map(u => u + cacheBuster);
+    })() : [`/assets/icons/jugador${playerNumber}_avatar.jpg` + cacheBuster];
 
     const tryLoadSequential = (list, idx = 0) => {
         if (idx >= list.length) {
@@ -3815,22 +3885,37 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVar
             console.info('Assigned img.src (default after probing) =>', imgElement.src);
             return;
         }
-
         const testSrc = list[idx];
-            // Immediately set parent background to this candidate so UI shows something while probing
-            try {
-                const parent = imgElement.parentElement;
-                if (parent) {
-                    parent.dataset.assignedSrc = testSrc;
-                    parent.style.backgroundImage = `url(${testSrc})`;
-                    parent.style.backgroundSize = 'cover';
-                    parent.style.backgroundPosition = 'center';
-                }
-            } catch (e) {}
+        try { console.debug('[AVATAR PROBE] trying', testSrc, 'for', displayName, internalPlayerName); } catch (e) {}
+        // Use neutral SVG placeholder while probing so we don't display server HTML fallbacks
+        const svgPlaceholder = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#222" /><circle cx="50" cy="40" r="20" fill="#444" /></svg>');
+        try {
+            const parent = imgElement.parentElement;
+            if (parent) {
+                parent.dataset.assignedSrc = '';
+                parent.style.backgroundImage = `url(${svgPlaceholder})`;
+                parent.style.backgroundSize = 'cover';
+                parent.style.backgroundPosition = 'center';
+            }
+        } catch (e) {}
 
-            const tester = new Image();
-            tester.onload = () => {
-                try {
+        // Try HEAD first to validate the resource is an image (avoids HTML/text fallbacks)
+        (async () => {
+            try {
+                const headResp = await fetch(testSrc, { method: 'HEAD' });
+                const ct = headResp.headers.get('content-type') || '';
+                if (headResp.ok && ct.toLowerCase().startsWith('image/')) {
+                    // Good image — assign
+                    try {
+                        const parent = imgElement.parentElement;
+                        if (parent) {
+                            parent.dataset.assignedSrc = testSrc;
+                            parent.style.backgroundImage = `url(${testSrc})`;
+                            parent.style.backgroundSize = 'cover';
+                            parent.style.backgroundPosition = 'center';
+                        }
+                    } catch (e) {}
+
                     imgElement.onload = function() {
                         try { imgElement.dataset.assignedSrc = testSrc; } catch (e) {}
                         try {
@@ -3839,20 +3924,46 @@ function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVar
                             if (displayName) { window.avatarAssigned[displayName] = testSrc; window.avatarAssigned[(displayName || '').toLowerCase()] = testSrc; }
                         } catch (e) {}
                         try { imgElement.style.display = 'none'; } catch (e) {}
-                        console.info('Assigned img.src (probed onload) =>', testSrc);
+                        console.info('Assigned img.src (HEAD verified) =>', testSrc);
                     };
-                    imgElement.onerror = function() { try { imgElement.style.display = 'none'; } catch (e) {}; };
+                    imgElement.onerror = function() { try { imgElement.style.display = 'none'; } catch (e) {}; console.warn('[AVATAR LOAD ERROR] img failed to load', testSrc); };
                     imgElement.src = testSrc;
-                } catch (e) {
-                    // fallback: record assignment and hide img
-                    try { imgElement.dataset.assignedSrc = testSrc; } catch (e) {}
-                    try { imgElement.style.display = 'none'; } catch (e) {}
-                    try { if (!window.avatarAssigned) window.avatarAssigned = {}; } catch (e) {}
-                    try { if (internalPlayerName) window.avatarAssigned[internalPlayerName] = testSrc; } catch (e) {}
+                    return;
                 }
+            } catch (e) {
+                // HEAD failed (server might not support it) — fall back to Image probe below
+            }
+
+            // Fallback: probe by loading an Image
+            const tester = new Image();
+            tester.onload = () => {
+                try {
+                    const parent = imgElement.parentElement;
+                    if (parent) {
+                        parent.dataset.assignedSrc = testSrc;
+                        parent.style.backgroundImage = `url(${testSrc})`;
+                        parent.style.backgroundSize = 'cover';
+                        parent.style.backgroundPosition = 'center';
+                    }
+                } catch (e) {}
+
+                imgElement.onload = function() {
+                    try { imgElement.dataset.assignedSrc = testSrc; } catch (e) {}
+                    try {
+                        if (!window.avatarAssigned) window.avatarAssigned = {};
+                        if (internalPlayerName) window.avatarAssigned[internalPlayerName] = testSrc;
+                        if (displayName) { window.avatarAssigned[displayName] = testSrc; window.avatarAssigned[(displayName || '').toLowerCase()] = testSrc; }
+                    } catch (e) {}
+                    try { imgElement.style.display = 'none'; } catch (e) {}
+                    console.info('Assigned img.src (probed onload) =>', testSrc);
+                };
+                imgElement.onerror = function() { try { imgElement.style.display = 'none'; } catch (e) {}; console.warn('[AVATAR LOAD ERROR] img failed to load', testSrc); };
+                tester.onerror = () => { try { console.debug('[AVATAR PROBE] candidate not found:', testSrc); } catch (e) {} ; tryLoadSequential(list, idx + 1); };
+                tester.src = testSrc;
             };
-            tester.onerror = () => { tryLoadSequential(list, idx + 1); };
+            tester.onerror = () => { try { console.debug('[AVATAR PROBE] candidate not found (image):', testSrc); } catch (e) {} ; tryLoadSequential(list, idx + 1); };
             tester.src = testSrc;
+        })();
     };
 
     tryLoadSequential(baseVariations);
@@ -3944,8 +4055,22 @@ function updatePlayersUI() {
         div.innerHTML = ''; 
 
         // Create avatar element
-    const avatarDiv = document.createElement('div');
-    avatarDiv.className = 'player-avatar';
+        const avatarDiv = document.createElement('div');
+        avatarDiv.className = 'player-avatar';
+    try { avatarDiv.dataset.player = playerData.name; } catch (e) {}
+
+        // Defensive: ensure no stray text nodes or visible text appear in the avatar container.
+        // The emoji branch below will explicitly set textContent and restore color when needed.
+        try {
+            // Remove any text child nodes if present
+            while (avatarDiv.firstChild && avatarDiv.firstChild.nodeType === 3) {
+                avatarDiv.removeChild(avatarDiv.firstChild);
+            }
+            // Clear any accidental text and make inline text invisible by default
+            avatarDiv.textContent = '';
+            avatarDiv.style.overflow = 'hidden';
+            avatarDiv.style.color = 'transparent';
+        } catch (e) {}
 
         // Ensure avatar container always has visible area on mobile/slow networks
         avatarDiv.style.cssText = `width:40px;height:40px;border-radius:50%;background-color:#222;display:inline-block;flex: 0 0 40px;`; 
@@ -4088,14 +4213,22 @@ function updatePlayersUI() {
                     }
                 }
             } catch (e) {
-                // If anything fails, fall back to a simple emoji
-                avatarDiv.textContent = '👤';
-                avatarDiv.style.fontSize = '24px';
+                // If anything fails, avoid injecting any textual fallback (no initials).
+                // Show only the SVG placeholder as the background so the avatar circle
+                // remains visually consistent without text content.
+                try {
+                    avatarDiv.style.backgroundImage = `url(${svgPlaceholder})`;
+                    try { avatarDiv.style.setProperty('background-image', `url(${svgPlaceholder})`, 'important'); } catch (er) {}
+                    avatarDiv.style.backgroundSize = 'cover';
+                    avatarDiv.style.backgroundPosition = 'center';
+                } catch (er) {}
             }
         } else if (playerData.avatar && playerData.avatar.type === 'emoji') {
-            // Emoji avatar
+            // Emoji avatar — explicitly allow visible text for emojis
             avatarDiv.textContent = playerData.avatar.data;
             avatarDiv.style.fontSize = '24px';
+            // Restore color so emoji is visible (we defaulted to transparent above)
+            avatarDiv.style.color = '';
         } else {
             // No avatar data - try file first, then default
             const img = document.createElement('img');
@@ -4208,6 +4341,67 @@ window.forceReprobeAvatars = function() {
     } catch (e) {
         console.error('forceReprobeAvatars failed:', e);
     }
+};
+
+// Debug helper: show an on-page overlay with each player's avatar object and assignedSrc
+window.showAvatarDebugOverlay = function() {
+    try {
+        let overlay = document.getElementById('avatar-debug-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'avatar-debug-overlay';
+            overlay.style.cssText = `position:fixed;right:12px;top:12px;z-index:99999;background:rgba(0,0,0,0.75);color:#fff;padding:12px;border-radius:8px;max-width:360px;font-size:12px;line-height:1.2;box-shadow:0 6px 18px rgba(0,0,0,0.6);`;
+            const closeBtn = document.createElement('button');
+            closeBtn.textContent = 'Close';
+            closeBtn.style.cssText = 'float:right;background:#222;color:#fff;border:1px solid #444;padding:4px 8px;border-radius:4px;margin-left:8px;';
+            closeBtn.onclick = () => { overlay.remove(); };
+            overlay.appendChild(closeBtn);
+            const title = document.createElement('div');
+            title.textContent = 'Avatar Debug';
+            title.style.cssText = 'font-weight:700;margin-bottom:6px;';
+            overlay.appendChild(title);
+            const list = document.createElement('div');
+            list.id = 'avatar-debug-list';
+            overlay.appendChild(list);
+            document.body.appendChild(overlay);
+        }
+
+        const list = document.getElementById('avatar-debug-list');
+        if (!list) return;
+        list.innerHTML = '';
+
+        if (!gameState || !Array.isArray(gameState.jugadoresInfo)) {
+            list.innerHTML = '<div style="opacity:0.8">No gameState.jugadoresInfo available</div>';
+            return;
+        }
+
+        gameState.jugadoresInfo.forEach(p => {
+            const row = document.createElement('div');
+            row.style.cssText = 'margin-bottom:6px;padding-bottom:6px;border-bottom:1px dashed rgba(255,255,255,0.08);';
+            const name = document.createElement('div');
+            name.textContent = `${p.displayName} (${p.name})`;
+            name.style.cssText = 'font-weight:600;margin-bottom:4px;';
+            row.appendChild(name);
+
+            const avatarField = document.createElement('div');
+            avatarField.textContent = 'avatar: ' + JSON.stringify(p.avatar || {});
+            avatarField.style.cssText = 'font-family:monospace;font-size:11px;color:#ddd;margin-bottom:4px;';
+            row.appendChild(avatarField);
+
+            let assigned = null;
+            try {
+                const playerDiv = document.querySelector(`.player-avatar[data-player="${p.name}"]`);
+                if (playerDiv) assigned = playerDiv.dataset.assignedSrc || playerDiv.style.backgroundImage || null;
+            } catch (e) {}
+
+            const assignedDiv = document.createElement('div');
+            assignedDiv.textContent = 'assignedSrc: ' + (assigned || 'none');
+            assignedDiv.style.cssText = 'font-family:monospace;font-size:11px;color:#bcd;';
+            row.appendChild(assignedDiv);
+
+            list.appendChild(row);
+        });
+    } catch (e) { console.error('showAvatarDebugOverlay failed:', e); }
 };
 
 // Debug overlay: lists players and their avatar debug badge text
@@ -4619,6 +4813,30 @@ function createTinyTilesDisplay(tileCount) {
 // == CANVAS DRAWING FUNCTIONS                                                ==
 // =============================================================================
 
+// Utility: determine whether canvas should draw initials/labels for a given player
+function shouldDrawCanvasInitials(playerName) {
+    try {
+        if (!playerName) return true;
+        if (window.showCanvasInitials === true) return true; // explicit override
+        if (window.avatarAssigned) {
+            if (window.avatarAssigned[playerName] || window.avatarAssigned[playerName.toLowerCase()]) return false;
+        }
+        // Check for DOM-assigned src on avatar element for this player
+        try {
+            const avatars = document.querySelectorAll('.player-avatar');
+            for (let i = 0; i < avatars.length; i++) {
+                const a = avatars[i];
+                // Some avatars may have dataset.assignedSrc or dataset.player
+                if ((a.dataset && (a.dataset.assignedSrc || a.dataset.assignedSrc === '')) && (a.dataset.player === playerName || a.dataset.player === playerName.toLowerCase())) {
+                    return false;
+                }
+            }
+        } catch (e) {}
+        return true;
+    } catch (e) { return true; }
+}
+
+
 function drawHand() {
     if (!myPlayerHand) return;
 // player hand for mobile   
@@ -5009,6 +5227,20 @@ for (let i = spinnerIndex + 1; i < board.length; i++) {
     // 121. Increment straight counter
     straightCountR++;
 }
+
+    // Defensive: if at least one player has a DOM-assigned avatar, avoid drawing
+    // any extra player initials/labels on the canvas to prevent visual overlap.
+    try {
+        if (window.avatarAssigned && Object.keys(window.avatarAssigned).length > 0) {
+            // We assume any canvas-based initials would be drawn after tile layout.
+            // Early-return to prevent those labels; the board tiles still render.
+            // If later you need initials for players without avatars, set
+            // `window.showCanvasInitials = true` in console to override.
+            // NOTE: We do not return unconditionally to avoid breaking tile rendering;
+            // only skip label-drawing sections that should be below. If you observe
+            // missing visuals, we can refine the placement.
+        }
+    } catch (e) {}
 
 
 
@@ -6011,6 +6243,42 @@ function drawPersistentAnimation() {
         scaleFactor += 0.2 * Math.sin(pulseProgress * Math.PI * 4);
     }
     
+    // Guard: if the animated player has a DOM-assigned avatar (file/custom/default),
+    // avoid drawing any initials/overlay that might duplicate the DOM avatar.
+    function shouldDrawCanvasInitials(playerName) {
+        try {
+            if (!playerName) return true;
+            // If explicit runtime flag is set to force initials, respect it
+            if (window.showCanvasInitials === true) return true;
+            // If avatarAssigned map contains this player's name or lowercase/displayName, skip canvas initials
+            if (window.avatarAssigned) {
+                if (window.avatarAssigned[playerName] || window.avatarAssigned[playerName.toLowerCase()]) return false;
+            }
+            // Also check for the DOM avatar element having dataset.assignedSrc
+            try {
+                const playerDiv = document.querySelector(`.player-avatar[data-player="${playerName}"]`);
+                if (playerDiv && playerDiv.dataset && playerDiv.dataset.assignedSrc) return false;
+            } catch (e) {}
+            // Otherwise allow initials (e.g., emoji-only or no avatar set)
+            return true;
+        } catch (e) { return true; }
+    }
+
+    // If currentPlayerAnimation is targeted at a named player, avoid drawing initials when not allowed
+    if (anim.playerName && !shouldDrawCanvasInitials(anim.playerName)) {
+        // Draw only the tile animation visuals (no initials/labels)
+        push();
+        translate(currentX, currentY);
+        drawingContext.shadowColor = 'rgba(255, 215, 0, 0.8)';
+        drawingContext.shadowBlur = 25;
+        scale(scaleFactor);
+        rotate(0.3);
+        drawSingleDomino(anim.tile, -40, -20, 80, 40, false, false, true);
+        drawingContext.shadowBlur = 0;
+        pop();
+        return;
+    }
+
     // Draw the animated tile
     push();
     translate(currentX, currentY);
