@@ -783,17 +783,17 @@ io.on('connection', (socket) => {
         let displayName, avatarData, roomId, targetScore;
 
         if (typeof data === 'string') {
-            displayName = data.trim().substring(0, 12);
+            displayName = data.trim().substring(0, 12).toUpperCase(); // Normalize to uppercase
             avatarData = { type: 'emoji', data: '👤' };
             roomId = null;
             targetScore = 70;
         } else if (data.avatar === null) {
-            displayName = data.name.trim().substring(0, 12);
+            displayName = data.name.trim().substring(0, 12).toUpperCase(); // Normalize to uppercase
             avatarData = null; // Will be assigned based on player slot
             roomId = data.roomId || null;
             targetScore = data.targetScore || 70;
         } else {
-            displayName = data.name.trim().substring(0, 12);
+            displayName = data.name.trim().substring(0, 12).toUpperCase(); // Normalize to uppercase
             avatarData = data.avatar || { type: 'emoji', data: '👤' };
             roomId = data.roomId || null;
             targetScore = data.targetScore || 70;
@@ -1341,8 +1341,8 @@ app.post('/save-avatar', express.json({ limit: '1mb' }), (req, res) => {
         console.log(`📁 Created avatars directory: ${iconsDir}`);
     }
     
-    // Create the filename using exact case provided by user
-    const filename = `${playerName}_avatar.jpg`;
+    // Create the filename using uppercase for consistency (matches dynamic generation)
+    const filename = `${playerName.toUpperCase()}_avatar.jpg`;
     
     try {
         // Save using the new storage system

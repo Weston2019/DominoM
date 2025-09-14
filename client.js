@@ -1714,7 +1714,7 @@ function setupLobby() {
     if (currentName) {
         // Try to find avatar file for this user
     const testImg = new Image();
-    const avatarFilePath = `/assets/icons/${currentName}_avatar.jpg`;
+    const avatarFilePath = `/assets/icons/${currentName.toUpperCase()}_avatar.jpg`;
         
         testImg.onload = function() {
             // console.log('✅ Found avatar file for', currentName);
@@ -1942,7 +1942,7 @@ function setupLobby() {
             // ALWAYS check for avatar file FIRST - highest priority
             // Use absolute path to avoid relative resolution issues on mobile
             const testImg = new Image();
-            const avatarFilePath = `/assets/icons/${name}_avatar.jpg`;
+            const avatarFilePath = `/assets/icons/${name.toUpperCase()}_avatar.jpg`;
             let __submitConnected = false;
             const doConnectWith = (avatarData) => {
                 if (__submitConnected) return;
@@ -1953,7 +1953,7 @@ function setupLobby() {
             testImg.onload = function() {
                 // console.log('🎯 PRIORITY 1: Found avatar file for', name, '- using file (ignoring localStorage)');
                 // Send the detected avatar file path so other clients can use the exact file
-                doConnectWith({ type: 'file', data: `/assets/icons/${name}_avatar.jpg` });
+                doConnectWith({ type: 'file', data: `/assets/icons/${name.toUpperCase()}_avatar.jpg` });
             };
             testImg.onerror = function() {
                 // console.log('ℹ️ No avatar file for', name, '- checking localStorage and selections');
@@ -2051,14 +2051,15 @@ function setupLobby() {
     
     // Function to save avatar as permanent file
     function saveAvatarAsFile(playerName, avatarData) {
-        // Only save with the exact case provided by user (server handles case-insensitive lookup)
+        // Normalize to uppercase for consistency with server-side generation
+        const normalizedName = playerName.toUpperCase();
         fetch('/save-avatar', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                playerName: playerName,
+                playerName: normalizedName,
                 avatarData: avatarData
             })
         })
@@ -2075,12 +2076,12 @@ function setupLobby() {
                 localStorage.removeItem('domino_player_avatar');
                 // Clear any cached probe results for this player's icons
                 try {
+                    const upper = `/assets/icons/${playerName.toUpperCase()}_avatar.jpg`; // Primary: normalized
                     const exact = `/assets/icons/${playerName}_avatar.jpg`;
-                    const upper = `/assets/icons/${playerName.toUpperCase()}_avatar.jpg`;
                     const lower = `/assets/icons/${playerName.toLowerCase()}_avatar.jpg`;
                     if (window.__avatarProbeCache && window.__avatarProbeCache.map) {
+                        try { window.__avatarProbeCache.map.delete(upper); } catch (e) {} // Clear primary first
                         try { window.__avatarProbeCache.map.delete(exact); } catch (e) {}
-                        try { window.__avatarProbeCache.map.delete(upper); } catch (e) {}
                         try { window.__avatarProbeCache.map.delete(lower); } catch (e) {}
                     }
                 } catch (e) {}
@@ -2801,7 +2802,7 @@ function connectToServer(playerName, avatarData, roomId, targetScore) {
 function savePlayerData(name, avatar, roomId, targetScore) {
   try {
     const playerData = { 
-      name, 
+      name: name.toUpperCase(), // Normalize to uppercase for consistency
       avatar, 
       roomId: roomId || null, 
       targetScore: targetScore || 70 
@@ -2866,11 +2867,11 @@ socket.on("reconnect_error", (err) => {
         }
         
         // console.log('🔍 ROOM DEBUG - About to emit setPlayerName with roomId:', roomId);
-        socket.emit('setPlayerName', { name: playerName, avatar: avatarData, roomId: roomId, targetScore: targetScore });
+        socket.emit('setPlayerName', { name: playerName.toUpperCase(), avatar: avatarData, roomId: roomId, targetScore: targetScore });
 
 
 // Automatically save to localStorage for reconnects
-savePlayerData( playerName,  avatarData,  roomId,  targetScore);
+savePlayerData( playerName.toUpperCase(),  avatarData,  roomId,  targetScore);
 
 
 
@@ -4184,7 +4185,7 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
                 const candidates = [];
                 const pushIf = (fname) => { if (fname && !candidates.includes(fname)) candidates.push(fname); };
                 // common variants to check in order
-                const variants = [ `${spacelessLower}_avatar.jpg`, `${lower}_avatar.jpg`, `${name}_avatar.jpg`, `${name.toUpperCase()}_avatar.jpg`, `${pascal}_avatar.jpg` ];
+                const variants = [ `${name.toUpperCase()}_avatar.jpg`, `${spacelessLower}_avatar.jpg`, `${lower}_avatar.jpg`, `${name}_avatar.jpg`, `${pascal}_avatar.jpg` ];
                 for (const v of variants) {
                     const found = m.byLower.get(v.toLowerCase());
                     if (found) pushIf(`/assets/icons/${found}` + cacheBuster);
@@ -4202,10 +4203,10 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
 
         // Fallback: build likely paths (existing behavior) if manifest absent
         return [
+            `/assets/icons/${name.toUpperCase()}_avatar.jpg`, // Primary: normalized uppercase
             `/assets/icons/${spacelessLower}_avatar.jpg`,
             `/assets/icons/${lower}_avatar.jpg`,
             `/assets/icons/${name}_avatar.jpg`,
-            `/assets/icons/${name.toUpperCase()}_avatar.jpg`,
             `/assets/icons/${pascal}_avatar.jpg`,
             `/assets/defaults/jugador${playerNumber}_avatar.jpg`
         ].map(u => u + cacheBuster);
