@@ -148,7 +148,7 @@ app.use('/assets/icons', express.static(global.AVATAR_ICONS_PATH || path.join(__
 app.get('/assets/icons/:filename', (req, res) => {
     const filename = req.params.filename;
     
-    // Try to get from memory storage first
+    // Try to get from memory storage first (with normalization)
     const avatarData = getAvatar(filename);
     
     if (avatarData) {
@@ -228,10 +228,20 @@ function loadAvatarsIntoMemory() {
                 if (filename.endsWith('_avatar.jpg')) {
                     const filepath = path.join(global.AVATAR_ICONS_PATH, filename);
                     const data = fs.readFileSync(filepath, 'base64');
-                    global.AVATAR_STORAGE.set(filename, data);
+                    
+                    // Normalize filename to uppercase for consistency
+                    const normalizedFilename = filename.toUpperCase();
+                    
+                    // Only load if we don't already have this normalized version
+                    if (!global.AVATAR_STORAGE.has(normalizedFilename)) {
+                        global.AVATAR_STORAGE.set(normalizedFilename, data);
+                        console.log(`📦 [AVATAR-STORAGE] Loaded and normalized: ${filename} → ${normalizedFilename}`);
+                    } else {
+                        console.log(`⚠️ [AVATAR-STORAGE] Skipping duplicate: ${filename} (already have ${normalizedFilename})`);
+                    }
                 }
             });
-            console.log(`📦 [AVATAR-STORAGE] Loaded ${global.AVATAR_STORAGE.size} avatars into memory`);
+            console.log(`📦 [AVATAR-STORAGE] Loaded ${global.AVATAR_STORAGE.size} unique avatars into memory`);
         }
     } catch (error) {
         console.error('❌ [AVATAR-STORAGE] Failed to load avatars into memory:', error);
@@ -240,28 +250,54 @@ function loadAvatarsIntoMemory() {
 
 // Save avatar to memory and try to write to disk
 function saveAvatar(filename, imageBuffer) {
+    // Normalize filename to uppercase for consistency
+    const normalizedFilename = filename.toUpperCase();
+    
     if (global.AVATAR_STORAGE) {
-        // Store in memory first
+        // Store in memory first (normalized)
         const base64Data = imageBuffer.toString('base64');
-        global.AVATAR_STORAGE.set(filename, base64Data);
-        console.log(`💾 [AVATAR-STORAGE] Saved ${filename} to memory storage`);
+        global.AVATAR_STORAGE.set(normalizedFilename, base64Data);
+        console.log(`💾 [AVATAR-STORAGE] Saved ${normalizedFilename} to memory storage`);
     }
     
     // Also try to save to disk (will be lost on deployment but that's ok)
-    const filepath = path.join(global.AVATAR_ICONS_PATH, filename);
+    const filepath = path.join(global.AVATAR_ICONS_PATH, normalizedFilename);
+    
+    // Remove any old lowercase versions to prevent duplicates
+    const oldLowercasePath = path.join(global.AVATAR_ICONS_PATH, filename.toLowerCase());
+    if (fs.existsSync(oldLowercasePath) && oldLowercasePath !== filepath) {
+        try {
+            fs.unlinkSync(oldLowercasePath);
+            console.log(`🗑️ [AVATAR-STORAGE] Removed old duplicate: ${filename.toLowerCase()}`);
+        } catch (error) {
+            console.warn(`⚠️ [AVATAR-STORAGE] Could not remove old file: ${error.message}`);
+        }
+    }
+    
     fs.writeFileSync(filepath, imageBuffer);
+    console.log(`💾 [AVATAR-STORAGE] Saved ${normalizedFilename} to disk`);
 }
 
 // Get avatar from memory or disk
 function getAvatar(filename) {
-    if (global.AVATAR_STORAGE && global.AVATAR_STORAGE.has(filename)) {
-        return Buffer.from(global.AVATAR_STORAGE.get(filename), 'base64');
+    // First try the normalized (uppercase) version
+    const normalizedFilename = filename.toUpperCase();
+    
+    if (global.AVATAR_STORAGE && global.AVATAR_STORAGE.has(normalizedFilename)) {
+        return Buffer.from(global.AVATAR_STORAGE.get(normalizedFilename), 'base64');
     }
     
-    // Fallback to disk
-    const filepath = path.join(global.AVATAR_ICONS_PATH, filename);
-    if (fs.existsSync(filepath)) {
-        return fs.readFileSync(filepath);
+    // Fallback to disk with normalized name
+    const normalizedFilepath = path.join(global.AVATAR_ICONS_PATH, normalizedFilename);
+    if (fs.existsSync(normalizedFilepath)) {
+        return fs.readFileSync(normalizedFilepath);
+    }
+    
+    // Last resort: try the original filename (for backward compatibility)
+    const originalFilepath = path.join(global.AVATAR_ICONS_PATH, filename);
+    if (fs.existsSync(originalFilepath)) {
+        console.log(`⚠️ [AVATAR-STORAGE] Found avatar with non-normalized name: ${filename}`);
+        return fs.readFileSync(originalFilepath);
     }
     
     return null;
