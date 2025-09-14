@@ -4451,6 +4451,15 @@ function updatePlayersUI() {
         
         if (playerData.avatar && playerData.avatar.type === 'file') {
             // Server indicated to use file - try to load image file
+            
+            // Update avatarAssigned map to prevent canvas initials overlay
+            if (!window.avatarAssigned) window.avatarAssigned = {};
+            if (playerData.avatar.data) {
+                window.avatarAssigned[playerData.name] = playerData.avatar.data;
+                window.avatarAssigned[playerData.displayName] = playerData.avatar.data;
+                window.avatarAssigned[(playerData.displayName || '').toLowerCase()] = playerData.avatar.data;
+            }
+            
             const img = document.createElement('img');
             img.style.width = '40px';
             img.style.height = '40px';
@@ -4508,6 +4517,12 @@ function updatePlayersUI() {
         } else if (playerData.avatar && playerData.avatar.type === 'custom') {
             // Custom uploaded avatar (data URI saved locally or received from server)
             avatarDiv.classList.add('custom-avatar');
+            
+            // Update avatarAssigned map to prevent canvas initials overlay
+            if (!window.avatarAssigned) window.avatarAssigned = {};
+            window.avatarAssigned[playerData.name] = playerData.avatar.data;
+            window.avatarAssigned[playerData.displayName] = playerData.avatar.data;
+            window.avatarAssigned[(playerData.displayName || '').toLowerCase()] = playerData.avatar.data;
 
             try {
                 // Ensure parent shows something immediately (svg placeholder behind data URI)
@@ -4562,6 +4577,12 @@ function updatePlayersUI() {
             avatarDiv.style.fontSize = '24px';
             // Restore color so emoji is visible (we defaulted to transparent above)
             avatarDiv.style.color = '';
+            
+            // Update avatarAssigned map to prevent canvas initials overlay
+            if (!window.avatarAssigned) window.avatarAssigned = {};
+            window.avatarAssigned[playerData.name] = playerData.avatar.data;
+            window.avatarAssigned[playerData.displayName] = playerData.avatar.data;
+            window.avatarAssigned[(playerData.displayName || '').toLowerCase()] = playerData.avatar.data;
         } else {
             // No avatar data - try file first, then default
             const img = document.createElement('img');
