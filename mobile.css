@@ -201,20 +201,28 @@
   }
   
   .avatar-option {
-    width: 44px;
-    height: 44px;
-    font-size: 22px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    border: 3px solid #555;
-    background: rgba(255, 255, 255, 0.1);
-    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", "EmojiOne Mozilla", "Twemoji Mozilla", "Segoe UI", sans-serif;
-    -webkit-user-select: none;
-    user-select: none;
-    transition: all 0.3s ease;
+    width: 50px !important;
+    height: 50px !important;
+    font-size: 28px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    border: 3px solid #555 !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", "EmojiOne Mozilla", "Twemoji Mozilla", "Segoe UI", sans-serif !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    transition: all 0.3s ease !important;
+    line-height: 1 !important;
+    text-align: center !important;
+    position: relative !important;
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    text-rendering: optimizeLegibility !important;
+    overflow: visible !important;
+    white-space: nowrap !important;
   }
   
   .avatar-option.selected {
@@ -411,20 +419,28 @@
   }
   
   .avatar-option {
-    width: 40px;
-    height: 40px;
-    font-size: 20px;
-    border: 3px solid #555;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    background: rgba(255, 255, 255, 0.1);
-    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", "EmojiOne Mozilla", "Twemoji Mozilla", "Segoe UI", sans-serif;
-    -webkit-user-select: none;
-    user-select: none;
-    transition: all 0.3s ease;
+    width: 45px !important;
+    height: 45px !important;
+    font-size: 24px !important;
+    border: 3px solid #555 !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", "EmojiOne Mozilla", "Twemoji Mozilla", "Segoe UI", sans-serif !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    transition: all 0.3s ease !important;
+    line-height: 1 !important;
+    text-align: center !important;
+    position: relative !important;
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    text-rendering: optimizeLegibility !important;
+    overflow: visible !important;
+    white-space: nowrap !important;
   }
   
   /* Arrange form elements horizontally when possible */
