@@ -253,7 +253,25 @@
         try {
           const parent = el.parentElement || el;
           if (parent && parent.dataset && parent.dataset.assignedSrc) return;
+          
           let hint = (el.dataset && el.dataset.srcHint) || guessName(el) || (parent && parent.dataset && (parent.dataset.playerName || parent.dataset.name)) || '';
+          
+          // Check if this is the current player's avatar and they have a selected avatar
+          if (hint === window.playerName && window.playerAvatar) {
+            if (window.playerAvatar.startsWith('data:')) {
+              // Custom uploaded avatar
+              applyBackground(parent || el, window.playerAvatar);
+            } else {
+              // Emoji avatar - display directly
+              el.textContent = window.playerAvatar;
+              el.style.backgroundImage = 'none';
+              el.style.display = 'flex';
+              el.style.alignItems = 'center';
+              el.style.justifyContent = 'center';
+              el.style.fontSize = '24px';
+            }
+            return;
+          }
           
           // If no hint, use default avatar
           if (!hint) { 
@@ -379,6 +397,49 @@
         localStorage.setItem('playerName', playerInfo.name);
         
         console.log('Player signing in with:', playerInfo);
+        
+        // Send player info to server including avatar
+        if (window.socket) {
+          window.socket.emit('joinGame', {
+            name: playerInfo.name,
+            room: playerInfo.room,
+            avatar: playerInfo.avatar
+          });
+        } else if (typeof socket !== 'undefined') {
+          socket.emit('joinGame', {
+            name: playerInfo.name,
+            room: playerInfo.room,
+            avatar: playerInfo.avatar
+          });
+        }
+        
+        // Also set the avatar on the client side for immediate display
+        // This ensures the player's own avatar shows correctly
+        window.playerAvatar = playerInfo.avatar;
+        window.playerName = playerInfo.name;
+        
+        // Try to find and update the player's avatar element immediately
+        setTimeout(() => {
+          const playerAvatars = document.querySelectorAll('.player-avatar');
+          playerAvatars.forEach(avatar => {
+            const parent = avatar.parentElement;
+            if (parent && (parent.dataset.playerName === playerInfo.name || 
+                          parent.dataset.name === playerInfo.name ||
+                          avatar.dataset.playerName === playerInfo.name)) {
+              // Apply the selected avatar directly
+              if (playerInfo.avatar.startsWith('data:')) {
+                // Custom uploaded avatar
+                avatar.style.backgroundImage = `url(${playerInfo.avatar})`;
+                avatar.style.backgroundSize = 'cover';
+                avatar.style.backgroundPosition = 'center';
+              } else {
+                // Emoji avatar - set as text content
+                avatar.textContent = playerInfo.avatar;
+                avatar.style.backgroundImage = 'none';
+              }
+            }
+          });
+        }, 100);
         
         // Here you would typically send this info to the server
         // For now, we'll just hide the lobby and show the game
