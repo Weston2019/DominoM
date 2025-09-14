@@ -211,15 +211,15 @@
   }
   
   .avatar-option {
-    width: 50px !important;
-    height: 50px !important;
-    font-size: 28px !important;
+    width: 55px !important;
+    height: 55px !important;
+    font-size: 32px !important;
     border-radius: 50% !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     cursor: pointer !important;
-    border: 3px solid #555 !important;
+    border: 4px solid #555 !important;
     background: #f0f0f0 !important;  /* Reverted to solid background */
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", "EmojiOne Mozilla", "Twemoji Mozilla", "Segoe UI", sans-serif !important;
     -webkit-user-select: none !important;
@@ -233,6 +233,8 @@
     text-rendering: optimizeLegibility !important;
     overflow: visible !important;
     white-space: nowrap !important;
+    margin: 2px !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
   }
   
   .avatar-option.selected {
@@ -429,10 +431,10 @@
   }
   
   .avatar-option {
-    width: 45px !important;
-    height: 45px !important;
-    font-size: 24px !important;
-    border: 3px solid #555 !important;
+    width: 50px !important;
+    height: 50px !important;
+    font-size: 28px !important;
+    border: 4px solid #555 !important;
     border-radius: 50% !important;
     display: flex !important;
     align-items: center !important;
@@ -451,6 +453,8 @@
     text-rendering: optimizeLegibility !important;
     overflow: visible !important;
     white-space: nowrap !important;
+    margin: 2px !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
   }
   
   /* Arrange form elements horizontally when possible */

@@ -64,22 +64,22 @@
           <h3>Seleccione Su Avatar</h3>
           <div id="avatar-grid">
             <!-- avatar options -->
-            <div class="avatar-option" data-avatar="😎">★</div>
-            <div class="avatar-option" data-avatar="🤠">♥</div>
-            <div class="avatar-option" data-avatar="🥳">♦</div>
-            <div class="avatar-option selected" data-avatar="🎯">♠</div>
-            <div class="avatar-option" data-avatar="🎲">♣</div>
-            <div class="avatar-option" data-avatar="🎮">⚡</div>
-            <div class="avatar-option" data-avatar="🤩">☀</div>
-            <div class="avatar-option" data-avatar="😈">⚠</div>
+            <div class="avatar-option" data-avatar="★">★</div>
+            <div class="avatar-option" data-avatar="♥">♥</div>
+            <div class="avatar-option" data-avatar="♦">♦</div>
+            <div class="avatar-option selected" data-avatar="♠">♠</div>
+            <div class="avatar-option" data-avatar="♣">♣</div>
             <div class="avatar-option" data-avatar="⚡">⚡</div>
-            <div class="avatar-option" data-avatar="🔥">⚡</div>
-            <div class="avatar-option" data-avatar="💎">◆</div>
-            <div class="avatar-option" data-avatar="🤖">⚙</div>
-            <div class="avatar-option" data-avatar="🌟">✦</div>
+            <div class="avatar-option" data-avatar="☀">☀</div>
+            <div class="avatar-option" data-avatar="⚠">⚠</div>
+            <div class="avatar-option" data-avatar="◆">◆</div>
+            <div class="avatar-option" data-avatar="⚙">⚙</div>
+            <div class="avatar-option" data-avatar="✦">✦</div>
             <div class="avatar-option" data-avatar="🏆">🏆</div>
-            <div class="avatar-option" data-avatar="👑">♔</div>
-            <div class="avatar-option" data-avatar="🎊">🎊</div>
+            <div class="avatar-option" data-avatar="♔">♔</div>
+            <div class="avatar-option" data-avatar="�">�</div>
+            <div class="avatar-option" data-avatar="🎲">🎲</div>
+            <div class="avatar-option" data-avatar="�">�</div>
           </div>
           <div id="custom-avatar-section">
             <h4>O Suba Su Propia Imagen</h4>
@@ -256,8 +256,11 @@
           
           let hint = (el.dataset && el.dataset.srcHint) || guessName(el) || (parent && parent.dataset && (parent.dataset.playerName || parent.dataset.name)) || '';
           
+          console.log('Avatar loading - Element:', el, 'Hint:', hint, 'Player name:', window.playerName, 'Player avatar:', window.playerAvatar);
+          
           // Check if this is the current player's avatar and they have a selected avatar
           if (hint === window.playerName && window.playerAvatar) {
+            console.log('Using selected avatar for player:', window.playerName, window.playerAvatar);
             if (window.playerAvatar.startsWith('data:')) {
               // Custom uploaded avatar
               applyBackground(parent || el, window.playerAvatar);
@@ -295,12 +298,15 @@
           // If no specific avatar found, check for numbered player
           const numMatch = String(hint).match(/(\d+)/);
           if (numMatch) { 
-            applyBackground(parent || el, `/assets/defaults/jugador${numMatch[1]}_avatar.jpg`); 
+            const defaultPath = `/assets/defaults/jugador${numMatch[1]}_avatar.jpg`;
+            console.log('Loading default avatar for player', numMatch[1], ':', defaultPath);
+            applyBackground(parent || el, defaultPath); 
             return; 
           }
           
           // If still no avatar found, use default instead of falling back to name initials
           if (!avatarFound) {
+            console.log('No avatar found, using default for hint:', hint);
             applyBackground(parent || el, '/assets/defaults/jugador1_avatar.jpg');
           }
         } catch(e){
@@ -338,10 +344,14 @@
     
     // Handle emoji avatar selection
     const avatarOptions = document.querySelectorAll('.avatar-option');
-    let selectedAvatar = '🎯'; // Default to the initially selected one
+    let selectedAvatar = '♠'; // Default to the initially selected spade symbol
     
-    avatarOptions.forEach(option => {
+    console.log('Found', avatarOptions.length, 'avatar options');
+    
+    avatarOptions.forEach((option, index) => {
       option.addEventListener('click', function() {
+        console.log('Avatar clicked:', index, 'data-avatar:', this.dataset.avatar, 'text:', this.textContent);
+        
         // Remove selected class from all options
         avatarOptions.forEach(opt => opt.classList.remove('selected'));
         
@@ -356,7 +366,7 @@
           avatarPreview.style.display = 'none';
         }
         
-        console.log('Selected avatar:', selectedAvatar);
+        console.log('Selected avatar:', selectedAvatar, 'Display text:', this.textContent);
       });
     });
     
