@@ -4066,11 +4066,7 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
                             parent.style.backgroundPosition = 'center';
                         }
                     } catch (er) {}
-                    try {
-                        if (!window.avatarAssigned) window.avatarAssigned = {};
-                        if (internalPlayerName) window.avatarAssigned[internalPlayerName] = inlineDefaultAvatar(playerNumber) || defaultAvatarSrc;
-                        if (displayName) { window.avatarAssigned[displayName] = inlineDefaultAvatar(playerNumber) || defaultAvatarSrc; window.avatarAssigned[(displayName || '').toLowerCase()] = inlineDefaultAvatar(playerNumber) || defaultAvatarSrc; }
-                    } catch (e) {}
+                    // DON'T set window.avatarAssigned when avatar fails - let canvas draw initials instead
                     console.warn('Avatar same-origin quick path failed, falling back to inline default');
                 };
                 try { imgElement.src = srcHint; } catch (e) {}
@@ -4126,11 +4122,7 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
                         parent.style.backgroundPosition = 'center';
                     }
                 } catch (er) {}
-                try {
-                    if (!window.avatarAssigned) window.avatarAssigned = {};
-                    if (internalPlayerName) window.avatarAssigned[internalPlayerName] = inlineDefaultAvatar(playerNumber) || defaultAvatarSrc;
-                    if (displayName) { window.avatarAssigned[displayName] = inlineDefaultAvatar(playerNumber) || defaultAvatarSrc; window.avatarAssigned[(displayName || '').toLowerCase()] = inlineDefaultAvatar(playerNumber) || defaultAvatarSrc; }
-                } catch (e) {}
+                // DON'T set window.avatarAssigned when avatar fails - let canvas draw initials instead
                 console.warn('Avatar srcHint failed to load, falling back to inline default');
             };
             tester.src = srcHint;

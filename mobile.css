@@ -127,6 +127,7 @@
     
     /* Make avatar selection more compact in landscape */
     .avatar-flex-row-wrapper {
+      display: flex;
       flex-direction: row;
       align-items: center;
       justify-content: center;
@@ -183,13 +184,12 @@
   
   /* Compact avatar selection for mobile */
   .avatar-flex-row-wrapper {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
+    display: block;
+    margin: 0 auto;
   }
-  
+
   .avatar-flex-row {
-    flex-direction: column;
+    flex-direction: row;
   }
   
   #avatar-selection {
@@ -459,6 +459,7 @@
   
   /* Arrange form elements horizontally when possible */
   .avatar-flex-row-wrapper {
+    display: flex;
     flex-direction: row;
     gap: 20px;
     align-items: flex-start;
