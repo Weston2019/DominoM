@@ -2040,14 +2040,14 @@ function setupLobby() {
     
     // Function to save avatar as permanent file
     function saveAvatarAsFile(playerName, avatarData) {
-        // Save avatar for uppercase initials
+        // Only save with the exact case provided by user (server handles case-insensitive lookup)
         fetch('/save-avatar', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                playerName: playerName.toUpperCase(),
+                playerName: playerName,
                 avatarData: avatarData
             })
         })
@@ -2062,13 +2062,15 @@ function setupLobby() {
                     statusDiv.style.fontWeight = 'bold';
                 }
                 localStorage.removeItem('domino_player_avatar');
-                // Clear any cached probe results for this player's icons (upper/lower)
+                // Clear any cached probe results for this player's icons
                 try {
-                    const up = `/assets/icons/${playerName.toUpperCase()}_avatar.jpg`;
-                    const low = `/assets/icons/${playerName.toLowerCase()}_avatar.jpg`;
+                    const exact = `/assets/icons/${playerName}_avatar.jpg`;
+                    const upper = `/assets/icons/${playerName.toUpperCase()}_avatar.jpg`;
+                    const lower = `/assets/icons/${playerName.toLowerCase()}_avatar.jpg`;
                     if (window.__avatarProbeCache && window.__avatarProbeCache.map) {
-                        try { window.__avatarProbeCache.map.delete(up); } catch (e) {}
-                        try { window.__avatarProbeCache.map.delete(low); } catch (e) {}
+                        try { window.__avatarProbeCache.map.delete(exact); } catch (e) {}
+                        try { window.__avatarProbeCache.map.delete(upper); } catch (e) {}
+                        try { window.__avatarProbeCache.map.delete(lower); } catch (e) {}
                     }
                 } catch (e) {}
                 // Force the client to reprobe avatars so the newly-saved file is picked up
@@ -2080,30 +2082,6 @@ function setupLobby() {
         .catch(error => {
             console.error('❌ Error saving avatar file:', error);
         });
-
-        // Save avatar for lowercase initials
-        fetch('/save-avatar', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                playerName: playerName.toLowerCase(),
-                avatarData: avatarData
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            // Optionally handle response for lowercase file
-            try {
-                // clear cache for lowercase result as well
-                const low = `/assets/icons/${playerName.toLowerCase()}_avatar.jpg`;
-                if (window.__avatarProbeCache && window.__avatarProbeCache.map) window.__avatarProbeCache.map.delete(low);
-            } catch (e) {}
-        })
-        .catch(error => {
-            console.error('❌ Error saving avatar file (lowercase):', error);
-        });
     }
     
     // Handle Enter key press
@@ -2114,11 +2092,17 @@ function setupLobby() {
         }
     });
     
-    // Auto-save custom avatar as file when name is entered
+    // Auto-save custom avatar as file when name is entered (with debouncing)
+    let saveTimeout;
     nameInput.addEventListener('input', () => {
         const currentName = nameInput.value.trim();
         if (currentName.length >= 2 && customAvatarData) {
-            saveAvatarAsFile(currentName, customAvatarData);
+            // Clear previous timeout
+            if (saveTimeout) clearTimeout(saveTimeout);
+            // Set new timeout to save after user stops typing for 1 second
+            saveTimeout = setTimeout(() => {
+                saveAvatarAsFile(currentName, customAvatarData);
+            }, 1000);
         }
     });
 }

@@ -280,3 +280,7 @@
 {"timestamp":"2025-09-14T16:00:20.085Z","eventType":"player_join","playerName":"Jugador 1","roomId":"Sala-1","displayName":"fv","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"}
 {"timestamp":"2025-09-14T16:00:20.088Z","eventType":"player_join","playerName":"Jugador 2","roomId":"Sala-1","displayName":"da","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"}
 {"timestamp":"2025-09-14T16:00:20.091Z","eventType":"player_join","playerName":"Jugador 3","roomId":"Sala-1","displayName":"lk","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"}
+{"timestamp":"2025-09-14T18:19:55.915Z","eventType":"room_created","roomId":"Sala-1","targetScore":70}
+{"timestamp":"2025-09-14T18:19:55.916Z","eventType":"player_join","playerName":"Jugador 1","roomId":"Sala-1","displayName":"da","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"}
+{"timestamp":"2025-09-14T18:20:11.464Z","eventType":"voice_message","roomId":"Sala-1","sender":"da"}
+{"timestamp":"2025-09-14T18:20:12.761Z","eventType":"voice_message","roomId":"Sala-1","sender":"da"}
