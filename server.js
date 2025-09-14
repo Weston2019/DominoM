@@ -35,40 +35,8 @@ function generateSVGAvatar(initials, color) {
 }
 
 // Server-side avatar endpoint - creates avatars on-demand
-app.get('/assets/icons/:filename', (req, res) => {
-    const filename = req.params.filename;
-    const filePath = path.join(serverAvatarsDir, filename);
-    
-    // If file exists, serve it
-    if (fs.existsSync(filePath)) {
-        return res.sendFile(filePath);
-    }
-    
-    // If it's an avatar request, generate one dynamically
-    const match = filename.match(/^([A-Za-z0-9]+)(?:_avatar)?\.(jpg|png|svg)$/);
-    if (match) {
-        const username = match[1].toUpperCase();
-        const initials = username.substring(0, 2);
-        
-        // Color based on username hash
-        const colors = ['#007bff', '#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6f42c1', '#fd7e14', '#20c997'];
-        let hash = 0;
-        for (let i = 0; i < username.length; i++) {
-            hash = username.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        const color = colors[Math.abs(hash) % colors.length];
-        
-        // Generate SVG avatar
-        const svgContent = generateSVGAvatar(initials, color);
-        
-        res.setHeader('Content-Type', 'image/svg+xml');
-        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
-        return res.send(svgContent);
-    }
-    
-    // File not found
-    res.status(404).send('Avatar not found');
-});
+// REMOVED: Old avatar route that generated 2-letter avatars
+// This has been replaced with the new memory storage route below
 
 // Default jugador avatars endpoint
 app.get('/assets/defaults/:filename', (req, res) => {
@@ -147,17 +115,35 @@ app.use('/assets/icons', express.static(global.AVATAR_ICONS_PATH || path.join(__
 // Serve individual avatar files from memory storage
 app.get('/assets/icons/:filename', (req, res) => {
     const filename = req.params.filename;
-    
+
     // Try to get from memory storage first (with normalization)
     const avatarData = getAvatar(filename);
-    
+
     if (avatarData) {
         res.set('Content-Type', 'image/jpeg');
         res.set('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
-        res.send(avatarData);
-    } else {
-        res.status(404).json({ error: 'Avatar not found' });
+        return res.send(avatarData);
     }
+
+    // Fallback to default avatar instead of 404
+    const match = filename.match(/^([A-Za-z0-9]+)(?:_avatar)?\.(jpg|png|svg)$/);
+    if (match) {
+        const username = match[1].toUpperCase();
+        const defaultAvatarData = getDefaultAvatarForUsername(username);
+
+        // Check if it's SVG (generated) or binary (from file)
+        if (typeof defaultAvatarData === 'string') {
+            res.set('Content-Type', 'image/svg+xml');
+            res.set('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+        } else {
+            res.set('Content-Type', 'image/jpeg');
+            res.set('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+        }
+        return res.send(defaultAvatarData);
+    }
+
+    // If not an avatar request, return 404
+    res.status(404).json({ error: 'Avatar not found' });
 });
 
 // =============================================================================
@@ -225,13 +211,13 @@ function loadAvatarsIntoMemory() {
         if (fs.existsSync(global.AVATAR_ICONS_PATH)) {
             const files = fs.readdirSync(global.AVATAR_ICONS_PATH);
             files.forEach(filename => {
-                if (filename.endsWith('_avatar.jpg')) {
+                if (filename.includes('_avatar')) {
                     const filepath = path.join(global.AVATAR_ICONS_PATH, filename);
                     const data = fs.readFileSync(filepath, 'base64');
-                    
-                    // Normalize filename to uppercase for consistency
-                    const normalizedFilename = filename.toUpperCase();
-                    
+
+                    // Normalize filename to consistent format: NAME_AVATAR.JPG
+                    const normalizedFilename = filename.replace(/_avatar\.(jpg|png|jpeg)$/i, '_AVATAR.JPG').toUpperCase();
+
                     // Only load if we don't already have this normalized version
                     if (!global.AVATAR_STORAGE.has(normalizedFilename)) {
                         global.AVATAR_STORAGE.set(normalizedFilename, data);
@@ -280,26 +266,29 @@ function saveAvatar(filename, imageBuffer) {
 
 // Get avatar from memory or disk
 function getAvatar(filename) {
-    // First try the normalized (uppercase) version
+    // First try the exact filename as requested
+    if (global.AVATAR_STORAGE && global.AVATAR_STORAGE.has(filename)) {
+        return Buffer.from(global.AVATAR_STORAGE.get(filename), 'base64');
+    }
+
+    // Then try the normalized (uppercase) version
     const normalizedFilename = filename.toUpperCase();
-    
     if (global.AVATAR_STORAGE && global.AVATAR_STORAGE.has(normalizedFilename)) {
         return Buffer.from(global.AVATAR_STORAGE.get(normalizedFilename), 'base64');
     }
-    
+
+    // Fallback to disk with exact filename
+    const exactFilepath = path.join(global.AVATAR_ICONS_PATH, filename);
+    if (fs.existsSync(exactFilepath)) {
+        return fs.readFileSync(exactFilepath);
+    }
+
     // Fallback to disk with normalized name
     const normalizedFilepath = path.join(global.AVATAR_ICONS_PATH, normalizedFilename);
     if (fs.existsSync(normalizedFilepath)) {
         return fs.readFileSync(normalizedFilepath);
     }
-    
-    // Last resort: try the original filename (for backward compatibility)
-    const originalFilepath = path.join(global.AVATAR_ICONS_PATH, filename);
-    if (fs.existsSync(originalFilepath)) {
-        console.log(`⚠️ [AVATAR-STORAGE] Found avatar with non-normalized name: ${filename}`);
-        return fs.readFileSync(originalFilepath);
-    }
-    
+
     return null;
 }
 
@@ -315,6 +304,39 @@ function listAvatars() {
     }
     
     return [];
+}
+
+// Function to get default avatar for a username
+function getDefaultAvatarForUsername(username) {
+    // Try to extract a number from the username for consistent default assignment
+    const numberMatch = username.match(/\d+/);
+    let playerNumber = 1;
+
+    if (numberMatch) {
+        playerNumber = parseInt(numberMatch[0]) % 8 + 1; // Cycle through 1-8
+    } else {
+        // Use hash of username for consistent assignment
+        let hash = 0;
+        for (let i = 0; i < username.length; i++) {
+            hash = username.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        playerNumber = Math.abs(hash) % 8 + 1;
+    }
+
+    const defaultFilename = `jugador${playerNumber}_avatar.jpg`;
+    const defaultPath = path.join(global.AVATAR_DEFAULTS_PATH, defaultFilename);
+
+    // If default file exists on disk, return it
+    if (fs.existsSync(defaultPath)) {
+        return fs.readFileSync(defaultPath);
+    }
+
+    // Otherwise generate a default SVG avatar
+    const colors = ['#007bff', '#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6f42c1', '#fd7e14', '#20c997'];
+    const color = colors[playerNumber - 1];
+    const initials = `J${playerNumber}`;
+
+    return generateSVGAvatar(initials, color);
 }
 
 // Initialize avatar storage
@@ -1382,7 +1404,7 @@ app.post('/save-avatar', express.json({ limit: '1mb' }), (req, res) => {
     }
     
     // Create the filename using uppercase for consistency (matches dynamic generation)
-    const filename = `${playerName.toUpperCase()}_avatar.jpg`;
+    const filename = `${playerName.toUpperCase()}_AVATAR.JPG`;
     
     try {
         // Save using the new storage system
