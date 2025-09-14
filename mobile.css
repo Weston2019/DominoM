@@ -144,13 +144,14 @@
     }
     
     #avatar-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(45px, 1fr));
-      gap: 5px;
-      max-width: 100%;
-      margin: 0 auto;
-      padding: 0 5px;
-      box-sizing: border-box;
+      display: grid !important;
+      grid-template-columns: repeat(auto-fit, minmax(45px, 1fr)) !important;
+      gap: 5px !important;
+      max-width: 100% !important;
+      margin: 0 auto !important;
+      padding: 0 5px !important;
+      box-sizing: border-box !important;
+      justify-items: center !important;
     }
     
     .avatar-option {
@@ -209,7 +210,7 @@
   
   /* Compact avatar selection for mobile */
   .avatar-flex-row-wrapper {
-    display: block;
+    display: block !important;
     margin: 0 auto;
     max-width: 100%;
     overflow: hidden;
@@ -233,13 +234,21 @@
   }
 
   #avatar-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
-    gap: 6px;
-    max-width: 100%;
-    margin: 0 auto;
-    padding: 0 5px;
-    box-sizing: border-box;
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(50px, 1fr)) !important;
+    gap: 6px !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 0 5px !important;
+    box-sizing: border-box !important;
+    justify-items: center !important;
+  }
+
+  /* Team info spacing fix for mobile */
+  #team-info {
+    line-height: 1.2 !important;
+    margin: 0 !important;
+    padding: 4px 6px !important;
   }
 
   .avatar-option {
@@ -649,7 +658,7 @@
     position: absolute;
     transform: translateY(-50%) !important;
     padding: 4px !important;
-    overflow: visible !important;
+    overflow: hidden !important; /* Prevent tiles from overflowing */
     box-sizing: border-box !important;
   }
 
@@ -669,6 +678,7 @@
     width: 80px !important;
     position: absolute;
     transform: translateY(-50%) !important;
+    overflow: hidden !important; /* Prevent tiles from overflowing */
   }
 
   #player-display-left .tiny-domino,
@@ -939,4 +949,28 @@
   cursor: pointer;
   font-weight: bold;
   font-size: 12px;
+}
+
+/* Landscape mode optimizations for mobile */
+@media (orientation: landscape) and (max-width: 900px) {
+  #lobby-container {
+    padding: 5px 10px;
+    max-height: 100vh;
+    overflow-y: auto;
+  }
+  
+  #avatar-selection {
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+  
+  #avatar-grid {
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+  
+  /* Better spacing for landscape */
+  .avatar-flex-row-wrapper {
+    gap: 15px;
+  }
 }
