@@ -3981,12 +3981,16 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
     };
 
     // If the calling code provided a direct URL or data URI in imgElement.dataset.srcHint, use it.
+    // Also check imgElement.src as a fallback for data URIs
     const srcHintRaw = imgElement.dataset && imgElement.dataset.srcHint;
-    if (srcHintRaw && typeof srcHintRaw === 'string') {
+    const srcHintFromSrc = imgElement.src && imgElement.src.startsWith('data:') ? imgElement.src : null;
+    const srcHintToUse = srcHintRaw || srcHintFromSrc;
+    
+    if (srcHintToUse && typeof srcHintToUse === 'string') {
         // If the server sent just a filename (e.g. 'ok_avatar.jpg'), convert to assets path
-        let srcHint = srcHintRaw;
+        let srcHint = srcHintToUse;
         if (!srcHint.startsWith('data:') && srcHint.indexOf('/') === -1) {
-            srcHint = `/assets/icons/${srcHintRaw}`;
+            srcHint = `/assets/icons/${srcHintToUse}`;
         }
         // Show neutral placeholder while verifying the srcHint to avoid displaying HTML fallbacks
         const svgPlaceholder = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#222" /><circle cx="50" cy="40" r="20" fill="#444" /></svg>');
@@ -4532,6 +4536,7 @@ function updatePlayersUI() {
 
                     try {
                         img.dataset.srcHint = dataUri;
+                        img.src = dataUri; // Also set src as fallback
                         // Delegate loading/assignment logic to getPlayerIcon so behavior matches file/remote avatars
                         getPlayerIcon(img, playerData.displayName, playerData.name, true);
                     } catch (e) {
