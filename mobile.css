@@ -132,22 +132,47 @@
       align-items: center;
       justify-content: center;
       gap: 10px;
+      max-width: 100%;
+      overflow: hidden;
     }
     
     #avatar-selection {
       flex: 1;
-      max-width: 300px;
+      max-width: 100%;
+      padding: 0 5px;
+      box-sizing: border-box;
     }
     
     #avatar-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(45px, 1fr));
+      gap: 5px;
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 0 5px;
+      box-sizing: border-box;
     }
     
     .avatar-option {
-      font-size: 1.5rem;
-      padding: 8px;
+      width: 100% !important;
+      max-width: 45px !important;
+      height: 45px !important;
+      font-size: 24px !important;
+      border-radius: 50% !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      cursor: pointer !important;
+      border: 2px solid #555 !important;
+      background: #f0f0f0 !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", "EmojiOne Mozilla", "Twemoji Mozilla", "Segoe UI", sans-serif !important;
+      -webkit-user-select: none !important;
+      user-select: none !important;
+      transition: all 0.3s ease !important;
+      line-height: 1 !important;
+      text-align: center !important;
+      position: relative !important;
+      margin: 0 auto !important;
     }
     
     /* Compact room list for landscape */
@@ -186,41 +211,49 @@
   .avatar-flex-row-wrapper {
     display: block;
     margin: 0 auto;
+    max-width: 100%;
+    overflow: hidden;
   }
 
   .avatar-flex-row {
     flex-direction: row;
   }
-  
+
   #avatar-selection {
     margin-bottom: 15px;
+    max-width: 100%;
+    padding: 0 10px;
+    box-sizing: border-box;
   }
-  
+
   #avatar-selection h3 {
     font-size: 1.2rem;
     margin: 10px 0;
     text-align: center;
   }
-  
+
   #avatar-grid {
     display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
+    gap: 6px;
     max-width: 100%;
     margin: 0 auto;
+    padding: 0 5px;
+    box-sizing: border-box;
   }
-  
+
   .avatar-option {
-    width: 55px !important;
-    height: 55px !important;
-    font-size: 32px !important;
+    width: 100% !important;
+    max-width: 50px !important;
+    height: 50px !important;
+    font-size: 28px !important;
     border-radius: 50% !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     cursor: pointer !important;
-    border: 4px solid #555 !important;
-    background: #f0f0f0 !important;  /* Reverted to solid background */
+    border: 3px solid #555 !important;
+    background: #f0f0f0 !important;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", "EmojiOne Mozilla", "Twemoji Mozilla", "Segoe UI", sans-serif !important;
     -webkit-user-select: none !important;
     user-select: none !important;
@@ -228,13 +261,7 @@
     line-height: 1 !important;
     text-align: center !important;
     position: relative !important;
-    -webkit-font-smoothing: antialiased !important;
-    -moz-osx-font-smoothing: grayscale !important;
-    text-rendering: optimizeLegibility !important;
-    overflow: visible !important;
-    white-space: nowrap !important;
-    margin: 2px !important;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+    margin: 0 auto !important;
   }
   
   .avatar-option.selected {
