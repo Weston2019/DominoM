@@ -459,9 +459,9 @@
     margin: 5px 0;
   }
   
-  /* More compact avatar grid in landscape */
+  /* More compact avatar grid in landscape - 3 lines */
   #avatar-grid {
-    grid-template-columns: repeat(8, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 5px;
     max-width: 90vw;
   }
@@ -469,7 +469,7 @@
   .avatar-option {
     width: 50px !important;
     height: 50px !important;
-    font-size: 28px !important;
+    font-size: 32px !important;
     border: 4px solid #555 !important;
     border-radius: 50% !important;
     display: flex !important;

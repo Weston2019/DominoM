@@ -4563,7 +4563,8 @@ function updatePlayersUI() {
         } else if (playerData.avatar && playerData.avatar.type === 'emoji') {
             // Emoji avatar — explicitly allow visible text for emojis
             avatarDiv.textContent = playerData.avatar.data;
-            avatarDiv.style.fontSize = '24px';
+            avatarDiv.style.fontSize = '28px';
+            avatarDiv.style.fontFamily = '"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", "EmojiOne Mozilla", "Twemoji Mozilla", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
             // Restore color so emoji is visible (we defaulted to transparent above)
             avatarDiv.style.color = '';
             
