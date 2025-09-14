@@ -1954,7 +1954,12 @@ function setupLobby() {
             // ALWAYS check for avatar file FIRST - highest priority
             // Use absolute path to avoid relative resolution issues on mobile
             const testImg = new Image();
-            const avatarFilePath = `/assets/icons/${name.toUpperCase()}_avatar.jpg`;
+            let __submitConnected = false;
+            const doConnectWith = (avatarData) => {
+                if (__submitConnected) return;
+                __submitConnected = true;
+                connectToServer(name, avatarData, roomId, targetScore);
+            };
             
             // Also try without suffix for backward compatibility
             const tryLoadAvatar = (paths, index = 0) => {

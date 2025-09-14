@@ -137,7 +137,11 @@ const io = socketIo(server);
 
 app.use(express.static(__dirname));
 
-// Serve avatars from persistent storage
+// Set MIME type for web app manifest
+app.get('*.webmanifest', (req, res) => {
+    res.setHeader('Content-Type', 'application/manifest+json');
+    res.sendFile(path.join(__dirname, req.path));
+});
 app.use('/assets/icons', express.static(global.AVATAR_ICONS_PATH || path.join(__dirname, 'assets', 'icons')));
 
 // Serve individual avatar files from memory storage
