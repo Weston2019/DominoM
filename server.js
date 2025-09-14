@@ -45,7 +45,7 @@ app.get('/assets/icons/:filename', (req, res) => {
     }
     
     // If it's an avatar request, generate one dynamically
-    const match = filename.match(/^([A-Za-z0-9]+)_avatar\.(jpg|png|svg)$/);
+    const match = filename.match(/^([A-Za-z0-9]+)(?:_avatar)?\.(jpg|png|svg)$/);
     if (match) {
         const username = match[1].toUpperCase();
         const initials = username.substring(0, 2);

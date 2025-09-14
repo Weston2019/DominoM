@@ -1713,49 +1713,61 @@ function setupLobby() {
     const currentName = nameInput.value.trim();
     if (currentName) {
         // Try to find avatar file for this user
-    const testImg = new Image();
-    const avatarFilePath = `/assets/icons/${currentName.toUpperCase()}_avatar.jpg`;
+        const testImg = new Image();
+        const avatarPaths = [
+            `/assets/icons/${currentName.toUpperCase()}_avatar.jpg`,
+            `/assets/icons/${currentName.toUpperCase()}.jpg`,
+            `/assets/icons/${currentName}_avatar.jpg`,
+            `/assets/icons/${currentName}.jpg`
+        ];
         
-        testImg.onload = function() {
-            // console.log('✅ Found avatar file for', currentName);
-            // Don't use localStorage - user has their own avatar file
-            selectedAvatar = null;
-            customAvatarData = null;
-            // The getPlayerIcon function will handle this
+        const tryLoadExisting = (paths, index = 0) => {
+            if (index >= paths.length) return; // No avatar found, continue with localStorage check
+            
+            testImg.onload = function() {
+                // console.log('✅ Found avatar file for', currentName);
+                // Don't use localStorage - user has their own avatar file
+                selectedAvatar = null;
+                customAvatarData = null;
+                // The getPlayerIcon function will handle this
+            };
+            testImg.onerror = function() {
+                tryLoadExisting(paths, index + 1);
+            };
+            testImg.src = paths[index];
         };
         
-        testImg.onerror = function() {
-            // console.log('ℹ️ No avatar file found for', currentName, ', using localStorage or default');
-            // PRIORITY 2: Restore saved avatar from localStorage
-            if (savedAvatar) {
-                try {
-                    const avatarData = JSON.parse(savedAvatar);
-                    if (avatarData.type === 'custom') {
-                        customAvatarData = avatarData.data;
-                        selectedAvatar = null;
-                        // Show preview
-                        customAvatarPreview.innerHTML = `<img src="${customAvatarData}" alt="Custom Avatar">`;
-                        customAvatarPreview.style.display = 'block';
-                        // console.log('Restored custom avatar from localStorage');
-                    } else {
-                        selectedAvatar = avatarData.data;
-                        customAvatarData = null;
-                        // Select the correct emoji option
-                        avatarOptions.forEach(opt => {
-                            if (opt.dataset.avatar === selectedAvatar) {
-                                opt.classList.add('selected');
-                            }
-                        });
-                        // console.log('Restored emoji avatar from localStorage:', selectedAvatar);
-                    }
-                } catch (e) {
-                    // console.log('Could not restore saved avatar, using default');
-                    useDefaultAvatar();
+        tryLoadExisting(avatarPaths);
+        
+        // PRIORITY 2: Restore saved avatar from localStorage
+        if (savedAvatar) {
+            try {
+                const avatarData = JSON.parse(savedAvatar);
+                if (avatarData.type === 'custom') {
+                    customAvatarData = avatarData.data;
+                    selectedAvatar = null;
+                    // Show preview
+                    customAvatarPreview.innerHTML = `<img src="${customAvatarData}" alt="Custom Avatar">`;
+                    customAvatarPreview.style.display = 'block';
+                    // console.log('Restored custom avatar from localStorage');
+                } else {
+                    selectedAvatar = avatarData.data;
+                    customAvatarData = null;
+                    // Select the correct emoji option
+                    avatarOptions.forEach(opt => {
+                        if (opt.dataset.avatar === selectedAvatar) {
+                            opt.classList.add('selected');
+                        }
+                    });
+                    // console.log('Restored emoji avatar from localStorage:', selectedAvatar);
                 }
-            } else {
+            } catch (e) {
+                // console.log('Could not restore saved avatar, using default');
                 useDefaultAvatar();
             }
-        };
+        } else {
+            useDefaultAvatar();
+        }
         
         testImg.src = avatarFilePath;
     } else {
@@ -1943,33 +1955,43 @@ function setupLobby() {
             // Use absolute path to avoid relative resolution issues on mobile
             const testImg = new Image();
             const avatarFilePath = `/assets/icons/${name.toUpperCase()}_avatar.jpg`;
-            let __submitConnected = false;
-            const doConnectWith = (avatarData) => {
-                if (__submitConnected) return;
-                __submitConnected = true;
-                connectToServer(name, avatarData, roomId, targetScore);
-            };
-
-            testImg.onload = function() {
-                // console.log('🎯 PRIORITY 1: Found avatar file for', name, '- using file (ignoring localStorage)');
-                // Send the detected avatar file path so other clients can use the exact file
-                doConnectWith({ type: 'file', data: `/assets/icons/${name.toUpperCase()}_avatar.jpg` });
-            };
-            testImg.onerror = function() {
-                // console.log('ℹ️ No avatar file for', name, '- checking localStorage and selections');
-                // PRIORITY 2: Use selected avatar (custom upload or emoji) if available
-                let avatarData = null;
-                if (customAvatarData) {
-                    avatarData = { type: 'custom', data: customAvatarData };
-                } else if (selectedAvatar) {
-                    avatarData = { type: 'emoji', data: selectedAvatar };
+            
+            // Also try without suffix for backward compatibility
+            const tryLoadAvatar = (paths, index = 0) => {
+                if (index >= paths.length) {
+                    // No avatar file found, use custom avatar data or emoji
+                    let avatarData = null;
+                    if (customAvatarData) {
+                        avatarData = { type: 'custom', data: customAvatarData };
+                    } else if (selectedAvatar) {
+                        avatarData = { type: 'emoji', data: selectedAvatar };
+                    }
+                    // console.log('PRIORITY 2: Using avatar data:', avatarData);
+                    doConnectWith(avatarData);
+                    return;
                 }
-                // If no avatar selected, avatarData will be null and system will use defaults
-                // console.log('PRIORITY 2: Using avatar data:', avatarData);
-                doConnectWith(avatarData);
+                
+                const currentPath = paths[index];
+                testImg.onload = function() {
+                    // console.log('🎯 PRIORITY 1: Found avatar file for', name, 'at', currentPath);
+                    // Send the detected avatar file path so other clients can use the exact file
+                    doConnectWith({ type: 'file', data: currentPath });
+                };
+                testImg.onerror = function() {
+                    tryLoadAvatar(paths, index + 1);
+                };
+                testImg.src = currentPath;
             };
-            // Always test for the file first
-            try { testImg.src = avatarFilePath; } catch (e) { /* ignore */ }
+            
+            // Try multiple patterns for backward compatibility
+            const avatarPaths = [
+                `/assets/icons/${name.toUpperCase()}_avatar.jpg`,
+                `/assets/icons/${name.toUpperCase()}.jpg`,
+                `/assets/icons/${name}_avatar.jpg`,
+                `/assets/icons/${name}.jpg`
+            ];
+            
+            tryLoadAvatar(avatarPaths);
 
             // If neither onload nor onerror fire (some mobile browsers block or delay), ensure we still connect
             setTimeout(() => {
@@ -2077,12 +2099,16 @@ function setupLobby() {
                 // Clear any cached probe results for this player's icons
                 try {
                     const upper = `/assets/icons/${playerName.toUpperCase()}_avatar.jpg`; // Primary: normalized
+                    const upperNoSuffix = `/assets/icons/${playerName.toUpperCase()}.jpg`; // Backward compatibility
                     const exact = `/assets/icons/${playerName}_avatar.jpg`;
                     const lower = `/assets/icons/${playerName.toLowerCase()}_avatar.jpg`;
+                    const lowerNoSuffix = `/assets/icons/${playerName.toLowerCase()}.jpg`; // Backward compatibility
                     if (window.__avatarProbeCache && window.__avatarProbeCache.map) {
                         try { window.__avatarProbeCache.map.delete(upper); } catch (e) {} // Clear primary first
+                        try { window.__avatarProbeCache.map.delete(upperNoSuffix); } catch (e) {}
                         try { window.__avatarProbeCache.map.delete(exact); } catch (e) {}
                         try { window.__avatarProbeCache.map.delete(lower); } catch (e) {}
+                        try { window.__avatarProbeCache.map.delete(lowerNoSuffix); } catch (e) {}
                     }
                 } catch (e) {}
                 // Force the client to reprobe avatars so the newly-saved file is picked up
@@ -4185,7 +4211,16 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
                 const candidates = [];
                 const pushIf = (fname) => { if (fname && !candidates.includes(fname)) candidates.push(fname); };
                 // common variants to check in order
-                const variants = [ `${name.toUpperCase()}_avatar.jpg`, `${spacelessLower}_avatar.jpg`, `${lower}_avatar.jpg`, `${name}_avatar.jpg`, `${pascal}_avatar.jpg` ];
+                const variants = [ 
+                    `${name.toUpperCase()}_avatar.jpg`, 
+                    `${name.toUpperCase()}.jpg`, // Backward compatibility
+                    `${spacelessLower}_avatar.jpg`, 
+                    `${lower}_avatar.jpg`, 
+                    `${name}_avatar.jpg`, 
+                    `${pascal}_avatar.jpg`,
+                    `${name}.jpg`, // Backward compatibility
+                    `${lower}.jpg` // Backward compatibility
+                ];
                 for (const v of variants) {
                     const found = m.byLower.get(v.toLowerCase());
                     if (found) pushIf(`/assets/icons/${found}` + cacheBuster);
@@ -4204,10 +4239,13 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
         // Fallback: build likely paths (existing behavior) if manifest absent
         return [
             `/assets/icons/${name.toUpperCase()}_avatar.jpg`, // Primary: normalized uppercase
+            `/assets/icons/${name.toUpperCase()}.jpg`, // Backward compatibility: uppercase without suffix
             `/assets/icons/${spacelessLower}_avatar.jpg`,
             `/assets/icons/${lower}_avatar.jpg`,
             `/assets/icons/${name}_avatar.jpg`,
             `/assets/icons/${pascal}_avatar.jpg`,
+            `/assets/icons/${name}.jpg`, // Backward compatibility: original case without suffix
+            `/assets/icons/${lower}.jpg`, // Backward compatibility: lowercase without suffix
             `/assets/defaults/jugador${playerNumber}_avatar.jpg`
         ].map(u => u + cacheBuster);
     })();
