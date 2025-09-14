@@ -1698,6 +1698,7 @@ function setupLobby() {
     
     let selectedAvatar = null; // No default avatar - let system fall back to defaults
     let customAvatarData = null;
+    let saveTimeout; // Shared timeout for debouncing avatar saves
     
     // Don't restore saved name - always start fresh
     // if (savedName) {
@@ -1889,10 +1890,14 @@ function setupLobby() {
                         data: customAvatarData
                     }));
                     
-                    // NEW: Also save as file for permanent storage
+                    // NEW: Save as file for permanent storage (with debouncing)
                     const currentPlayerName = nameInput.value.trim();
-                    if (currentPlayerName) {
-                        saveAvatarAsFile(currentPlayerName, customAvatarData);
+                    if (currentPlayerName && currentPlayerName.length >= 2) {
+                        // Use debouncing to avoid immediate save followed by auto-save
+                        if (saveTimeout) clearTimeout(saveTimeout);
+                        saveTimeout = setTimeout(() => {
+                            saveAvatarAsFile(currentPlayerName, customAvatarData);
+                        }, 1000);
                     } else {
                         // Show message to encourage entering name for permanent save
                         const statusDiv = document.getElementById('profile-status');
@@ -1901,7 +1906,7 @@ function setupLobby() {
                             statusDiv.style.color = 'orange';
                             statusDiv.style.fontWeight = 'bold';
                         }
-                        // console.log('⚠️ Enter name to save avatar as permanent file');
+                        // console.log('⚠️ Enter name (2+ chars) to save avatar as permanent file');
                     }
                     
                     // CLEAR FILE INPUT to reset "Seleccionar Archivo" text
@@ -2099,7 +2104,6 @@ function setupLobby() {
     });
     
     // Auto-save custom avatar as file when name is entered (with debouncing)
-    let saveTimeout;
     nameInput.addEventListener('input', () => {
         const currentName = nameInput.value.trim();
         if (currentName.length >= 2 && customAvatarData) {
