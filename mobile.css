@@ -201,8 +201,8 @@
   }
   
   .avatar-option {
-    width: 35px;
-    height: 35px;
+    width: 44px;
+    height: 44px;
     font-size: 1.2rem;
     border-radius: 50%;
     display: flex;
@@ -227,6 +227,17 @@
     font-size: 1rem;
     margin: 8px 0;
     text-align: center;
+  }
+  
+  #custom-avatar-preview {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: 2px solid #555;
+    margin: 10px auto;
+    display: none;
+    background: #fff;
+    object-fit: cover;
   }
   
   .custom-file-upload {
@@ -394,8 +405,8 @@
   }
   
   .avatar-option {
-    width: 30px;
-    height: 30px;
+    width: 40px;
+    height: 40px;
     font-size: 1rem;
   }
   

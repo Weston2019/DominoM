@@ -1343,6 +1343,17 @@ html, body {
     color: #ccc;
 }
 
+#custom-avatar-preview {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 2px solid #555;
+    margin: 10px auto;
+    display: none;
+    background: #fff;
+    object-fit: cover;
+}
+
 #avatar-upload {
     display: none;
 }

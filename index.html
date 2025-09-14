@@ -85,7 +85,7 @@
             <h4>O Suba Su Propia Imagen</h4>
             <label for="avatar-upload" class="custom-file-upload">📁 Seleccionar Archivo</label>
             <input type="file" id="avatar-upload" accept="image/*" title="Suba su avatar personalizado" />
-            <div id="custom-avatar-preview"></div>
+            <img id="custom-avatar-preview" alt="Avatar Preview" />
           </div>
         </div>
       </div>
@@ -270,6 +270,30 @@
   })();
   </script>
   <script src="/client.js?v=20241211002"></script>
+  
+  <!-- Avatar upload preview script -->
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const avatarUpload = document.getElementById('avatar-upload');
+    const avatarPreview = document.getElementById('custom-avatar-preview');
+    
+    if (avatarUpload && avatarPreview) {
+      avatarUpload.addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (file && file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            avatarPreview.src = e.target.result;
+            avatarPreview.style.display = 'block';
+          };
+          reader.readAsDataURL(file);
+        } else {
+          avatarPreview.style.display = 'none';
+        }
+      });
+    }
+  });
+  </script>
   
   <!-- Gentle landscape mode script -->
   <script>
