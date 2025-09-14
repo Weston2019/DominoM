@@ -1696,7 +1696,7 @@ function setupLobby() {
     // Load saved avatar from localStorage (but NOT the name - keep it empty)
     const savedAvatar = localStorage.getItem('domino_player_avatar');
     
-    let selectedAvatar = '🎯'; // Default avatar (target emoji)
+    let selectedAvatar = null; // No default avatar - let system fall back to defaults
     let customAvatarData = null;
     
     // Don't restore saved name - always start fresh
@@ -1792,6 +1792,7 @@ function setupLobby() {
         const defaultOption = document.querySelector('[data-avatar="🎯"]');
         if (defaultOption) {
             defaultOption.classList.add('selected');
+            selectedAvatar = '🎯'; // Also set the selectedAvatar variable
             // console.log('Set default target emoji avatar');
         }
     }
@@ -1951,12 +1952,15 @@ function setupLobby() {
             };
             testImg.onerror = function() {
                 // console.log('ℹ️ No avatar file for', name, '- checking localStorage and selections');
-                // PRIORITY 2: Use selected avatar (custom upload or emoji)
-                const avatarData = {
-                    type: customAvatarData ? 'custom' : 'emoji',
-                    data: customAvatarData || selectedAvatar
-                };
-                // console.log('PRIORITY 2: Using selected avatar:', avatarData);
+                // PRIORITY 2: Use selected avatar (custom upload or emoji) if available
+                let avatarData = null;
+                if (customAvatarData) {
+                    avatarData = { type: 'custom', data: customAvatarData };
+                } else if (selectedAvatar) {
+                    avatarData = { type: 'emoji', data: selectedAvatar };
+                }
+                // If no avatar selected, avatarData will be null and system will use defaults
+                // console.log('PRIORITY 2: Using avatar data:', avatarData);
                 doConnectWith(avatarData);
             };
             // Always test for the file first
@@ -1965,10 +1969,12 @@ function setupLobby() {
             // If neither onload nor onerror fire (some mobile browsers block or delay), ensure we still connect
             setTimeout(() => {
                 if (!__submitConnected) {
-                    const avatarData = {
-                        type: customAvatarData ? 'custom' : 'emoji',
-                        data: customAvatarData || selectedAvatar
-                    };
+                    let avatarData = null;
+                    if (customAvatarData) {
+                        avatarData = { type: 'custom', data: customAvatarData };
+                    } else if (selectedAvatar) {
+                        avatarData = { type: 'emoji', data: selectedAvatar };
+                    }
                     // console.log('⏱️ Fallback connect after timeout using', avatarData);
                     doConnectWith(avatarData);
                 }

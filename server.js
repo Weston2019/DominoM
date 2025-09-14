@@ -492,7 +492,7 @@ function broadcastGameState(room) {
         displayName: p.assignedName || p.name,
         isConnected: p.isConnected,
         tileCount: room.gameState.hands[p.name] ? room.gameState.hands[p.name].length : 0,
-        avatar: p.avatar || { type: 'emoji', data: '👤' }
+        avatar: p.avatar || { type: 'file', data: null }
     }));
     
     // Debug: Log avatar data being sent
@@ -812,11 +812,19 @@ io.on('connection', (socket) => {
             if (reconnectingPlayer) {
                 reconnectingPlayer.socketId = socket.id;
                 reconnectingPlayer.isConnected = true;
-                if (typeof data === 'object' && data.avatar) {
+                if (typeof data === 'object' && data.avatar !== undefined) {
                     reconnectingPlayer.avatar = data.avatar;
-                    // // console.log(`[RECONNECT] ${displayName} reconnected to ${rid} with updated avatar ${data.avatar.type === 'emoji' ? data.avatar.data : 'custom'}.`);
+                    // // console.log(`[RECONNECT] ${displayName} reconnected to ${rid} with updated avatar ${data.avatar ? (data.avatar.type === 'emoji' ? data.avatar.data : 'custom') : 'null'}.`);
                 } else {
                     // // console.log(`[RECONNECT] ${displayName} reconnected to ${rid} with existing avatar ${reconnectingPlayer.avatar ? (reconnectingPlayer.avatar.type === 'emoji' ? reconnectingPlayer.avatar.data : reconnectingPlayer.avatar.type + ':' + reconnectingPlayer.avatar.data) : 'default'}.`);
+                }
+                
+                // Assign default avatar if none exists
+                if (!reconnectingPlayer.avatar) {
+                    const match = reconnectingPlayer.name.match(/\d+/);
+                    const playerNumber = match ? match[0] : '1';
+                    console.log(`[AVATAR] Assigning default jugador${playerNumber} avatar to reconnecting player ${displayName} (${reconnectingPlayer.name})`);
+                    reconnectingPlayer.avatar = { type: 'file', data: null };
                 }
                 socket.jugadorName = reconnectingPlayer.name;
                 socket.roomId = rid;
