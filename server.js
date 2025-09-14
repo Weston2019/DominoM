@@ -110,7 +110,8 @@ app.get('*.webmanifest', (req, res) => {
     res.setHeader('Content-Type', 'application/manifest+json');
     res.sendFile(path.join(__dirname, req.path));
 });
-app.use('/assets/icons', express.static(global.AVATAR_ICONS_PATH || path.join(__dirname, 'assets', 'icons')));
+// REMOVED: Static file serving for icons - we want to serve from memory storage instead
+// app.use('/assets/icons', express.static(global.AVATAR_ICONS_PATH || path.join(__dirname, 'assets', 'icons')));
 
 // Serve individual avatar files from memory storage
 app.get('/assets/icons/:filename', (req, res) => {
@@ -275,6 +276,12 @@ function getAvatar(filename) {
     const normalizedFilename = filename.toUpperCase();
     if (global.AVATAR_STORAGE && global.AVATAR_STORAGE.has(normalizedFilename)) {
         return Buffer.from(global.AVATAR_STORAGE.get(normalizedFilename), 'base64');
+    }
+
+    // Try alternative normalizations
+    const altNormalized = filename.replace(/_avatar\.jpg$/i, '_AVATAR.JPG').toUpperCase();
+    if (altNormalized !== normalizedFilename && global.AVATAR_STORAGE && global.AVATAR_STORAGE.has(altNormalized)) {
+        return Buffer.from(global.AVATAR_STORAGE.get(altNormalized), 'base64');
     }
 
     // Fallback to disk with exact filename
