@@ -254,17 +254,41 @@
           const parent = el.parentElement || el;
           if (parent && parent.dataset && parent.dataset.assignedSrc) return;
           let hint = (el.dataset && el.dataset.srcHint) || guessName(el) || (parent && parent.dataset && (parent.dataset.playerName || parent.dataset.name)) || '';
-          if (!hint) { applyBackground(parent || el, '/assets/defaults/jugador1_avatar.jpg'); return; }
+          
+          // If no hint, use default avatar
+          if (!hint) { 
+            applyBackground(parent || el, '/assets/defaults/jugador1_avatar.jpg'); 
+            return; 
+          }
+          
           const lower = String(hint).toLowerCase().replace(/\s+/g,'');
           const variants = [ `${lower}_avatar.jpg`, `${String(hint)}_avatar.jpg`, `${String(hint).toUpperCase()}_avatar.jpg`, `${String(hint).charAt(0).toUpperCase()+String(hint).slice(1).toLowerCase()}_avatar.jpg` ];
+          
+          let avatarFound = false;
           for (const v of variants) {
             const found = byLower.get(v.toLowerCase());
-            if (found) { applyBackground(parent || el, '/assets/icons/' + found); return; }
+            if (found) { 
+              applyBackground(parent || el, '/assets/icons/' + found); 
+              avatarFound = true;
+              return; 
+            }
           }
+          
+          // If no specific avatar found, check for numbered player
           const numMatch = String(hint).match(/(\d+)/);
-          if (numMatch) { applyBackground(parent || el, `/assets/defaults/jugador${numMatch[1]}_avatar.jpg`); return; }
-          applyBackground(parent || el, `/assets/icons/${lower}_avatar.jpg`);
-        } catch(e){}
+          if (numMatch) { 
+            applyBackground(parent || el, `/assets/defaults/jugador${numMatch[1]}_avatar.jpg`); 
+            return; 
+          }
+          
+          // If still no avatar found, use default instead of falling back to name initials
+          if (!avatarFound) {
+            applyBackground(parent || el, '/assets/defaults/jugador1_avatar.jpg');
+          }
+        } catch(e){
+          // If anything fails, use default avatar
+          try { applyBackground(el.parentElement || el, '/assets/defaults/jugador1_avatar.jpg'); } catch(e2){}
+        }
       });
     }).catch(()=>{});
   })();
@@ -274,6 +298,7 @@
   <!-- Avatar upload preview script -->
   <script>
   document.addEventListener('DOMContentLoaded', function() {
+    // Handle custom avatar upload preview
     const avatarUpload = document.getElementById('avatar-upload');
     const avatarPreview = document.getElementById('custom-avatar-preview');
     
@@ -291,6 +316,94 @@
           avatarPreview.style.display = 'none';
         }
       });
+    }
+    
+    // Handle emoji avatar selection
+    const avatarOptions = document.querySelectorAll('.avatar-option');
+    let selectedAvatar = '🎯'; // Default to the initially selected one
+    
+    avatarOptions.forEach(option => {
+      option.addEventListener('click', function() {
+        // Remove selected class from all options
+        avatarOptions.forEach(opt => opt.classList.remove('selected'));
+        
+        // Add selected class to clicked option
+        this.classList.add('selected');
+        
+        // Store the selected avatar
+        selectedAvatar = this.dataset.avatar;
+        
+        // Clear custom avatar if emoji is selected
+        if (avatarPreview) {
+          avatarPreview.style.display = 'none';
+        }
+        
+        console.log('Selected avatar:', selectedAvatar);
+      });
+    });
+    
+    // Function to get the current selected avatar
+    window.getSelectedAvatar = function() {
+      // Check if custom avatar is uploaded
+      if (avatarPreview && avatarPreview.style.display === 'block' && avatarPreview.src) {
+        return avatarPreview.src; // Return the data URL of custom avatar
+      }
+      return selectedAvatar; // Return the selected emoji
+    };
+    
+    // Function to get player info for sign-in
+    window.getPlayerInfo = function() {
+      const nameInput = document.getElementById('name-input');
+      const roomInput = document.getElementById('room-input');
+      
+      return {
+        name: nameInput ? nameInput.value.trim() : '',
+        room: roomInput ? roomInput.value.trim() : '',
+        avatar: window.getSelectedAvatar()
+      };
+    };
+    
+    // Handle sign-in button click
+    const setNameBtn = document.getElementById('set-name-btn');
+    if (setNameBtn) {
+      setNameBtn.addEventListener('click', function() {
+        const playerInfo = window.getPlayerInfo();
+        
+        if (!playerInfo.name) {
+          alert('Please enter your name');
+          return;
+        }
+        
+        // Store avatar in localStorage for persistence
+        localStorage.setItem('selectedAvatar', playerInfo.avatar);
+        localStorage.setItem('playerName', playerInfo.name);
+        
+        console.log('Player signing in with:', playerInfo);
+        
+        // Here you would typically send this info to the server
+        // For now, we'll just hide the lobby and show the game
+        document.getElementById('lobby-container').style.display = 'none';
+        document.getElementById('game-ui').style.display = 'block';
+        
+        // Call any existing sign-in logic
+        if (typeof showGameUI === 'function') {
+          showGameUI();
+        }
+      });
+    }
+    
+    // Load saved avatar on page load
+    const savedAvatar = localStorage.getItem('selectedAvatar');
+    if (savedAvatar) {
+      // Find the avatar option that matches the saved avatar
+      const matchingOption = document.querySelector(`.avatar-option[data-avatar="${savedAvatar}"]`);
+      if (matchingOption) {
+        // Remove selected class from all options
+        document.querySelectorAll('.avatar-option').forEach(opt => opt.classList.remove('selected'));
+        // Add selected class to the saved option
+        matchingOption.classList.add('selected');
+        selectedAvatar = savedAvatar;
+      }
     }
   });
   </script>
