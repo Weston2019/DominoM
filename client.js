@@ -4055,19 +4055,18 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
                 };
                     imgElement.onerror = function() {
                     try { imgElement.style.display = 'none'; } catch (e) {};
-                    // fallback to inline default avatar (avoid external fetch)
+                    // fallback to default avatar image instead of inline SVG
                     try {
                         const parent = imgElement.parentElement;
-                        const inline = inlineDefaultAvatar(playerNumber);
                         if (parent) {
-                            parent.dataset.assignedSrc = inline || defaultAvatarSrc;
-                            parent.style.backgroundImage = `url(${inline || defaultAvatarSrc})`;
+                            parent.dataset.assignedSrc = defaultAvatarSrc;
+                            parent.style.backgroundImage = `url(${defaultAvatarSrc})`;
                             parent.style.backgroundSize = 'cover';
                             parent.style.backgroundPosition = 'center';
                         }
                     } catch (er) {}
                     // DON'T set window.avatarAssigned when avatar fails - let canvas draw initials instead
-                    console.warn('Avatar same-origin quick path failed, falling back to inline default');
+                    console.warn('Avatar same-origin quick path failed, falling back to default avatar');
                 };
                 try { imgElement.src = srcHint; } catch (e) {}
                 return;
@@ -4110,20 +4109,19 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
                 try { imgElement.src = srcHint; } catch (e) {}
             };
                 tester.onerror = () => {
-                // Use inline default avatar as fallback
+                // Use default avatar image as fallback
                 try { imgElement.style.display = 'none'; } catch (e) {}
                 try {
                     const parent = imgElement.parentElement;
-                    const inline = inlineDefaultAvatar(playerNumber);
                     if (parent) {
-                        parent.dataset.assignedSrc = inline || defaultAvatarSrc;
-                        parent.style.backgroundImage = `url(${inline || defaultAvatarSrc})`;
+                        parent.dataset.assignedSrc = defaultAvatarSrc;
+                        parent.style.backgroundImage = `url(${defaultAvatarSrc})`;
                         parent.style.backgroundSize = 'cover';
                         parent.style.backgroundPosition = 'center';
                     }
                 } catch (er) {}
                 // DON'T set window.avatarAssigned when avatar fails - let canvas draw initials instead
-                console.warn('Avatar srcHint failed to load, falling back to inline default');
+                console.warn('Avatar srcHint failed to load, falling back to default avatar');
             };
             tester.src = srcHint;
         })();
@@ -4217,24 +4215,23 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
 
     const tryLoadSequential = (list, idx = 0) => {
             if (idx >= list.length) {
-            // None found — use inline default to avoid external fetch
-            const inline = inlineDefaultAvatar(playerNumber);
-            imgElement.src = inline || defaultAvatarSrc;
+            // None found — use default avatar image
+            imgElement.src = defaultAvatarSrc;
             try { imgElement.style.display = 'none'; } catch (e) {}
-            try { imgElement.dataset.assignedSrc = inline || defaultAvatarSrc; } catch (e) {}
+            try { imgElement.dataset.assignedSrc = defaultAvatarSrc; } catch (e) {}
             try {
                 const parent = imgElement.parentElement;
                 if (parent) {
-                    parent.dataset.assignedSrc = inline || defaultAvatarSrc;
-                    parent.style.backgroundImage = `url(${inline || defaultAvatarSrc})`;
+                    parent.dataset.assignedSrc = defaultAvatarSrc;
+                    parent.style.backgroundImage = `url(${defaultAvatarSrc})`;
                     parent.style.backgroundSize = 'cover';
                     parent.style.backgroundPosition = 'center';
                 }
             } catch (e) {}
             try { if (!window.avatarAssigned) window.avatarAssigned = {}; } catch (e) {}
-            try { if (internalPlayerName) window.avatarAssigned[internalPlayerName] = inline || defaultAvatarSrc; } catch (e) {}
-            try { if (displayName) { window.avatarAssigned[displayName] = inline || defaultAvatarSrc; window.avatarAssigned[(displayName || '').toLowerCase()] = inline || defaultAvatarSrc; } } catch (e) {}
-            console.info('Assigned img.src (inline default after probing) =>', imgElement.src);
+            try { if (internalPlayerName) window.avatarAssigned[internalPlayerName] = defaultAvatarSrc; } catch (e) {}
+            try { if (displayName) { window.avatarAssigned[displayName] = defaultAvatarSrc; window.avatarAssigned[(displayName || '').toLowerCase()] = defaultAvatarSrc; } } catch (e) {}
+            console.info('Assigned img.src (default avatar after probing) =>', imgElement.src);
             return;
         }
         const testSrc = list[idx];
