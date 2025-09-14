@@ -1,5 +1,15 @@
 /* ================= GLOBAL MOBILE STYLES ================= */
 
+/* ===== PWA FONT FIX FOR iOS ===== */
+@supports (-webkit-touch-callout: none) {
+  /* iOS Safari and PWA mode */
+  .avatar-option {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif !important;
+    -webkit-font-smoothing: antialiased !important;
+    font-variant-ligatures: none !important;
+  }
+}
+
 /* ===== LANDSCAPE MODE PREFERENCE ===== */
 
 /* PORTRAIT MODE BLOCK MESSAGE - AFTER SIGN-IN - REMOVED */
@@ -210,8 +220,8 @@
     justify-content: center !important;
     cursor: pointer !important;
     border: 3px solid #555 !important;
-    background: rgba(255, 255, 255, 0.1) !important;
-    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", "EmojiOne Mozilla", "Twemoji Mozilla", "Segoe UI", sans-serif !important;
+    background: #f0f0f0 !important;  /* Reverted to solid background */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", "EmojiOne Mozilla", "Twemoji Mozilla", "Segoe UI", sans-serif !important;
     -webkit-user-select: none !important;
     user-select: none !important;
     transition: all 0.3s ease !important;
@@ -428,8 +438,8 @@
     align-items: center !important;
     justify-content: center !important;
     cursor: pointer !important;
-    background: rgba(255, 255, 255, 0.1) !important;
-    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", "EmojiOne Mozilla", "Twemoji Mozilla", "Segoe UI", sans-serif !important;
+    background: #f0f0f0 !important;  /* Reverted to solid background */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", "EmojiOne Mozilla", "Twemoji Mozilla", "Segoe UI", sans-serif !important;
     -webkit-user-select: none !important;
     user-select: none !important;
     transition: all 0.3s ease !important;
