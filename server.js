@@ -111,6 +111,9 @@ const io = socketIo(server, {
 
 app.use(express.static(__dirname));
 
+// Parse JSON bodies for POST requests
+app.use(express.json({ limit: '2mb' }));
+
 // Health check endpoint for Render
 app.get('/health', (req, res) => {
     res.status(200).json({
@@ -1499,7 +1502,7 @@ app.get('/test/default-avatar/:playerNumber', (req, res) => {
 });
 
 // Endpoint to submit suggestions
-app.post('/submit-suggestion', express.json({ limit: '1mb' }), (req, res) => {
+app.post('/submit-suggestion', (req, res) => {
     try {
         const { suggestion, timestamp, userAgent, language } = req.body;
         
@@ -1563,6 +1566,111 @@ app.post('/submit-suggestion', express.json({ limit: '1mb' }), (req, res) => {
         
     } catch (error) {
         console.error('Error saving suggestion:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Internal server error' 
+        });
+    }
+});
+
+// Endpoint to save uploaded avatars to persistent storage
+app.post('/save-avatar', (req, res) => {
+    try {
+        const { playerName, avatarData } = req.body;
+        
+        if (!playerName || !avatarData) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Missing playerName or avatarData' 
+            });
+        }
+        
+        // Validate playerName (should be alphanumeric, reasonable length)
+        if (!/^[A-Za-z0-9]+$/.test(playerName) || playerName.length > 50) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Invalid player name' 
+            });
+        }
+        
+        // Validate avatarData (should be base64 data URL)
+        if (!avatarData.startsWith('data:image/')) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Invalid avatar data format' 
+            });
+        }
+        
+        // Extract base64 data from data URL
+        const base64Data = avatarData.split(',')[1];
+        if (!base64Data) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Invalid base64 data' 
+            });
+        }
+        
+        // Convert base64 to buffer
+        const imageBuffer = Buffer.from(base64Data, 'base64');
+        
+        // Check file size (limit to 1MB)
+        if (imageBuffer.length > 1024 * 1024) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Avatar file too large (max 1MB)' 
+            });
+        }
+        
+        // Create filename
+        const filename = `${playerName.toUpperCase()}_AVATAR.JPG`;
+        
+        // Save avatar using existing server function
+        saveAvatar(filename, imageBuffer);
+        
+        console.log(`✅ [AVATAR-SAVE] Saved avatar for ${playerName}: ${filename}`);
+        
+        res.json({ 
+            success: true, 
+            message: 'Avatar saved successfully',
+            filename: filename
+        });
+        
+    } catch (error) {
+        console.error('❌ [AVATAR-SAVE] Error saving avatar:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Internal server error' 
+        });
+    }
+});
+
+// Debug endpoint to check avatar storage status
+app.get('/debug/avatars', (req, res) => {
+    try {
+        const avatarFiles = listAvatars();
+        const defaultFiles = [];
+        
+        // Check defaults directory
+        if (fs.existsSync(global.AVATAR_DEFAULTS_PATH)) {
+            defaultFiles.push(...fs.readdirSync(global.AVATAR_DEFAULTS_PATH));
+        }
+        
+        res.json({
+            success: true,
+            avatarFiles: avatarFiles,
+            defaultFiles: defaultFiles,
+            iconsDirExists: fs.existsSync(global.AVATAR_ICONS_PATH),
+            defaultsDirExists: fs.existsSync(global.AVATAR_DEFAULTS_PATH),
+            iconsPath: global.AVATAR_ICONS_PATH,
+            defaultsPath: global.AVATAR_DEFAULTS_PATH,
+            serverInfo: {
+                platform: process.platform,
+                nodeVersion: process.version,
+                workingDir: process.cwd()
+            }
+        });
+    } catch (error) {
+        console.error('❌ [DEBUG-AVATARS] Error:', error);
         res.status(500).json({ 
             success: false, 
             error: 'Internal server error' 
