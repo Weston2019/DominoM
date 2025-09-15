@@ -367,6 +367,14 @@
   pointer-events: auto !important;
 }
 
+/* Allow avatar options to receive clicks even when modal is open */
+.avatar-option,
+#avatar-selection,
+#avatar-grid,
+#custom-avatar-section {
+  pointer-events: auto !important;
+}
+
 /* Ensure stubborn container is hidden by default, overriding mobile-only display */
 #stubborn-container.mobile-only {
   display: none !important;

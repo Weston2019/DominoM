@@ -631,7 +631,19 @@ function showGameUI() {
 
 document.addEventListener('DOMContentLoaded', function() {
   // console.log('DOM loaded, setting up buttons...');
-  setupGameButtons();
+  if (typeof setupGameButtons === 'function') {
+    setupGameButtons();
+  } else {
+    console.log('setupGameButtons not yet available, waiting...');
+    // Retry after a short delay
+    setTimeout(() => {
+      if (typeof setupGameButtons === 'function') {
+        setupGameButtons();
+      } else {
+        console.error('setupGameButtons function not found');
+      }
+    }, 100);
+  }
 });
 </script>
 

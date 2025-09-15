@@ -122,7 +122,7 @@ app.get('/assets/icons/:filename', (req, res) => {
 
     if (avatarData) {
         res.set('Content-Type', 'image/jpeg');
-        res.set('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+        res.set('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes instead of 1 year
         return res.send(avatarData);
     }
 
@@ -237,6 +237,7 @@ function loadAvatarsIntoMemory() {
 
 // Save avatar to memory and try to write to disk
 function saveAvatar(filename, imageBuffer) {
+    // console.log(`🔧 [SERVER] saveAvatar called with: ${filename}`);
     // Normalize filename to uppercase for consistency
     const normalizedFilename = filename.toUpperCase();
     
@@ -244,7 +245,7 @@ function saveAvatar(filename, imageBuffer) {
         // Store in memory first (normalized)
         const base64Data = imageBuffer.toString('base64');
         global.AVATAR_STORAGE.set(normalizedFilename, base64Data);
-        console.log(`💾 [AVATAR-STORAGE] Saved ${normalizedFilename} to memory storage`);
+        // console.log(`💾 [AVATAR-STORAGE] Saved ${normalizedFilename} to memory storage`);
     }
     
     // Also try to save to disk (will be lost on deployment but that's ok)
@@ -255,14 +256,14 @@ function saveAvatar(filename, imageBuffer) {
     if (fs.existsSync(oldLowercasePath) && oldLowercasePath !== filepath) {
         try {
             fs.unlinkSync(oldLowercasePath);
-            console.log(`🗑️ [AVATAR-STORAGE] Removed old duplicate: ${filename.toLowerCase()}`);
+            // console.log(`🗑️ [AVATAR-STORAGE] Removed old duplicate: ${filename.toLowerCase()}`);
         } catch (error) {
             console.warn(`⚠️ [AVATAR-STORAGE] Could not remove old file: ${error.message}`);
         }
     }
     
     fs.writeFileSync(filepath, imageBuffer);
-    console.log(`💾 [AVATAR-STORAGE] Saved ${normalizedFilename} to disk`);
+    // console.log(`💾 [AVATAR-STORAGE] Saved ${normalizedFilename} to disk`);
 }
 
 // Get avatar from memory or disk
@@ -1389,6 +1390,7 @@ socket.on('voiceMessage', async (data) => {
 // Add endpoint to save custom avatars as files
 app.post('/save-avatar', express.json({ limit: '1mb' }), (req, res) => {
     const { playerName, avatarData } = req.body;
+    // console.log(`📥 [SERVER] Received save-avatar request for: ${playerName}`);
     
     if (!playerName || !avatarData) {
         return res.status(400).json({ error: 'Missing playerName or avatarData' });
@@ -1412,15 +1414,16 @@ app.post('/save-avatar', express.json({ limit: '1mb' }), (req, res) => {
     
     // Create the filename using uppercase for consistency (matches dynamic generation)
     const filename = `${playerName.toUpperCase()}_AVATAR.JPG`;
+    // console.log(`💾 [SERVER] Saving avatar as: ${filename}`);
     
     try {
         // Save using the new storage system
         saveAvatar(filename, imageBuffer);
         
-        console.log(`✅ Avatar saved to memory storage: ${filename}`);
+        // console.log(`✅ [SERVER] Avatar saved successfully: ${filename}`);
         res.json({ success: true, filename: filename });
     } catch (error) {
-        console.error('Error saving avatar:', error);
+        console.error('❌ [SERVER] Error saving avatar:', error);
         res.status(500).json({ error: 'Failed to save avatar' });
     }
 });

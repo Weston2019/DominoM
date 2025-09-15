@@ -535,7 +535,373 @@ let mediaRecorder;
 let audioChunks = [];
 let isRecording = false;
 
+function setupGameButtons() {
+    // console.log('Setting up game buttons...');
+    
+    // Rules modal functionality
+    function showRules(e) {
+        if (e) e.preventDefault();
+        // console.log('Showing rules modal...');
+        const rulesModal = document.getElementById('rules-modal');
+        const rulesContent = document.getElementById('rules-modal-content');
+        
+        if (rulesModal && rulesContent) {
+            // console.log('Found rules modal elements');
+            rulesModal.style.cssText = `
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                z-index: 99999 !important;
+                position: fixed !important;
+                top: 50% !important;
+                left: 50% !important;
+                transform: translate(-50%, -50%) !important;
+                background: white !important;
+                padding: 20px !important;
+                border-radius: 8px !important;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.3) !important;
+            `;
+            rulesContent.style.cssText = `
+                max-width: 500px !important;
+                width: 90vw !important;
+                max-height: 80vh !important;
+                overflow-y: auto !important;
+            `;
+            document.body.style.overflow = 'hidden';
+        } else {
+            console.error('Rules modal elements not found:', {
+                modal: !!rulesModal,
+                content: !!rulesContent
+            });
+        }
+    }
+
+    function hideRules(e) {
+        if (e) e.preventDefault();
+        // console.log('Hiding rules modal...');
+        const rulesModal = document.getElementById('rules-modal');
+        if (rulesModal) {
+            rulesModal.style.cssText = `
+                display: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+            `;
+            document.body.style.overflow = 'auto';
+        }
+    }
+
+    // Find all the rules-related elements
+    const elements = {
+        showRulesBtn: document.getElementById('show-rules-btn'),
+        showRulesBtnMobile: document.getElementById('show-rules-btn-mobile'),
+        scrollRulesBtn: document.getElementById('scroll-rules-btn'),
+        closeRulesBtn: document.getElementById('close-rules-btn'),
+        rulesModal: document.getElementById('rules-modal')
+    };
+
+    // console.log('Rules elements found:', {
+    //   showRulesBtn: !!elements.showRulesBtn,
+    //    showRulesBtnMobile: !!elements.showRulesBtnMobile,
+    //   scrollRulesBtn: !!elements.scrollRulesBtn,
+    //   closeRulesBtn: !!elements.closeRulesBtn,
+    //   rulesModal: !!elements.rulesModal
+    //});
+
+    // Remove any existing event listeners first
+    const removeOldListeners = (element, handler) => {
+        if (element) {
+            element.removeEventListener('click', handler);
+            element.removeEventListener('touchend', handler);
+        }
+    };
+
+    // Add click handlers to all rules buttons
+    [elements.showRulesBtn, elements.showRulesBtnMobile, elements.scrollRulesBtn].forEach(button => {
+        if (button) {
+            // console.log('Setting up rules button:', button.id);
+            removeOldListeners(button, showRules);
+            
+            button.addEventListener('click', showRules);
+            button.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                showRules(e);
+            });
+            
+            // Make sure button is visible and clickable
+            button.style.cssText = `
+                display: inline-block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
+                cursor: pointer !important;
+            `;
+        }
+    });
+
+    // Setup close rules button
+    if (elements.closeRulesBtn) {
+        // console.log('Setting up close button');
+        removeOldListeners(elements.closeRulesBtn, hideRules);
+        
+        elements.closeRulesBtn.addEventListener('click', hideRules);
+        elements.closeRulesBtn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                hideRules(e);
+            });
+    }
+
+    // Close on click outside modal
+    if (elements.rulesModal) {
+        // console.log('Setting up modal click-outside handler');
+        removeOldListeners(elements.rulesModal, (e) => e.target === elements.rulesModal && hideRules(e));
+        
+        elements.rulesModal.addEventListener('click', (e) => {
+            if (e.target === elements.rulesModal) {
+                hideRules(e);
+            }
+        });
+    }
+
+    // Setup restart functionality
+    function handleRestart(e) {
+        if (e) e.preventDefault();
+        // console.log('Restart button clicked');
+        
+        // Make sure we have a socket connection
+        if (!socket || !socket.connected) {
+            console.error('No socket connection available for restart');
+            showMessage('Error: No hay conexión con el servidor. Por favor, recarga la página.');
+            return;
+        }
+        
+        if (confirm('¿Estás seguro de que quieres reiniciar el juego completamente? Esto borrará todos los puntajes y estadísticas.')) {
+            try {
+                // console.log('Emitting restartGame event');
+                socket.emit('restartGame');
+                
+                // Clear all points data immediately
+                clearAllPointsData();
+                
+                // Update UI to show restart is in progress
+                showMessage('Reiniciando el juego...');
+                
+                // Force refresh game state
+                myPlayerHand = [];
+                selectedTileIndex = null;
+                messageDisplay = { text: '', time: 0 };
+                
+                // Update UI immediately
+                if (typeof updateUI === 'function') {
+                    updateUI();
+                }
+            } catch (error) {
+                console.error('Error during game restart:', error);
+                showMessage('Error al reiniciar el juego. Por favor, intenta de nuevo.');
+            }
+        }
+    }
+
+    // Setup restart buttons
+    const restartButtons = {
+        desktop: document.getElementById('restart-game-btn-desktop'),
+        mobile: document.getElementById('restart-game-btn-mobile')
+    };
+
+    // console.log('Restart buttons found:', {
+    //    desktop: !!restartButtons.desktop,
+    //    mobile: !!restartButtons.mobile
+    // //});
+
+    Object.values(restartButtons).forEach(button => {
+        if (button) {
+            // console.log('Setting up restart button:', button.id);
+            
+            // Remove any existing listeners
+            button.removeEventListener('click', handleRestart);
+            button.removeEventListener('touchend', handleRestart);
+            
+            // Add both click and touch handlers
+            button.addEventListener('click', handleRestart);
+            button.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                handleRestart(e);
+            });
+            
+            // Make sure button is visible and clickable
+            button.style.cssText = `
+                display: inline-block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
+                cursor: pointer !important;
+                z-index: 1000 !important;
+                background-color: #ff0000 !important;
+                color: white !important;
+                border: none !important;
+                padding: 8px 16px !important;
+                border-radius: 4px !important;
+                font-weight: bold !important;
+            `;
+        }
+    });
+
+    // Setup leave game buttons - simplified approach
+    // console.log('🚪 Leave Game function setup complete - using direct onclick handlers in HTML');
+
+    // Setup game control buttons
+    const gameButtons = {
+        'playLeftBtn': () => handlePlay('left'),
+        'playRightBtn': () => handlePlay('right'),
+        'passBtn': () => {
+            if (clientHasValidMove()) {
+                showMessage(window.lang.t('has_valid_move'));
+            } else {
+                socket.emit('passTurn');
+            }
+        },
+        'newRoundBtn': () => socket.emit('playerReadyForNewRound')
+    };
+
+    Object.entries(gameButtons).forEach(([id, handler]) => {
+        const button = document.getElementById(id);
+        if (button) {
+            // console.log('Adding click handler to game button:', id);
+            button.addEventListener('click', handler);
+        }
+    });
+
+    // Setup chat form
+    const chatForm = document.getElementById('chat-input-form');
+    const chatInput = document.getElementById('chat-input');
+    if (chatForm && chatInput) {
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const msg = chatInput.value.trim();
+            if (msg && socket) {
+                socket.emit('chatMessage', msg);
+                chatInput.value = '';
+            }
+        });
+    }
+
+    // Enable audio auto-play on first user interaction
+    document.addEventListener('click', enableAudioAutoPlay, { once: true });
+    document.addEventListener('touchstart', enableAudioAutoPlay, { once: true });
+    
+    // Setup voice chat button (Push to Talk)
+    const voiceChatBtn = document.getElementById('voice-chat-btn');
+    if (voiceChatBtn) {
+        // console.log('Setting up voice chat button');
+        
+        // Check microphone permissions on first interaction
+        let permissionChecked = false;
+        
+        const handleVoiceStart = async (e) => {
+            e.preventDefault();
+            
+            // Check permissions first time
+            if (!permissionChecked) {
+                permissionChecked = true;
+                const hasPermission = await checkMicrophonePermissions();
+                if (!hasPermission) {
+                    const isSecureContext = window.location.protocol === 'https:' || 
+                                           window.location.hostname === 'localhost' || 
+                                           window.location.hostname === '127.0.0.1' ||
+                                           window.location.hostname.startsWith('192.168.') ||
+                                           window.location.hostname.startsWith('10.') ||
+                                           window.location.hostname.startsWith('172.') ||
+                                           window.location.hostname === '0.0.0.0';
+                    
+                    if (!isSecureContext) {
+                        alert('🔒 Voice chat requires HTTPS. Please use the live site for microphone access.');
+                    } else {
+                        alert('🎤 Microphone access denied. Please allow microphone permissions in your browser and try again.');
+                    }
+                    return;
+                }
+            }
+            
+            startVoiceRecording();
+        };
+        
+        const handleVoiceStop = (e) => {
+            e.preventDefault();
+            stopVoiceRecording();
+        };
+        
+        // Mouse events
+        voiceChatBtn.addEventListener('mousedown', handleVoiceStart);
+        voiceChatBtn.addEventListener('mouseup', handleVoiceStop);
+        voiceChatBtn.addEventListener('mouseleave', handleVoiceStop);
+        
+        // Touch events for mobile
+        voiceChatBtn.addEventListener('touchstart', handleVoiceStart);
+        voiceChatBtn.addEventListener('touchend', handleVoiceStop);
+        
+        // Visual indicator for microphone availability
+        checkMicrophonePermissions().then(hasPermission => {
+            if (!hasPermission) {
+                const isSecureContext = window.location.protocol === 'https:' || 
+                                       window.location.hostname === 'localhost' || 
+                                       window.location.hostname === '127.0.0.1' ||
+                                       window.location.hostname.startsWith('192.168.') ||
+                                       window.location.hostname.startsWith('10.') ||
+                                       window.location.hostname.startsWith('172.') ||
+                                       window.location.hostname === '0.0.0.0' ||
+                                       window.location.port !== ''; // Development server with port
+                
+                if (!isSecureContext) {
+                    voiceChatBtn.style.opacity = '0.5';
+                    voiceChatBtn.title = 'Voice chat requires HTTPS - use live site';
+                } else {
+                    voiceChatBtn.style.opacity = '0.7';
+                    voiceChatBtn.title = 'Click to request microphone permission';
+                }
+            } else {
+                voiceChatBtn.style.opacity = '1';
+                voiceChatBtn.title = 'Hold to record voice message';
+            }
+        });
+    }
+} // End of setupGameButtons function
+
+function drawHand() {
+    if (!myPlayerHand) return;
+// player hand for mobile   
+   let tileWidth, tileHeight, gap;
+if (window.innerWidth < 900) {
+    tileWidth = 35; // or your preferred size
+    tileHeight = 70;
+    gap = 6;
+} else {
+    tileWidth = 50;
+    tileHeight = 100;
+    gap = 10;
+}
+    const handWidth = myPlayerHand.length > 0 ? myPlayerHand.length * (tileWidth + gap) - gap : 0;
+    let handStartY = height - tileHeight - 20;
+    // For mobile, move hand just above UI bottom
+    if (window.innerWidth < 900) {
+        // 10px above bottom edge
+        handStartY = window.innerHeight - tileHeight - 10;
+    }
+    let handStartX = (width - handWidth) / 2;
+    // Move hand 2 tiles to the right on mobile
+    if (window.innerWidth < 900) {
+        handStartX += 2 * (tileWidth + gap);
+    }
+    myPlayerHand.forEach((tile, i) => {
+        drawSingleDomino(tile, handStartX + i * (tileWidth + gap), handStartY, tileWidth, tileHeight, i === selectedTileIndex, false);
+    });
+}
+
+// This function has been moved to the top of the file to fix loading order issues
+
+// Make sure it's globally accessible
+window.handleLeaveGame = handleLeaveGame;
+
 // FUNCTION DECLARATIONS
+// =============================================================================
 function fetchAndShowRooms() {
     fetch('/active-rooms')
         .then(res => res.json())
@@ -1577,12 +1943,24 @@ function draw() {
     try {
         background(0, 100, 0);
         // (Removed points-objective update here; now handled by updateRoomInfo for compact legend)
-        updateUI();
-        updatePlayersUI();
-        updateTeamInfo();
-        updateRoomInfo();
-        updateScoreboard();
-        updateMatchesWon();
+        if (typeof updateUI === 'function') {
+            updateUI();
+        }
+        if (typeof updatePlayersUI === 'function') {
+            updatePlayersUI();
+        }
+        if (typeof updateTeamInfo === 'function') {
+            updateTeamInfo();
+        }
+        if (typeof updateRoomInfo === 'function') {
+            updateRoomInfo();
+        }
+        if (typeof updateScoreboard === 'function') {
+            updateScoreboard();
+        }
+        if (typeof updateMatchesWon === 'function') {
+            updateMatchesWon();
+        }
         
         // Ensure points table exists during active gameplay
         if (!document.getElementById('points-table-container') && typeof gameState !== 'undefined' && gameState.jugadoresInfo && gameState.jugadoresInfo.length > 0) {
@@ -1695,6 +2073,7 @@ function setupLobby() {
     
     // Load saved avatar from localStorage (but NOT the name - keep it empty)
     const savedAvatar = localStorage.getItem('domino_player_avatar');
+    const savedCustomAvatar = localStorage.getItem('domino_custom_avatar');
     
     let selectedAvatar = null; // No default avatar - let system fall back to defaults
     let customAvatarData = null;
@@ -1709,16 +2088,26 @@ function setupLobby() {
     avatarOptions.forEach(opt => opt.classList.remove('selected'));
     customAvatarPreview.style.display = 'none';
     
-    // PRIORITY 1: Check if user has an avatar file with their name first
+    // PRIORITY 0: Check for saved custom avatar (persistent across username changes)
+    if (savedCustomAvatar) {
+        customAvatarData = savedCustomAvatar;
+        selectedAvatar = null;
+        // Show preview
+        customAvatarPreview.innerHTML = `<img src="${customAvatarData}" alt="Custom Avatar">`;
+        customAvatarPreview.style.display = 'block';
+        console.log('🎯 Loaded persistent custom avatar from localStorage');
+    }
+    
+    // PRIORITY 1: Check if user has an avatar file with their name first (skip if we have persistent custom avatar)
     const currentName = nameInput.value.trim();
-    if (currentName) {
+    if (currentName && !savedCustomAvatar) {
         // Try to find avatar file for this user
         const testImg = new Image();
         const avatarPaths = [
-            `/assets/icons/${currentName.toUpperCase()}_avatar.jpg`,
-            `/assets/icons/${currentName.toUpperCase()}.jpg`,
-            `/assets/icons/${currentName}_avatar.jpg`,
-            `/assets/icons/${currentName}.jpg`
+            `/assets/icons/${currentName.toUpperCase()}_avatar.jpg?v=${Date.now()}`,
+            `/assets/icons/${currentName.toUpperCase()}.jpg?v=${Date.now()}`,
+            `/assets/icons/${currentName}_avatar.jpg?v=${Date.now()}`,
+            `/assets/icons/${currentName}.jpg?v=${Date.now()}`
         ];
         
         const tryLoadExisting = (paths, index = 0) => {
@@ -1768,8 +2157,6 @@ function setupLobby() {
         } else {
             useDefaultAvatar();
         }
-        
-        testImg.src = avatarFilePath;
     } else {
         // No name entered yet, use localStorage or default
         if (savedAvatar) {
@@ -1822,7 +2209,7 @@ function setupLobby() {
     // Handle avatar selection from grid
     avatarOptions.forEach(option => {
         option.addEventListener('click', () => {
-            // console.log('Avatar option clicked:', option.dataset.avatar);
+            console.log('🎯 Emoji clicked:', option.dataset.avatar);
             // Remove selected class from all options
             avatarOptions.forEach(opt => opt.classList.remove('selected'));
             // Add selected class to clicked option
@@ -1831,14 +2218,16 @@ function setupLobby() {
             selectedAvatar = option.dataset.avatar;
             customAvatarData = null; // Clear custom avatar if emoji selected
             customAvatarPreview.style.display = 'none';
-            // console.log('✅ Avatar updated to:', selectedAvatar);
+            console.log('✅ Selected emoji set to:', selectedAvatar);
+            
+            // Clear persistent custom avatar when emoji is selected
+            localStorage.removeItem('domino_custom_avatar');
             
             // Save to localStorage
             localStorage.setItem('domino_player_avatar', JSON.stringify({
                 type: 'emoji',
                 data: selectedAvatar
             }));
-            // console.log('✅ Avatar saved to localStorage');
         });
     });
     
@@ -1888,6 +2277,9 @@ function setupLobby() {
                     customAvatarData = canvas.toDataURL('image/jpeg', 0.7);
                     selectedAvatar = null; // Clear emoji selection
                     
+                    // Clear any persistent custom avatar when uploading new one
+                    localStorage.removeItem('domino_custom_avatar');
+                    
                     // Remove selected class from all emoji options
                     avatarOptions.forEach(opt => opt.classList.remove('selected'));
                     
@@ -1896,7 +2288,8 @@ function setupLobby() {
                     customAvatarPreview.style.display = 'block';
                     // console.log('Custom avatar uploaded and compressed');
                     
-                    // Save to localStorage
+                    // Save to localStorage with persistent key for custom avatars
+                    localStorage.setItem('domino_custom_avatar', customAvatarData);
                     localStorage.setItem('domino_player_avatar', JSON.stringify({
                         type: 'custom',
                         data: customAvatarData
@@ -1905,12 +2298,15 @@ function setupLobby() {
                     // NEW: Save as file for permanent storage (with debouncing)
                     const currentPlayerName = nameInput.value.trim();
                     if (currentPlayerName && currentPlayerName.length >= 2) {
+                        // console.log(`📤 [CLIENT] Upload save triggered for: ${currentPlayerName}`);
                         // Use debouncing to avoid immediate save followed by auto-save
                         if (saveTimeout) clearTimeout(saveTimeout);
                         saveTimeout = setTimeout(() => {
+                            // console.log(`⏰ [CLIENT] Upload save timeout fired for: ${currentPlayerName}`);
                             saveAvatarAsFile(currentPlayerName, customAvatarData);
                         }, 1000);
                     } else {
+                        // console.log(`⚠️ [CLIENT] Upload save skipped - name too short: "${currentPlayerName}"`);
                         // Show message to encourage entering name for permanent save
                         const statusDiv = document.getElementById('profile-status');
                         if (statusDiv) {
@@ -1958,6 +2354,7 @@ function setupLobby() {
             const doConnectWith = (avatarData) => {
                 if (__submitConnected) return;
                 __submitConnected = true;
+                console.log('🚀 Connecting to server with avatar data:', avatarData);
                 connectToServer(name, avatarData, roomId, targetScore);
             };
             
@@ -1968,8 +2365,12 @@ function setupLobby() {
                     let avatarData = null;
                     if (customAvatarData) {
                         avatarData = { type: 'custom', data: customAvatarData };
+                        // console.log('📤 PRIORITY 2: Using custom avatar:', avatarData);
                     } else if (selectedAvatar) {
                         avatarData = { type: 'emoji', data: selectedAvatar };
+                        // console.log('📤 PRIORITY 2: Using selected emoji:', avatarData);
+                    } else {
+                        // console.log('📤 PRIORITY 2: Using default avatar (no custom/emoji selected)');
                     }
                     // console.log('PRIORITY 2: Using avatar data:', avatarData);
                     doConnectWith(avatarData);
@@ -1978,7 +2379,8 @@ function setupLobby() {
                 
                 const currentPath = paths[index];
                 testImg.onload = function() {
-                    // console.log('🎯 PRIORITY 1: Found avatar file for', name, 'at', currentPath);
+                    // PRIORITY 1: Always prefer saved avatar files over emoji selections
+                    console.log('🎯 PRIORITY 1: Found avatar file for', name, 'at', currentPath);
                     // Send the detected avatar file path so other clients can use the exact file
                     doConnectWith({ type: 'file', data: currentPath });
                 };
@@ -1990,27 +2392,41 @@ function setupLobby() {
             
             // Try multiple patterns for backward compatibility
             const avatarPaths = [
-                `/assets/icons/${name.toUpperCase()}_avatar.jpg`,
-                `/assets/icons/${name.toUpperCase()}.jpg`,
-                `/assets/icons/${name}_avatar.jpg`,
-                `/assets/icons/${name}.jpg`
+                `/assets/icons/${name.toUpperCase()}_avatar.jpg?v=${Date.now()}`,
+                `/assets/icons/${name.toUpperCase()}.jpg?v=${Date.now()}`,
+                `/assets/icons/${name}_avatar.jpg?v=${Date.now()}`,
+                `/assets/icons/${name}.jpg?v=${Date.now()}`
             ];
             
             tryLoadAvatar(avatarPaths);
 
-            // If neither onload nor onerror fire (some mobile browsers block or delay), ensure we still connect
             setTimeout(() => {
                 if (!__submitConnected) {
                     let avatarData = null;
-                    if (customAvatarData) {
-                        avatarData = { type: 'custom', data: customAvatarData };
-                    } else if (selectedAvatar) {
-                        avatarData = { type: 'emoji', data: selectedAvatar };
+                    // PRIORITY 2: Use persistent custom avatar if available
+                    const persistentCustomAvatar = localStorage.getItem('domino_custom_avatar');
+                    if (persistentCustomAvatar) {
+                        avatarData = { type: 'custom', data: persistentCustomAvatar };
+                        console.log('📤 PRIORITY 2: Using persistent custom avatar:', avatarData);
                     }
-                    // console.log('⏱️ Fallback connect after timeout using', avatarData);
+                    // PRIORITY 3: Use custom uploaded avatar if available
+                    else if (customAvatarData) {
+                        avatarData = { type: 'custom', data: customAvatarData };
+                        console.log('📤 PRIORITY 3: Using custom avatar:', avatarData);
+                    }
+                    // PRIORITY 4: Use explicitly selected emoji only if no saved files exist
+                    else if (selectedAvatar && selectedAvatar !== '👤') {
+                        avatarData = { type: 'emoji', data: selectedAvatar };
+                        console.log('📤 PRIORITY 4: Using selected emoji (no saved files found):', avatarData);
+                    }
+                    // PRIORITY 5: Default avatar
+                    else {
+                        console.log('📤 PRIORITY 5: Using default avatar');
+                        avatarData = null; // Default avatar
+                    }
                     doConnectWith(avatarData);
                 }
-            }, 500);
+            }, 1000); // Increased timeout to give tryLoadAvatar more time
         }
     };
     
@@ -2078,6 +2494,7 @@ function setupLobby() {
     
     // Function to save avatar as permanent file
     function saveAvatarAsFile(playerName, avatarData) {
+        // console.log(`💾 [CLIENT] Attempting to save avatar for: ${playerName}`);
         // Normalize to uppercase for consistency with server-side generation
         const normalizedName = playerName.toUpperCase();
         fetch('/save-avatar', {
@@ -2093,6 +2510,7 @@ function setupLobby() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                // console.log(`✅ [CLIENT] Avatar saved successfully: ${data.filename}`);
                 // Show success message to user
                 const statusDiv = document.getElementById('profile-status');
                 if (statusDiv) {
@@ -2119,11 +2537,11 @@ function setupLobby() {
                 // Force the client to reprobe avatars so the newly-saved file is picked up
                 try { if (typeof window.forceReprobeAvatars === 'function') window.forceReprobeAvatars(); } catch (e) {}
             } else {
-                console.error('❌ Failed to save avatar file:', data.error);
+                console.error('❌ [CLIENT] Failed to save avatar file:', data.error);
             }
         })
         .catch(error => {
-            console.error('❌ Error saving avatar file:', error);
+            console.error('❌ [CLIENT] Error saving avatar file:', error);
         });
     }
     
@@ -2139,18 +2557,26 @@ function setupLobby() {
     nameInput.addEventListener('input', () => {
         const currentName = nameInput.value.trim();
         if (currentName.length >= 2 && customAvatarData) {
+            // console.log(`⌨️ [CLIENT] Auto-save triggered for: ${currentName}`);
             // Clear previous timeout
             if (saveTimeout) clearTimeout(saveTimeout);
             // Set new timeout to save after user stops typing for 1 second
             saveTimeout = setTimeout(() => {
+                // console.log(`⏰ [CLIENT] Auto-save timeout fired for: ${currentName}`);
                 saveAvatarAsFile(currentName, customAvatarData);
             }, 1000);
         }
     });
-}
-/**
- * Sets up the suggestion box functionality in the lobby.
- */
+// Debug function to clear all avatar data (for testing)
+window.clearAllAvatarData = function() {
+    localStorage.removeItem('domino_player_avatar');
+    localStorage.removeItem('domino_custom_avatar');
+    selectedAvatar = null;
+    customAvatarData = null;
+    avatarOptions.forEach(opt => opt.classList.remove('selected'));
+    customAvatarPreview.style.display = 'none';
+    console.log('🗑️ Cleared all avatar data');
+};
 function setupSuggestionBox() {
     const toggleBtn = document.getElementById('toggle-suggestion-btn');
     const suggestionBox = document.getElementById('suggestion-box');
@@ -3476,7 +3902,11 @@ function showSystemMessage(message, type = 'info') {
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
-function setupGameButtons() {
+// This function has been moved to the top of the file to fix loading order issues
+
+/**
+ * Calculate where a tile would be placed on the board for left or right position
+ */
     // console.log('Setting up game buttons...');
     
     // Rules modal functionality
@@ -3632,7 +4062,9 @@ function setupGameButtons() {
                 messageDisplay = { text: '', time: 0 };
                 
                 // Update UI immediately
-                updateUI();
+                if (typeof updateUI === 'function') {
+                    updateUI();
+                }
             } catch (error) {
                 console.error('Error during game restart:', error);
                 showMessage('Error al reiniciar el juego. Por favor, intenta de nuevo.');
@@ -4023,6 +4455,41 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
     const srcHintToUse = srcHintRaw || srcHintFromSrc;
     
     if (srcHintToUse && typeof srcHintToUse === 'string') {
+        // Check if this is an emoji character (should be displayed as text, not loaded as image)
+        const isEmoji = /^[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]+$/u.test(srcHintToUse);
+
+        if (isEmoji) {
+            // Handle emoji avatars by displaying them as text instead of images
+            try {
+                const parent = imgElement.parentElement;
+                if (parent) {
+                    // Clear any existing image
+                    imgElement.style.display = 'none';
+                    // Display emoji as text in the parent element
+                    parent.textContent = srcHintToUse;
+                    parent.style.fontSize = '28px';
+                    parent.style.fontFamily = '"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", "EmojiOne Mozilla", "Twemoji Mozilla", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                    parent.style.color = '';
+                    parent.style.display = 'flex';
+                    parent.style.alignItems = 'center';
+                    parent.style.justifyContent = 'center';
+                    parent.style.backgroundImage = 'none';
+                    parent.dataset.assignedSrc = 'emoji:' + srcHintToUse;
+
+                    // Update avatar assignment tracking
+                    if (!window.avatarAssigned) window.avatarAssigned = {};
+                    if (internalPlayerName) window.avatarAssigned[internalPlayerName] = 'emoji:' + srcHintToUse;
+                    if (displayName) {
+                        window.avatarAssigned[displayName] = 'emoji:' + srcHintToUse;
+                        window.avatarAssigned[(displayName || '').toLowerCase()] = 'emoji:' + srcHintToUse;
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to display emoji avatar:', e);
+            }
+            return;
+        }
+
         // If the server sent just a filename (e.g. 'ok_avatar.jpg'), convert to assets path
         let srcHint = srcHintToUse;
         if (!srcHint.startsWith('data:') && srcHint.indexOf('/') === -1) {
@@ -5289,36 +5756,6 @@ function shouldDrawCanvasInitials(playerName) {
     } catch (e) { return true; }
 }
 
-
-function drawHand() {
-    if (!myPlayerHand) return;
-// player hand for mobile   
-   let tileWidth, tileHeight, gap;
-if (window.innerWidth < 900) {
-    tileWidth = 35; // or your preferred size
-    tileHeight = 70;
-    gap = 6;
-} else {
-    tileWidth = 50;
-    tileHeight = 100;
-    gap = 10;
-}
-    const handWidth = myPlayerHand.length > 0 ? myPlayerHand.length * (tileWidth + gap) - gap : 0;
-    let handStartY = height - tileHeight - 20;
-    // For mobile, move hand just above UI bottom
-    if (window.innerWidth < 900) {
-        // 10px above bottom edge
-        handStartY = window.innerHeight - tileHeight - 10;
-    }
-    let handStartX = (width - handWidth) / 2;
-    // Move hand 2 tiles to the right on mobile
-    if (window.innerWidth < 900) {
-        handStartX += 2 * (tileWidth + gap);
-    }
-    myPlayerHand.forEach((tile, i) => {
-        drawSingleDomino(tile, handStartX + i * (tileWidth + gap), handStartY, tileWidth, tileHeight, i === selectedTileIndex, false);
-    });
-}
 
 function drawPips(pips, x, y, w, h, isHorizontal = false) {
     const patterns = {
@@ -6838,7 +7275,11 @@ document.addEventListener('DOMContentLoaded', function() {
     if (desktopBtn) {
         desktopBtn.addEventListener('click', function(event) {
             // console.log('🚪 Desktop Leave Game button clicked via event listener');
-            handleLeaveGame(event);
+            if (typeof handleLeaveGame === 'function') {
+                handleLeaveGame(event);
+            } else {
+                console.error('handleLeaveGame function not available');
+            }
         });
         // console.log('🚪 Desktop Leave Game button event listener added');
     } else {
@@ -6850,15 +7291,14 @@ document.addEventListener('DOMContentLoaded', function() {
     if (mobileBtn) {
         mobileBtn.addEventListener('click', function(event) {
             // console.log('🚪 Mobile Leave Game button clicked via event listener');
-            handleLeaveGame(event);
+            if (typeof handleLeaveGame === 'function') {
+                handleLeaveGame(event);
+            } else {
+                console.error('handleLeaveGame function not available');
+            }
         });
         // console.log('🚪 Mobile Leave Game button event listener added');
     } else {
         // console.log('🚪 Mobile Leave Game button not found');
     }
 });
-
-
-
-
-
