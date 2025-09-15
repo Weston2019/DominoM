@@ -1818,8 +1818,14 @@ function preload() {
  * (p5.js function) Automatically called when the browser window is resized.
  */
 function windowResized() {
-    resizeCanvas(windowWidth, windowHeight);
-    //  repositionUIElements(); // Custom function to adjust layout
+    // Delay resize to ensure window dimensions are stable
+    setTimeout(() => {
+        resizeCanvas(windowWidth, windowHeight);
+        // Force redraw of hand tiles to ensure proper positioning on mobile
+        if (myPlayerHand && myPlayerHand.length > 0) {
+            redraw();
+        }
+    }, 50);
 }
 
 /**
@@ -1882,6 +1888,18 @@ function setup() {
     
     setupLobby();
     setupButtonListeners();
+    
+    // Add orientation change listener for mobile devices (especially iPhone)
+    window.addEventListener('orientationchange', () => {
+        // Delay to ensure window dimensions are updated after orientation change
+        setTimeout(() => {
+            resizeCanvas(windowWidth, windowHeight);
+            // Force redraw of hand tiles to ensure proper positioning
+            if (myPlayerHand && myPlayerHand.length > 0) {
+                redraw();
+            }
+        }, 100);
+    });
 }
 
 function setupAudio() {
