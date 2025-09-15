@@ -255,7 +255,7 @@ function loadAvatarsIntoMemory() {
 
 // Save avatar to memory and try to write to disk
 function saveAvatar(filename, imageBuffer) {
-    // console.log(`🔧 [SERVER] saveAvatar called with: ${filename}`);
+    console.log(`🔧 [SERVER] saveAvatar called with: ${filename}`);
     // Normalize filename to uppercase for consistency
     const normalizedFilename = filename.toUpperCase();
     
@@ -263,25 +263,30 @@ function saveAvatar(filename, imageBuffer) {
         // Store in memory first (normalized)
         const base64Data = imageBuffer.toString('base64');
         global.AVATAR_STORAGE.set(normalizedFilename, base64Data);
-        // console.log(`💾 [AVATAR-STORAGE] Saved ${normalizedFilename} to memory storage`);
+        console.log(`💾 [AVATAR-STORAGE] Saved ${normalizedFilename} to memory storage`);
     }
     
     // Also try to save to disk (will be lost on deployment but that's ok)
     const filepath = path.join(global.AVATAR_ICONS_PATH, normalizedFilename);
+    console.log(`💾 [AVATAR-STORAGE] Attempting to save to: ${filepath}`);
     
     // Remove any old lowercase versions to prevent duplicates
     const oldLowercasePath = path.join(global.AVATAR_ICONS_PATH, filename.toLowerCase());
     if (fs.existsSync(oldLowercasePath) && oldLowercasePath !== filepath) {
         try {
             fs.unlinkSync(oldLowercasePath);
-            // console.log(`🗑️ [AVATAR-STORAGE] Removed old duplicate: ${filename.toLowerCase()}`);
+            console.log(`🗑️ [AVATAR-STORAGE] Removed old duplicate: ${filename.toLowerCase()}`);
         } catch (error) {
             console.warn(`⚠️ [AVATAR-STORAGE] Could not remove old file: ${error.message}`);
         }
     }
     
-    fs.writeFileSync(filepath, imageBuffer);
-    // console.log(`💾 [AVATAR-STORAGE] Saved ${normalizedFilename} to disk`);
+    try {
+        fs.writeFileSync(filepath, imageBuffer);
+        console.log(`💾 [AVATAR-STORAGE] Saved ${normalizedFilename} to disk`);
+    } catch (error) {
+        console.error(`❌ [AVATAR-STORAGE] Error saving to disk: ${error.message}`);
+    }
 }
 
 // Get avatar from memory or disk
@@ -326,7 +331,17 @@ function listAvatars() {
     
     // Fallback to disk listing
     if (fs.existsSync(global.AVATAR_ICONS_PATH)) {
-        return fs.readdirSync(global.AVATAR_ICONS_PATH).filter(f => f.endsWith('_avatar.jpg'));
+        return fs.readdirSync(global.AVATAR_ICONS_PATH)
+            .filter(f => f.endsWith('avatar.jpg') || f.endsWith('_AVATAR.JPG'))
+            .map(f => {
+                if (f.endsWith('avatar.jpg')) {
+                    // Normalize lowercase files
+                    return f.replace('avatar.jpg', '_AVATAR.JPG');
+                } else {
+                    // Already normalized files
+                    return f;
+                }
+            });
     }
     
     return [];
@@ -876,15 +891,68 @@ io.on('connection', (socket) => {
             roomId = null;
             targetScore = 70;
         } else if (data.avatar === null) {
+            // Client sent null - check if user has saved avatar files on server
             displayName = data.name.trim().substring(0, 12).toUpperCase(); // Normalize to uppercase
-            avatarData = null; // Will be assigned based on player slot
             roomId = data.roomId || null;
             targetScore = data.targetScore || 70;
+            
+            // Check for existing avatar files on server
+            const avatarPaths = [
+                `/assets/icons/${displayName}_avatar.jpg?v=${Date.now()}`,
+                `/assets/icons/${displayName}.jpg?v=${Date.now()}`,
+                `/assets/icons/${displayName}_avatar.jpg?v=${Date.now()}`,
+                `/assets/icons/${displayName}.jpg?v=${Date.now()}`
+            ];
+            
+            let foundAvatarFile = null;
+            // Try to find avatar file synchronously
+            for (const path of avatarPaths) {
+                const filename = path.split('/').pop().split('?')[0]; // Extract filename
+                if (getAvatar(filename)) {
+                    foundAvatarFile = filename;
+                    break;
+                }
+            }
+            
+            if (foundAvatarFile) {
+                // User has avatar file on server - use it
+                avatarData = { type: 'file', data: foundAvatarFile };
+                console.log(`[AVATAR] Found existing avatar file for ${displayName}: ${foundAvatarFile}`);
+            } else {
+                // No avatar file found - will assign default based on player slot
+                avatarData = null;
+            }
         } else {
             displayName = data.name.trim().substring(0, 12).toUpperCase(); // Normalize to uppercase
             avatarData = data.avatar || { type: 'emoji', data: '👤' };
             roomId = data.roomId || null;
             targetScore = data.targetScore || 70;
+            
+            // Handle data URIs in custom avatars by saving them as files
+            if (avatarData && avatarData.type === 'custom' && avatarData.data && typeof avatarData.data === 'string' && avatarData.data.startsWith('data:image/')) {
+                try {
+                    // Extract base64 data from data URL
+                    const base64Data = avatarData.data.split(',')[1];
+                    if (base64Data) {
+                        // Convert base64 to buffer
+                        const imageBuffer = Buffer.from(base64Data, 'base64');
+                        
+                        // Create filename
+                        const filename = `${displayName}_AVATAR.JPG`;
+                        
+                        // Save the avatar
+                        saveAvatar(filename, imageBuffer);
+                        
+                        // Update avatarData to use the file reference instead of data URI
+                        avatarData = { type: 'file', data: filename };
+                        console.log(`[AVATAR] Saved data URI as file for ${displayName}: ${filename}`);
+                    }
+                } catch (error) {
+                    console.error(`[AVATAR] Failed to save data URI for ${displayName}:`, error);
+                    // Fall back to default avatar
+                    avatarData = null;
+                }
+            }
         }
 
         // // console.log('🎯 Processed - Name:', displayName, 'Avatar:', avatarData, 'Room:', roomId, 'TargetScore:', targetScore);
@@ -909,10 +977,31 @@ io.on('connection', (socket) => {
                 
                 // Assign default avatar if none exists
                 if (!reconnectingPlayer.avatar) {
-                    const match = reconnectingPlayer.name.match(/\d+/);
-                    const playerNumber = match ? match[0] : '1';
-                    console.log(`[AVATAR] Assigning default jugador${playerNumber} avatar to reconnecting player ${displayName} (${reconnectingPlayer.name})`);
-                    reconnectingPlayer.avatar = { type: 'file', data: null };
+                    // Check for existing avatar files on server before assigning default
+                    const avatarPaths = [
+                        `${displayName}_avatar.jpg`,
+                        `${displayName}.jpg`,
+                        `${displayName}_avatar.jpg`,
+                        `${displayName}.jpg`
+                    ];
+                    
+                    let foundAvatarFile = null;
+                    for (const filename of avatarPaths) {
+                        if (getAvatar(filename)) {
+                            foundAvatarFile = filename;
+                            break;
+                        }
+                    }
+                    
+                    if (foundAvatarFile) {
+                        reconnectingPlayer.avatar = { type: 'file', data: foundAvatarFile };
+                        console.log(`[AVATAR] Found existing avatar file for reconnecting player ${displayName}: ${foundAvatarFile}`);
+                    } else {
+                        const match = reconnectingPlayer.name.match(/\d+/);
+                        const playerNumber = match ? match[0] : '1';
+                        console.log(`[AVATAR] Assigning default jugador${playerNumber} avatar to reconnecting player ${displayName} (${reconnectingPlayer.name})`);
+                        reconnectingPlayer.avatar = { type: 'file', data: null };
+                    }
                 }
                 socket.jugadorName = reconnectingPlayer.name;
                 socket.roomId = rid;
@@ -1405,47 +1494,6 @@ socket.on('voiceMessage', async (data) => {
 // == START THE SERVER                                                        ==
 // =============================================================================
 
-// Add endpoint to save custom avatars as files
-app.post('/save-avatar', express.json({ limit: '1mb' }), (req, res) => {
-    const { playerName, avatarData } = req.body;
-    // console.log(`📥 [SERVER] Received save-avatar request for: ${playerName}`);
-    
-    if (!playerName || !avatarData) {
-        return res.status(400).json({ error: 'Missing playerName or avatarData' });
-    }
-    
-    // Extract the base64 image data
-    const matches = avatarData.match(/^data:image\/([a-zA-Z]*);base64,(.+)$/);
-    if (!matches || matches.length !== 3) {
-        return res.status(400).json({ error: 'Invalid image data format' });
-    }
-    
-    const imageType = matches[1]; // jpg, png, etc.
-    const imageBuffer = Buffer.from(matches[2], 'base64');
-    
-    // Create avatars directory structure if it doesn't exist
-    const iconsDir = path.join(__dirname, 'assets', 'icons');
-    if (!fs.existsSync(iconsDir)) {
-        fs.mkdirSync(iconsDir, { recursive: true });
-        console.log(`📁 Created avatars directory: ${iconsDir}`);
-    }
-    
-    // Create the filename using uppercase for consistency (matches dynamic generation)
-    const filename = `${playerName.toUpperCase()}_AVATAR.JPG`;
-    // console.log(`💾 [SERVER] Saving avatar as: ${filename}`);
-    
-    try {
-        // Save using the new storage system
-        saveAvatar(filename, imageBuffer);
-        
-        // console.log(`✅ [SERVER] Avatar saved successfully: ${filename}`);
-        res.json({ success: true, filename: filename });
-    } catch (error) {
-        console.error('❌ [SERVER] Error saving avatar:', error);
-        res.status(500).json({ error: 'Failed to save avatar' });
-    }
-});
-
 // Debug endpoint to list avatar files (remove after testing)
 app.get('/debug/avatars', (req, res) => {
     const fs = require('fs');
@@ -1576,7 +1624,9 @@ app.post('/submit-suggestion', (req, res) => {
 // Endpoint to save uploaded avatars to persistent storage
 app.post('/save-avatar', (req, res) => {
     try {
+        console.log(`📥 [SERVER] Received save-avatar request`);
         const { playerName, avatarData } = req.body;
+        console.log(`📥 [SERVER] playerName: ${playerName}, avatarData length: ${avatarData ? avatarData.length : 'null'}`);
         
         if (!playerName || !avatarData) {
             return res.status(400).json({ 

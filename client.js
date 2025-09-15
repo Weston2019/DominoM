@@ -7,20 +7,133 @@
 
 
 // GLOBAL VARIABLE DECLARATIONS
-let isSpanish = false;
+var isSpanish = false;
+
+// =============================================================================
+// == INCOGNITO MODE PROTECTION - RUNS IMMEDIATELY ON SCRIPT LOAD            ==
+// =============================================================================
+
+// Detect if we're in incognito/private browsing mode
+function isIncognitoMode() {
+    try {
+        // Try to use localStorage - it will throw an error in incognito mode
+        const testKey = '__incognito_test__';
+        localStorage.setItem(testKey, 'test');
+        localStorage.removeItem(testKey);
+        return false; // Not incognito if localStorage works
+    } catch (e) {
+        return true; // Incognito mode if localStorage throws an error
+    }
+}
+
+// IMMEDIATE AVATAR HIDING - Runs before anything else
+(function() {
+    const isIncognito = isIncognitoMode();
+    window.INCOGNITO_MODE = isIncognito;
+    
+    if (isIncognito) {
+        console.log('🚨 EMERGENCY: Incognito mode detected - immediate avatar hiding activated');
+        
+        // Hide avatar elements immediately using multiple methods
+        const hideElements = () => {
+            // Method 1: Direct DOM manipulation
+            const elements = [
+                'custom-avatar-preview-container',
+                'custom-avatar-preview', 
+                'avatar-upload'
+            ];
+            
+            elements.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.style.setProperty('display', 'none', 'important');
+                    el.style.setProperty('visibility', 'hidden', 'important');
+                    el.style.setProperty('opacity', '0', 'important');
+                    if (id === 'custom-avatar-preview') {
+                        el.src = '';
+                    }
+                    if (id === 'avatar-upload') {
+                        el.disabled = true;
+                        el.style.setProperty('pointer-events', 'none', 'important');
+                    }
+                    console.log(`🚨 EMERGENCY: Immediately hid ${id}`);
+                }
+            });
+            
+            // Method 2: Add global CSS override
+            let style = document.getElementById('incognito-emergency-style');
+            if (!style) {
+                style = document.createElement('style');
+                style.id = 'incognito-emergency-style';
+                style.textContent = `
+                    #custom-avatar-preview-container,
+                    #custom-avatar-preview,
+                    #avatar-upload,
+                    .avatar-option {
+                        display: none !important;
+                        visibility: hidden !important;
+                        opacity: 0 !important;
+                        pointer-events: none !important;
+                    }
+                    #avatar-upload {
+                        background: rgba(128, 128, 128, 0.3) !important;
+                    }
+                `;
+                document.head.appendChild(style);
+                console.log('🚨 EMERGENCY: Global CSS override added');
+            }
+        };
+        
+        // Run immediately
+        if (document.readyState === 'loading') {
+            // If DOM is still loading, wait for it
+            document.addEventListener('DOMContentLoaded', hideElements);
+        } else {
+            // DOM is ready, hide immediately
+            hideElements();
+        }
+        
+        // Also run after a short delay to catch any late-loading elements
+        setTimeout(hideElements, 10);
+        setTimeout(hideElements, 100);
+        setTimeout(hideElements, 500);
+        
+        // Add visual indicator for incognito mode
+        const indicator = document.createElement('div');
+        indicator.id = 'incognito-emergency-indicator';
+        indicator.style.cssText = `
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #ff4444;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            z-index: 9999;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        `;
+        indicator.textContent = '🔒 INCOGNITO MODE - AVATARS DISABLED';
+        document.body.appendChild(indicator);
+        console.log('🚨 EMERGENCY: Incognito indicator added to page');
+    }
+})();
+
+// =============================================================================
 let socket;
-let myJugadorName;
-let myPlayerHand = [];
-let gameState = {};
-let avatarCache = {}; // Cache to prevent repeated avatar loading attempts
-let selectedTileIndex = null;
-let messageDisplay = { text: '', time: 0 };
-let tileSound;
-let lastPlayedHighlight = { tile: null, timestamp: 0 };
-let dialogShownTimestamp = 0;
-let passSound;
-let winSound;
-let waitingSound;
+var myJugadorName;
+var myPlayerHand = [];
+var gameState = {};
+var avatarCache = {}; // Cache to prevent repeated avatar loading attempts
+var selectedTileIndex = null;
+var messageDisplay = { text: '', time: 0 };
+var tileSound;
+var lastPlayedHighlight = { tile: null, timestamp: 0 };
+var dialogShownTimestamp = 0;
+var passSound;
+var winSound;
+var waitingSound;
 let playerPointsWon = {};
 let previousTeamScores = { teamA: 0, teamB: 0 };
 let isAnimating = false;
@@ -29,19 +142,62 @@ let animationStartTime = 0;
 let animationDuration = 1000;
 let animationPauseDuration = 500;
 
-// Simple global concurrency limiter for avatar network probes
-if (!window.acquireAvatarProbe) {
-    window.__avatarProbe = { inFlight: 0, max: 6 };
-    window.acquireAvatarProbe = async function() {
-        while (window.__avatarProbe.inFlight >= window.__avatarProbe.max) {
-            await new Promise(r => setTimeout(r, 80));
+// REMOVED: Duplicate isIncognitoMode function - now defined at top of file
+// REMOVED: window.INCOGNITO_MODE - now set at top of file
+
+// Avatar-related global variables (moved from setupLobby to fix scoping issues)
+var customAvatarData = null;
+window.selectedAvatar = '🎯';
+
+// Test function to verify incognito detection (can be called from browser console)
+window.testIncognitoDetection = function() {
+    const isIncognito = isIncognitoMode();
+    console.log('🔒 Incognito mode test result:', isIncognito);
+    console.log('🔒 localStorage available:', !isIncognito);
+    console.log('🔒 Current savedAvatar:', isIncognito ? 'DISABLED' : localStorage.getItem('domino_player_avatar'));
+    console.log('🔒 Current savedCustomAvatar:', isIncognito ? 'DISABLED' : localStorage.getItem('domino_custom_avatar'));
+    return isIncognito;
+};
+
+// Debug function to check current avatar state
+window.debugAvatarState = function() {
+    console.log('🔍 AVATAR DEBUG STATE:');
+    console.log('  - Incognito mode:', isIncognitoMode());
+    console.log('  - INCOGNITO_MODE flag:', window.INCOGNITO_MODE);
+    console.log('  - customAvatarData:', customAvatarData ? 'SET' : 'NULL');
+    console.log('  - selectedAvatar:', selectedAvatar);
+    console.log('  - Preview visible:', document.getElementById('custom-avatar-preview-container')?.style.display !== 'none');
+    console.log('  - Preview src:', document.getElementById('custom-avatar-preview')?.src);
+    console.log('  - Preview display:', document.getElementById('custom-avatar-preview')?.style.display);
+    console.log('  - Upload disabled:', document.getElementById('avatar-upload')?.disabled);
+    console.log('  - localStorage available:', (() => {
+        try {
+            localStorage.setItem('test', 'test');
+            localStorage.removeItem('test');
+            return true;
+        } catch (e) {
+            return false;
         }
-        window.__avatarProbe.inFlight++;
-    };
-    window.releaseAvatarProbe = function() {
-        try { window.__avatarProbe.inFlight = Math.max(0, window.__avatarProbe.inFlight - 1); } catch (e) {}
-    };
-}
+    })());
+    
+    // Force hide check
+    if (isIncognitoMode()) {
+        console.log('🔍 FORCING HIDE: Running emergency avatar hide...');
+        const elements = [
+            'custom-avatar-preview-container',
+            'custom-avatar-preview',
+            'avatar-upload'
+        ];
+        elements.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.style.display = 'none !important';
+                el.style.visibility = 'hidden !important';
+                console.log(`🔍 FORCED HIDE: ${id} hidden`);
+            }
+        });
+    }
+};
 
 // Cache and deduplicate avatar probe requests so repeated per-frame probing
 // doesn't hammer the network. probeAvatarSrc returns a Promise that resolves
@@ -279,9 +435,8 @@ if (!window.fetchAvatarManifest) {
 if (typeof window.createPointsTableNow !== 'function') {
     window.createPointsTableNow = function() { /* placeholder until real implementation loads */ };
 }
-if (typeof window.enableAudioAutoPlay !== 'function') {
-    window.enableAudioAutoPlay = function() { /* placeholder until real implementation loads */ };
-}
+// Simple placeholder for enableAudioAutoPlay
+window.enableAudioAutoPlay = window.enableAudioAutoPlay || function() { /* placeholder */ };
 if (typeof window.checkMicrophonePermissions !== 'function') {
     window.checkMicrophonePermissions = async function() { return false; };
 }
@@ -531,9 +686,9 @@ let animationStartPos = { x: 0, y: 0 };
 let animationEndPos = { x: 0, y: 0 };
 let animationProgress = 0;
 let animatingPlayerName = null;
-let mediaRecorder;
-let audioChunks = [];
-let isRecording = false;
+var mediaRecorder;
+var audioChunks = [];
+var isRecording = false;
 
 function setupGameButtons() {
     // console.log('Setting up game buttons...');
@@ -2015,11 +2170,71 @@ function draw() {
  * Sets up the initial name-entry lobby screen with avatar selection.
  */
 function setupLobby() {
+    // IMMEDIATE INCOGNITO CHECK: Hide avatar elements before anything else
+    if (isIncognitoMode()) {
+        console.log('🔒 IMMEDIATE: Incognito mode detected - hiding all avatar elements');
+        console.log('🔒 IMMEDIATE: localStorage test result:', (() => {
+            try {
+                localStorage.setItem('test', 'test');
+                localStorage.removeItem('test');
+                return 'AVAILABLE';
+            } catch (e) {
+                return 'BLOCKED - ' + e.message;
+            }
+        })());
+        
+        // Add global CSS rule to hide avatar elements
+        const style = document.createElement('style');
+        style.textContent = `
+            #custom-avatar-preview-container,
+            #custom-avatar-preview,
+            .avatar-option,
+            #avatar-upload {
+                display: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+            }
+            #avatar-upload {
+                pointer-events: none !important;
+            }
+        `;
+        document.head.appendChild(style);
+        console.log('🔒 IMMEDIATE: Global CSS rules added to hide avatar elements');
+        
+        setTimeout(() => {
+            const previewContainer = document.getElementById('custom-avatar-preview-container');
+            const customPreview = document.getElementById('custom-avatar-preview');
+            const avatarUpload = document.getElementById('avatar-upload');
+            
+            if (previewContainer) {
+                previewContainer.style.display = 'none !important';
+                previewContainer.style.visibility = 'hidden !important';
+                previewContainer.style.opacity = '0 !important';
+                console.log('🔒 IMMEDIATE: Avatar preview container hidden');
+            }
+            if (customPreview) {
+                customPreview.style.display = 'none !important';
+                customPreview.style.visibility = 'hidden !important';
+                customPreview.src = '';
+                console.log('🔒 IMMEDIATE: Avatar preview image hidden and cleared');
+            }
+            if (avatarUpload) {
+                avatarUpload.disabled = true;
+                avatarUpload.style.opacity = '0.3';
+                console.log('🔒 IMMEDIATE: Avatar upload disabled');
+            }
+        }, 1);
+    }
+    
     // Hide the room-points-legend if present (so it doesn't overlap the lobby)
     const legendDiv = document.getElementById('room-points-legend');
     if (legendDiv) legendDiv.style.display = 'none';
     const lobbyContainer = document.getElementById('lobby-container');
     const nameInput = document.getElementById('name-input');
+
+    // Declare saveTimeout variable for avatar upload debouncing
+    let saveTimeout;
+    // customAvatarData and selectedAvatar are now global variables
 
     // (Old activeRoomsDiv and fetch logic removed)
     // SUPER AGGRESSIVE: Hide all possible dialog containers
@@ -2093,13 +2308,70 @@ function setupLobby() {
     }, 300);
     
     // Load saved avatar from localStorage (but NOT the name - keep it empty)
-    const savedAvatar = localStorage.getItem('domino_player_avatar');
-    const savedCustomAvatar = localStorage.getItem('domino_custom_avatar');
+    const isIncognito = isIncognitoMode();
+    console.log('🔒 Incognito mode detected:', isIncognito);
+    console.log('🔒 Current savedAvatar:', isIncognito ? 'DISABLED' : localStorage.getItem('domino_player_avatar'));
+    console.log('🔒 Current savedCustomAvatar:', isIncognito ? 'DISABLED' : localStorage.getItem('domino_custom_avatar'));
+    
+    if (isIncognito) {
+        console.log('🔒 INCognito Mode: Avatar persistence disabled. No avatars will be saved to localStorage or restored from server.');
+        console.log('🔒 To test avatar functionality, use regular browsing mode.');
+    }
+    
+    // Add visual indicator for incognito mode
+    if (isIncognito) {
+        const incognitoIndicator = document.createElement('div');
+        incognitoIndicator.id = 'incognito-indicator';
+        incognitoIndicator.style.cssText = 'background: #ff6b6b; color: white; padding: 5px 10px; border-radius: 4px; font-size: 12px; margin: 10px 0; text-align: center;';
+        incognitoIndicator.textContent = '🔒 Incognito Mode: Avatars will not be saved or restored';
+        lobbyContainer.insertBefore(incognitoIndicator, document.querySelector('h2'));
+        
+        // AGGRESSIVE: Hide avatar elements multiple times with increasing delays
+        const hideAvatarElements = () => {
+            const previewContainer = document.getElementById('custom-avatar-preview-container');
+            const customPreview = document.getElementById('custom-avatar-preview');
+            const avatarUpload = document.getElementById('avatar-upload');
+            
+            if (previewContainer) {
+                previewContainer.style.display = 'none !important';
+                previewContainer.style.visibility = 'hidden !important';
+                previewContainer.style.opacity = '0 !important';
+                console.log('🔒 AGGRESSIVE: Avatar preview container hidden');
+            }
+            if (customPreview) {
+                customPreview.style.display = 'none !important';
+                customPreview.style.visibility = 'hidden !important';
+                customPreview.src = '';
+                console.log('🔒 AGGRESSIVE: Avatar preview image hidden and cleared');
+            }
+            if (avatarUpload) {
+                avatarUpload.disabled = true;
+                avatarUpload.style.opacity = '0.5';
+                console.log('🔒 AGGRESSIVE: Avatar upload disabled');
+            }
+        };
+        
+        // Hide immediately
+        hideAvatarElements();
+        // Hide again after a short delay
+        setTimeout(hideAvatarElements, 100);
+        // Hide again after a longer delay
+        setTimeout(hideAvatarElements, 500);
+        // Hide again after DOM ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', hideAvatarElements);
+        }
+    }
+    
+    const savedAvatar = isIncognito ? null : localStorage.getItem('domino_player_avatar');
+    const savedCustomAvatar = isIncognito ? null : localStorage.getItem('domino_custom_avatar');
     
     // Helper function to properly reset avatar state
     function resetAvatarState() {
         customAvatarData = null;
         selectedAvatar = null;
+        const previewContainer = document.getElementById('custom-avatar-preview-container');
+        if (previewContainer) previewContainer.style.display = 'none';
         customAvatarPreview.style.display = 'none';
         customAvatarPreview.src = '';
 
@@ -2108,9 +2380,11 @@ function setupLobby() {
             avatarUpload.value = '';
         }
 
-        // Clear localStorage
-        localStorage.removeItem('domino_custom_avatar');
-        localStorage.removeItem('domino_player_avatar');
+        // Clear localStorage (only if not in incognito mode)
+        if (!isIncognitoMode()) {
+            localStorage.removeItem('domino_custom_avatar');
+            localStorage.removeItem('domino_player_avatar');
+        }
 
         // Clear emoji selections
         avatarOptions.forEach(opt => opt.classList.remove('selected'));
@@ -2125,16 +2399,22 @@ function setupLobby() {
     
     // Reset all avatar selections first
     avatarOptions.forEach(opt => opt.classList.remove('selected'));
+    const previewContainer = document.getElementById('custom-avatar-preview-container');
+    if (previewContainer) previewContainer.style.display = 'none';
     customAvatarPreview.style.display = 'none';
     
     // PRIORITY 0: Check for saved custom avatar
+    console.log('🔍 PRIORITY 0: Checking savedCustomAvatar:', savedCustomAvatar);
     if (savedCustomAvatar) {
+        console.log('🔍 Restoring custom avatar from localStorage in incognito mode:', isIncognito);
         const currentName = nameInput.value.trim().toUpperCase();
         // Always restore custom avatar - it's the user's uploaded image
         // Don't clear it just because they haven't entered a name yet
         customAvatarData = savedCustomAvatar;
         selectedAvatar = null;
         customAvatarPreview.src = customAvatarData;
+        const previewContainer = document.getElementById('custom-avatar-preview-container');
+        if (previewContainer) previewContainer.style.display = 'block';
         customAvatarPreview.style.display = 'block';
         console.log('🎯 Restored custom avatar from localStorage');
         
@@ -2148,7 +2428,7 @@ function setupLobby() {
     
     // PRIORITY 1: Check if user has an avatar file with their name first (skip if we have persistent custom avatar)
     const currentName = nameInput.value.trim();
-    if (currentName && !savedCustomAvatar) {
+    if (currentName && !savedCustomAvatar && !isIncognito) {
         // Try to find avatar file for this user
         const testImg = new Image();
         const avatarPaths = [
@@ -2177,7 +2457,7 @@ function setupLobby() {
         tryLoadExisting(avatarPaths);
         
         // PRIORITY 2: Restore saved avatar from localStorage
-        if (savedAvatar) {
+        if (savedAvatar && !isIncognito) {
             try {
                 const avatarData = JSON.parse(savedAvatar);
                 if (avatarData.type === 'custom') {
@@ -2185,6 +2465,8 @@ function setupLobby() {
                     selectedAvatar = null;
                     // Show preview
                     customAvatarPreview.src = customAvatarData;
+                    const previewContainer = document.getElementById('custom-avatar-preview-container');
+                    if (previewContainer) previewContainer.style.display = 'block';
                     customAvatarPreview.style.display = 'block';
                     // console.log('Restored custom avatar from localStorage');
                 } else {
@@ -2206,14 +2488,18 @@ function setupLobby() {
             useDefaultAvatar();
         }
     } else {
-        // No name entered yet, use localStorage or default
-        if (savedAvatar) {
+        // No name entered yet, use localStorage or default (skip in incognito mode)
+        if (savedAvatar && !isIncognito) {
+            console.log('🎯 Branch 2: Restoring from localStorage');
+            console.log('🎯 Branch 2: Restoring from localStorage');
             try {
                 const avatarData = JSON.parse(savedAvatar);
                 if (avatarData.type === 'custom') {
                     customAvatarData = avatarData.data;
                     selectedAvatar = null;
                     customAvatarPreview.src = customAvatarData;
+                    const previewContainer = document.getElementById('custom-avatar-preview-container');
+                    if (previewContainer) previewContainer.style.display = 'block';
                     customAvatarPreview.style.display = 'block';
                     // console.log('Restored custom avatar from localStorage');
                 } else {
@@ -2241,7 +2527,9 @@ function setupLobby() {
         if (defaultOption) {
             defaultOption.classList.add('selected');
             selectedAvatar = '🎯'; // Also set the selectedAvatar variable
-            // console.log('Set default target emoji avatar');
+            console.log('🎯 Set default target emoji avatar, selectedAvatar:', selectedAvatar);
+        } else {
+            console.log('🎯 ERROR: Default avatar option not found!');
         }
     }
     
@@ -2267,17 +2555,23 @@ function setupLobby() {
             // Update selected avatar
             selectedAvatar = option.dataset.avatar;
             customAvatarData = null; // Clear custom avatar if emoji selected
+            const previewContainer = document.getElementById('custom-avatar-preview-container');
+            if (previewContainer) previewContainer.style.display = 'none';
             customAvatarPreview.style.display = 'none';
             console.log('✅ Selected emoji set to:', selectedAvatar);
             
             // Clear persistent custom avatar when emoji is selected
-            localStorage.removeItem('domino_custom_avatar');
+            if (!isIncognitoMode()) {
+                localStorage.removeItem('domino_custom_avatar');
+            }
             
             // Save to localStorage
-            localStorage.setItem('domino_player_avatar', JSON.stringify({
-                type: 'emoji',
-                data: selectedAvatar
-            }));
+            if (!isIncognitoMode()) {
+                localStorage.setItem('domino_player_avatar', JSON.stringify({
+                    type: 'emoji',
+                    data: selectedAvatar
+                }));
+            }
         });
     });
     
@@ -2357,10 +2651,21 @@ function setupLobby() {
                     // Remove selected class from all emoji options
                     avatarOptions.forEach(opt => opt.classList.remove('selected'));
                     
-                    // Show preview
-                    customAvatarPreview.src = customAvatarData;
-                    customAvatarPreview.style.display = 'block';
-                    console.log('📁 Preview displayed');
+                    // Show preview immediately when image is processed (but NOT in incognito mode)
+                    if (!isIncognitoMode()) {
+                        customAvatarPreview.src = customAvatarData;
+                        const previewContainer = document.getElementById('custom-avatar-preview-container');
+                        if (previewContainer) previewContainer.style.display = 'block';
+                        customAvatarPreview.style.display = 'block';
+                        customAvatarPreview.style.border = '2px solid #4CAF50';
+                        console.log('📁 Preview displayed with green border');
+                    } else {
+                        console.log('🔒 Incognito mode: Avatar preview blocked');
+                        // Clear the file input to prevent showing preview
+                        avatarUpload.value = '';
+                        alert('Avatar upload is disabled in incognito mode for privacy protection.');
+                        return;
+                    }
 
                     // Add click handler to clear custom avatar
                     customAvatarPreview.onclick = () => {
@@ -2369,40 +2674,28 @@ function setupLobby() {
                         }
                     };
 
-                    // console.log('Custom avatar uploaded and compressed');
-                    
+                    // Clear emoji selections immediately
+                    avatarOptions.forEach(opt => opt.classList.remove('selected'));
+
                     // Save to localStorage with persistent key for custom avatars
-                    localStorage.setItem('domino_custom_avatar', customAvatarData);
-                    localStorage.setItem('domino_player_avatar', JSON.stringify({
-                        type: 'custom',
-                        data: customAvatarData
-                    }));
+                    if (!isIncognitoMode()) {
+                        localStorage.setItem('domino_custom_avatar', customAvatarData);
+                        localStorage.setItem('domino_player_avatar', JSON.stringify({
+                            type: 'custom',
+                            data: customAvatarData
+                        }));
+                    }
                     console.log('📁 Saved to localStorage');
-                    
-                    // NEW: Save as file for permanent storage (with debouncing)
+
+                    // Debounced save as file (only if name is entered)
                     const currentPlayerName = nameInput.value.trim();
                     if (currentPlayerName && currentPlayerName.length >= 2) {
-                        // console.log(`📤 [CLIENT] Upload save triggered for: ${currentPlayerName}`);
-                        // Use debouncing to avoid immediate save followed by auto-save
+                        // Clear previous timeout
                         if (saveTimeout) clearTimeout(saveTimeout);
                         saveTimeout = setTimeout(() => {
-                            // console.log(`⏰ [CLIENT] Upload save timeout fired for: ${currentPlayerName}`);
                             saveAvatarAsFile(currentPlayerName, customAvatarData);
                         }, 1000);
-                    } else {
-                        // console.log(`⚠️ [CLIENT] Upload save skipped - name too short: "${currentPlayerName}"`);
-                        // Show message to encourage entering name for permanent save
-                        const statusDiv = document.getElementById('profile-status');
-                        if (statusDiv) {
-                            statusDiv.innerHTML = `💡 ${window.lang.t('enter_name_save_avatar')}`;
-                            statusDiv.style.color = 'orange';
-                            statusDiv.style.fontWeight = 'bold';
-                        }
-                        // console.log('⚠️ Enter name (2+ chars) to save avatar as permanent file');
                     }
-                    
-                    // CLEAR FILE INPUT to reset "Seleccionar Archivo" text
-                    event.target.value = '';
                 };
                 img.src = e.target.result;
             };
@@ -2435,88 +2728,40 @@ function setupLobby() {
             if (lobby) lobby.style.display = 'none';
             if (gameUI) gameUI.style.display = 'block';
 
-            // Don't save name to localStorage - keep it fresh each session
-            // localStorage.setItem('domino_player_name', name);
-            // ALWAYS check for avatar file FIRST - highest priority
-            // Use absolute path to avoid relative resolution issues on mobile
-            const testImg = new Image();
-            let __submitConnected = false;
-            const doConnectWith = (avatarData) => {
-                if (__submitConnected) return;
-                __submitConnected = true;
-                console.log('🚀 Connecting to server with avatar data:', avatarData);
-                connectToServer(name, avatarData, roomId, targetScore);
-            };
-            
-            // Also try without suffix for backward compatibility
-            const tryLoadAvatar = (paths, index = 0) => {
-                if (index >= paths.length) {
-                    // No avatar file found, use custom avatar data or emoji
-                    let avatarData = null;
-                    if (customAvatarData) {
-                        avatarData = { type: 'custom', data: customAvatarData };
-                        // console.log('📤 PRIORITY 2: Using custom avatar:', avatarData);
-                    } else if (selectedAvatar && selectedAvatar !== '🎯') {
-                        avatarData = { type: 'emoji', data: selectedAvatar };
-                        // console.log('📤 PRIORITY 2: Using selected emoji:', avatarData);
-                    } else {
-                        // console.log('📤 PRIORITY 2: Using default avatar (no custom/emoji selected)');
-                    }
-                    // console.log('PRIORITY 2: Using avatar data:', avatarData);
-                    doConnectWith(avatarData);
-                    return;
-                }
-                
-                const currentPath = paths[index];
-                testImg.onload = function() {
-                    // PRIORITY 1: Always prefer saved avatar files over emoji selections
-                    console.log('🎯 PRIORITY 1: Found avatar file for', name, 'at', currentPath);
-                    // Send the detected avatar file path so other clients can use the exact file
-                    doConnectWith({ type: 'file', data: currentPath });
-                };
-                testImg.onerror = function() {
-                    tryLoadAvatar(paths, index + 1);
-                };
-                testImg.src = currentPath;
-            };
-            
-            // Try multiple patterns for backward compatibility
-            const avatarPaths = [
-                `/assets/icons/${name.toUpperCase()}_avatar.jpg?v=${Date.now()}`,
-                `/assets/icons/${name.toUpperCase()}.jpg?v=${Date.now()}`,
-                `/assets/icons/${name}_avatar.jpg?v=${Date.now()}`,
-                `/assets/icons/${name}.jpg?v=${Date.now()}`
-            ];
-            
-            tryLoadAvatar(avatarPaths);
+            // Determine avatar data based on CURRENT UI state (not complex priority logic)
+            let avatarData = null;
 
-            setTimeout(() => {
-                if (!__submitConnected) {
-                    let avatarData = null;
-                    // PRIORITY 2: Use persistent custom avatar if available
-                    const persistentCustomAvatar = localStorage.getItem('domino_custom_avatar');
-                    if (persistentCustomAvatar) {
-                        avatarData = { type: 'custom', data: persistentCustomAvatar };
-                        console.log('📤 PRIORITY 2: Using persistent custom avatar:', avatarData);
-                    }
-                    // PRIORITY 3: Use custom uploaded avatar if available
-                    else if (customAvatarData) {
-                        avatarData = { type: 'custom', data: customAvatarData };
-                        console.log('📤 PRIORITY 3: Using custom avatar:', avatarData);
-                    }
-                    // PRIORITY 4: Use explicitly selected emoji only if no saved files exist
-                    else if (selectedAvatar && selectedAvatar !== '🎯') {
-                        avatarData = { type: 'emoji', data: selectedAvatar };
-                        console.log('📤 PRIORITY 4: Using selected emoji (no saved files found):', avatarData);
-                    }
-                    // PRIORITY 5: Default avatar
-                    else {
-                        console.log('📤 PRIORITY 5: Using default avatar');
-                        avatarData = null; // Default avatar
-                    }
-                    doConnectWith(avatarData);
+            // Check current state: custom avatar takes priority if data exists
+            if (customAvatarData) {
+                // Clear any pending debounced save timeout to avoid duplicate saves
+                if (saveTimeout) {
+                    clearTimeout(saveTimeout);
+                    saveTimeout = null;
                 }
-            }, 1000); // Increased timeout to give tryLoadAvatar more time
+
+                // Send the data URI directly - server will handle saving it
+                avatarData = { type: 'custom', data: customAvatarData };
+                console.log('🎯 Using current custom avatar data URI');
+            }
+            // Otherwise use selected emoji if one is selected AND it's not the default target
+            else if (selectedAvatar && selectedAvatar !== '🎯') {
+                avatarData = { type: 'emoji', data: selectedAvatar };
+                console.log('🎯 Using current selected emoji from UI state:', selectedAvatar);
+            }
+            // Default to null (server will use default avatar) - but only if no custom avatar was uploaded
+            else if (!customAvatarData) {
+                console.log('🎯 Using default avatar (no custom/emoji selected)');
+                avatarData = null;
+            }
+            // If we have custom avatar data but no emoji selected, still use custom
+            else {
+                avatarData = { type: 'custom', data: customAvatarData };
+                console.log('🎯 Using custom avatar data (fallback)');
+            }
+            
+            // Connect to server with the current avatar data
+            console.log('� Connecting to server with current avatar data:', avatarData);
+            connectToServer(name, avatarData, roomId, targetScore);
         }
     };
     
@@ -2544,10 +2789,12 @@ function setupLobby() {
     if (clearProfileBtn) {
         clearProfileBtn.addEventListener('click', () => {
             // Clear ALL game-related localStorage
-            localStorage.removeItem('domino_player_name');
-            localStorage.removeItem('domino_player_avatar');
-            localStorage.removeItem('domino_game_points');
-            // Keep language preference - don't remove 'domino_game_language'
+            if (!isIncognitoMode()) {
+                localStorage.removeItem('domino_player_name');
+                localStorage.removeItem('domino_player_avatar');
+                localStorage.removeItem('domino_game_points');
+                // Keep language preference - don't remove 'domino_game_language'
+            }
             
             // console.log('🧹 Comprehensive profile clear - all cached data removed');
             
@@ -2584,10 +2831,18 @@ function setupLobby() {
     
     // Function to save avatar as permanent file
     function saveAvatarAsFile(playerName, avatarData) {
+        // INCOGNITO MODE: Block avatar saving to prevent persistence
+        if (isIncognitoMode()) {
+            console.log('🔒 Incognito mode: Blocking avatar file save for', playerName);
+            return Promise.resolve({ success: false, message: 'Incognito mode - avatar not saved' });
+        }
+        
         // console.log(`💾 [CLIENT] Attempting to save avatar for: ${playerName}`);
         // Normalize to uppercase for consistency with server-side generation
         const normalizedName = playerName.toUpperCase();
-        fetch('/save-avatar', {
+        
+        // Return a promise so callers can wait for completion
+        return fetch('/save-avatar', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -2626,12 +2881,15 @@ function setupLobby() {
                 } catch (e) {}
                 // Force the client to reprobe avatars so the newly-saved file is picked up
                 try { if (typeof window.forceReprobeAvatars === 'function') window.forceReprobeAvatars(); } catch (e) {}
+                return data; // Return success data
             } else {
                 console.error('❌ [CLIENT] Failed to save avatar file:', data.error);
+                throw new Error(data.error || 'Failed to save avatar');
             }
         })
         .catch(error => {
             console.error('❌ [CLIENT] Error saving avatar file:', error);
+            throw error;
         });
     }
     
@@ -2657,6 +2915,11 @@ function setupLobby() {
                     clearTimeout(saveTimeout);
                     saveTimeout = null;
                 }
+            }
+            // Also clear the preview if name is cleared
+            if (customAvatarPreview) {
+                customAvatarPreview.style.display = 'none';
+                customAvatarPreview.src = '';
             }
         } else if (customAvatarData) {
             // console.log(`⌨️ [CLIENT] Auto-save triggered for: ${currentName}`);
@@ -4515,6 +4778,12 @@ function showMessage(text) {
 }
 
 async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowNameVariations = false) {
+    // BLOCK ALL avatar loading in incognito mode
+    if (isIncognitoMode()) {
+        console.log('🔒 BLOCKED: Avatar loading prevented in incognito mode for', internalPlayerName);
+        return;
+    }
+    
     if (!internalPlayerName) return;
 
     // Determine player number (used for default avatar filename)
@@ -4649,18 +4918,31 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
                 };
                     imgElement.onerror = function() {
                     try { imgElement.style.display = 'none'; } catch (e) {};
-                    // fallback to default avatar image instead of inline SVG
+                    // Provide proper SVG fallback when same-origin avatar fails to load
+                    const inlineDefaultAvatar = (num) => {
+                        try {
+                            const bg = '#222';
+                            const mid = '#444';
+                            const rect = `<rect width="100" height="100" fill="${bg}" />`;
+                            const circ = `<circle cx="50" cy="40" r="20" fill="${mid}" />`;
+                            const bar = `<rect x="15" y="65" width="70" height="18" rx="9" fill="${mid}" />`;
+                            const label = `<text x="50" y="54" font-size="22" fill="#ddd" text-anchor="middle" font-family="Arial,Helvetica,sans-serif">J${num}</text>`;
+                            const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>${rect}${circ}${bar}${label}</svg>`;
+                            return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+                        } catch (e) { return ''; }
+                    };
                     try {
                         const parent = imgElement.parentElement;
                         if (parent) {
-                            parent.dataset.assignedSrc = defaultAvatarSrc;
-                            parent.style.backgroundImage = `url(${defaultAvatarSrc})`;
+                            const fallbackSvg = inlineDefaultAvatar(playerNumber);
+                            parent.dataset.assignedSrc = fallbackSvg;
+                            parent.style.backgroundImage = `url(${fallbackSvg})`;
                             parent.style.backgroundSize = 'cover';
                             parent.style.backgroundPosition = 'center';
                         }
                     } catch (er) {}
                     // DON'T set window.avatarAssigned when avatar fails - let canvas draw initials instead
-                    console.warn('Avatar same-origin quick path failed, falling back to default avatar');
+                    console.warn('Avatar same-origin quick path failed, falling back to SVG');
                 };
                 try { imgElement.src = srcHint; } catch (e) {}
                 return;
@@ -4748,7 +5030,32 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
                 try { imgElement.style.display = 'none'; } catch (e) {}
                 console.info('Assigned img.src (default onload) =>', defaultAvatarSrc);
             };
-            imgElement.onerror = function() { try { imgElement.style.display = 'none'; } catch (e) {}; console.warn('Default avatar failed to load:', defaultAvatarSrc); };
+            imgElement.onerror = function() { 
+                try { imgElement.style.display = 'none'; } catch (e) {}; 
+                // Provide proper SVG fallback when default avatar fails to load
+                const inlineDefaultAvatar = (num) => {
+                    try {
+                        const bg = '#222';
+                        const mid = '#444';
+                        const rect = `<rect width="100" height="100" fill="${bg}" />`;
+                        const circ = `<circle cx="50" cy="40" r="20" fill="${mid}" />`;
+                        const bar = `<rect x="15" y="65" width="70" height="18" rx="9" fill="${mid}" />`;
+                        const label = `<text x="50" y="54" font-size="22" fill="#ddd" text-anchor="middle" font-family="Arial,Helvetica,sans-serif">J${num}</text>`;
+                        const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>${rect}${circ}${bar}${label}</svg>`;
+                        return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+                    } catch (e) { return ''; }
+                };
+                try {
+                    const parent = imgElement.parentElement;
+                    if (parent) {
+                        const fallbackSvg = inlineDefaultAvatar(playerNumber);
+                        parent.style.backgroundImage = `url(${fallbackSvg})`;
+                        parent.style.backgroundSize = 'cover';
+                        parent.style.backgroundPosition = 'center';
+                    }
+                } catch (e) {}
+                console.warn('Default avatar failed to load:', defaultAvatarSrc, '- using SVG fallback');
+            };
             imgElement.src = defaultAvatarSrc;
         } catch (e) {
             try { imgElement.dataset.assignedSrc = defaultAvatarSrc; } catch (e) {}
@@ -4880,7 +5187,33 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
                         try { imgElement.style.display = 'none'; } catch (e) {}
                         console.info('Assigned img.src (probe helper) =>', testSrc);
                     };
-                    imgElement.onerror = function() { try { imgElement.style.display = 'none'; } catch (e) {}; console.warn('[AVATAR LOAD ERROR] img failed to load', testSrc); };
+                    imgElement.onerror = function() { 
+                        try { imgElement.style.display = 'none'; } catch (e) {}; 
+                        // Provide proper SVG fallback when probed avatar fails to load
+                        const inlineDefaultAvatar = (num) => {
+                            try {
+                                const bg = '#222';
+                                const mid = '#444';
+                                const rect = `<rect width="100" height="100" fill="${bg}" />`;
+                                const circ = `<circle cx="50" cy="40" r="20" fill="${mid}" />`;
+                                const bar = `<rect x="15" y="65" width="70" height="18" rx="9" fill="${mid}" />`;
+                                const label = `<text x="50" y="54" font-size="22" fill="#ddd" text-anchor="middle" font-family="Arial,Helvetica,sans-serif">J${num}</text>`;
+                                const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>${rect}${circ}${bar}${label}</svg>`;
+                                return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+                            } catch (e) { return ''; }
+                        };
+                        try {
+                            const parent = imgElement.parentElement;
+                            if (parent) {
+                                const fallbackSvg = inlineDefaultAvatar(playerNumber);
+                                parent.dataset.assignedSrc = fallbackSvg;
+                                parent.style.backgroundImage = `url(${fallbackSvg})`;
+                                parent.style.backgroundSize = 'cover';
+                                parent.style.backgroundPosition = 'center';
+                            }
+                        } catch (er) {}
+                        console.warn('[AVATAR LOAD ERROR] img failed to load', testSrc, '- using SVG fallback'); 
+                    };
                     imgElement.src = testSrc;
                     return;
                 }
@@ -5000,7 +5333,7 @@ function updatePlayersUI() {
         } catch (e) {}
 
         // Ensure avatar container always has visible area on mobile/slow networks
-    avatarDiv.style.cssText = `width:40px;height:40px;border-radius:50%;display:inline-block;flex: 0 0 40px;`; 
+    avatarDiv.style.cssText = `width:40px;height:40px;border-radius:50%;display:inline-block;flex: 0 0 40px;background-color:#222;border:2px solid #444;`;
     try { avatarDiv.style.setProperty('background-color', '#222', 'important'); } catch (e) {}
 
         // Pre-fill with default jugadorX avatar so UI doesn't show empty circle while loading
@@ -5020,15 +5353,26 @@ function updatePlayersUI() {
                 // Use the assigned image on top, but include the SVG placeholder behind it
                 avatarDiv.style.backgroundImage = `url(${assigned}), url(${svgPlaceholder})`;
                 try { avatarDiv.style.setProperty('background-image', `url(${assigned}), url(${svgPlaceholder})`, 'important'); } catch (e) {}
+                avatarDiv.style.backgroundSize = 'cover';
+                avatarDiv.style.backgroundPosition = 'center';
+                avatarDiv.style.backgroundRepeat = 'no-repeat';
             } else {
-                const matchNum = (playerData.name || '').match(/(\d+)/);
-                const quickNum = matchNum ? matchNum[1] : '1';
+                // Use player's slot name to determine default avatar (same as server logic)
+                let quickNum = '1'; // Default fallback
+
+                // Extract number from the player's slot name (e.g., "Jugador 2" -> "2")
+                const slotMatch = (playerData.name || '').match(/(\d+)/);
+                if (slotMatch) {
+                    quickNum = slotMatch[1];
+                }
+
                 const quickDefault = `/assets/defaults/jugador${quickNum}_avatar.jpg`;
                 avatarDiv.style.backgroundImage = `url(${quickDefault}), url(${svgPlaceholder})`;
                 try { avatarDiv.style.setProperty('background-image', `url(${quickDefault}), url(${svgPlaceholder})`, 'important'); } catch (e) {}
+                avatarDiv.style.backgroundSize = 'cover';
+                avatarDiv.style.backgroundPosition = 'center';
+                avatarDiv.style.backgroundRepeat = 'no-repeat';
             }
-            avatarDiv.style.backgroundSize = 'cover';
-            avatarDiv.style.backgroundPosition = 'center';
         } catch (e) {}
 
     // (debug badge removed - using external overlay instead)
@@ -5044,7 +5388,15 @@ function updatePlayersUI() {
         // 3rd: Selected emojis (type='emoji')
         // 4th: Default avatar
         
-        if (playerData.avatar && playerData.avatar.type === 'file') {
+        // INCOGNITO MODE: Block all avatar loading to prevent persistence
+        if (isIncognitoMode()) {
+            // Use default gray circle in incognito mode
+            avatarDiv.style.backgroundImage = 'none';
+            avatarDiv.style.backgroundColor = '#666';
+            avatarDiv.textContent = '';
+            avatarDiv.style.color = 'transparent';
+            console.log('🔒 Incognito mode: Blocking avatar loading for', playerData.name);
+        } else if (playerData.avatar && playerData.avatar.type === 'file') {
             // Server indicated to use file - try to load image file
             
             // Update avatarAssigned map to prevent canvas initials overlay
@@ -5181,7 +5533,7 @@ function updatePlayersUI() {
             window.avatarAssigned[playerData.displayName] = playerData.avatar.data;
             window.avatarAssigned[(playerData.displayName || '').toLowerCase()] = playerData.avatar.data;
         } else {
-            // No avatar data - try file first, then default
+            // No avatar data - use default avatar directly
             const img = document.createElement('img');
             img.style.width = '40px';
             img.style.height = '40px';
@@ -5189,15 +5541,57 @@ function updatePlayersUI() {
             img.style.opacity = '0';
             img.style.transition = 'opacity 0.3s ease';
             avatarDiv.appendChild(img);
-            // Attach handlers to update debug badge
-            img.onload = () => { img.style.opacity = '1'; img.dataset.status = `avatar: ${img.src.split('/').pop()}`; };
-            img.onerror = () => { img.dataset.status = `missing: ${img.src.split('/').pop()}`; img.style.display = 'none'; };
-            // Attempt to load a name-based avatar; getPlayerIcon will
-            // fall back to `assets/icons/jugadorX_avatar.jpg` when needed.
-            // For players without explicit avatar data, do NOT probe name-based files — use default jugadorX
-            getPlayerIcon(img, playerData.displayName, playerData.name, false);
-            // If the image fails to load, getPlayerIcon will hide the
-            // broken <img> element — do not replace it with emoji/initials.
+
+            // Get player number for default avatar - use the player's slot name (Jugador X)
+            // The server assigns defaults based on slot position, not display name
+            let playerNum = '1'; // Default fallback
+
+            // Extract number from the player's slot name (e.g., "Jugador 2" -> "2")
+            const slotMatch = (playerData.name || '').match(/(\d+)/);
+            if (slotMatch) {
+                playerNum = slotMatch[1];
+            }
+
+            const defaultAvatarUrl = `/assets/defaults/jugador${playerNum}_avatar.jpg?v=${Date.now()}`;
+
+            // Set background to default avatar immediately with fallback
+            const svgFallback = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+                '<rect width="100" height="100" fill="#222" />' +
+                '<circle cx="50" cy="40" r="20" fill="#444" />' +
+                '<rect x="15" y="65" width="70" height="18" rx="9" fill="#444" />' +
+                '<text x="50" y="54" font-size="22" fill="#ddd" text-anchor="middle" font-family="Arial,Helvetica,sans-serif">J' + playerNum + '</text>' +
+                '</svg>'
+            );
+
+            avatarDiv.style.backgroundImage = `url(${defaultAvatarUrl}), url(${svgFallback})`;
+            avatarDiv.style.backgroundSize = 'cover';
+            avatarDiv.style.backgroundPosition = 'center';
+            avatarDiv.style.backgroundRepeat = 'no-repeat';
+
+            // Load the image and show it when ready
+            img.onload = () => {
+                img.style.opacity = '1';
+                img.dataset.status = `default: ${img.src.split('/').pop()}`;
+                // Update avatar assignment tracking
+                if (!window.avatarAssigned) window.avatarAssigned = {};
+                window.avatarAssigned[playerData.name] = defaultAvatarUrl;
+                window.avatarAssigned[playerData.displayName] = defaultAvatarUrl;
+                window.avatarAssigned[(playerData.displayName || '').toLowerCase()] = defaultAvatarUrl;
+                console.log('✅ Default avatar loaded successfully for', playerData.name, 'using', defaultAvatarUrl);
+            };
+
+            img.onerror = () => {
+                // If default avatar fails, show SVG fallback
+                img.style.display = 'none';
+                avatarDiv.style.backgroundImage = `url(${svgFallback})`;
+                avatarDiv.style.backgroundSize = 'cover';
+                avatarDiv.style.backgroundPosition = 'center';
+                img.dataset.status = `fallback: J${playerNum}`;
+                console.warn('⚠️ Default avatar failed to load for', playerData.name, '- using SVG fallback');
+            };
+
+            img.src = defaultAvatarUrl;
         }
 
         const infoDiv = document.createElement('div');
