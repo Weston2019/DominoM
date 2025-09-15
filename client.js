@@ -2075,9 +2075,27 @@ function setupLobby() {
     const savedAvatar = localStorage.getItem('domino_player_avatar');
     const savedCustomAvatar = localStorage.getItem('domino_custom_avatar');
     
-    let selectedAvatar = null; // No default avatar - let system fall back to defaults
-    let customAvatarData = null;
-    let saveTimeout; // Shared timeout for debouncing avatar saves
+    // Helper function to properly reset avatar state
+    function resetAvatarState() {
+        customAvatarData = null;
+        selectedAvatar = null;
+        customAvatarPreview.style.display = 'none';
+        customAvatarPreview.innerHTML = '';
+
+        // Reset file input
+        if (avatarUpload) {
+            avatarUpload.value = '';
+        }
+
+        // Clear localStorage
+        localStorage.removeItem('domino_custom_avatar');
+        localStorage.removeItem('domino_player_avatar');
+
+        // Clear emoji selections
+        avatarOptions.forEach(opt => opt.classList.remove('selected'));
+
+        console.log('🧹 Avatar state fully reset');
+    }
     
     // Don't restore saved name - always start fresh
     // if (savedName) {
@@ -2088,14 +2106,41 @@ function setupLobby() {
     avatarOptions.forEach(opt => opt.classList.remove('selected'));
     customAvatarPreview.style.display = 'none';
     
-    // PRIORITY 0: Check for saved custom avatar (persistent across username changes)
+    // PRIORITY 0: Check for saved custom avatar (only if it matches current user)
     if (savedCustomAvatar) {
-        customAvatarData = savedCustomAvatar;
-        selectedAvatar = null;
-        // Show preview
-        customAvatarPreview.innerHTML = `<img src="${customAvatarData}" alt="Custom Avatar">`;
-        customAvatarPreview.style.display = 'block';
-        console.log('🎯 Loaded persistent custom avatar from localStorage');
+        const currentName = nameInput.value.trim().toUpperCase();
+        // Only restore custom avatar if user has a name and it might be theirs
+        // OR if they don't have a name yet (let them see it as an option)
+        if (!currentName || currentName.length < 2) {
+            // For new/unnamed users, don't auto-restore - let them start fresh
+            resetAvatarState();
+            console.log('🧹 Cleared stale custom avatar for new user');
+        } else {
+            // Check if this custom avatar might belong to current user by looking for their avatar file
+            const testImg = new Image();
+            testImg.onload = () => {
+                // If user has their own avatar file, don't override with generic custom avatar
+                console.log('🎯 User has avatar file, not restoring generic custom avatar');
+                resetAvatarState();
+            };
+            testImg.onerror = () => {
+                // No avatar file found, safe to restore custom avatar
+                customAvatarData = savedCustomAvatar;
+                selectedAvatar = null;
+                customAvatarPreview.innerHTML = `<img src="${customAvatarData}" alt="Custom Avatar">`;
+                customAvatarPreview.style.display = 'block';
+
+                // Add click handler to clear custom avatar
+                customAvatarPreview.onclick = () => {
+                    if (confirm('Clear custom avatar selection?')) {
+                        resetAvatarState();
+                    }
+                };
+
+                console.log('🎯 Restored custom avatar for user without avatar file');
+            };
+            testImg.src = `/assets/icons/${currentName}_avatar.jpg?v=${Date.now()}`;
+        }
     }
     
     // PRIORITY 1: Check if user has an avatar file with their name first (skip if we have persistent custom avatar)
@@ -2286,6 +2331,14 @@ function setupLobby() {
                     // Show preview
                     customAvatarPreview.innerHTML = `<img src="${customAvatarData}" alt="Custom Avatar">`;
                     customAvatarPreview.style.display = 'block';
+
+                    // Add click handler to clear custom avatar
+                    customAvatarPreview.onclick = () => {
+                        if (confirm('Clear custom avatar selection?')) {
+                            resetAvatarState();
+                        }
+                    };
+
                     // console.log('Custom avatar uploaded and compressed');
                     
                     // Save to localStorage with persistent key for custom avatars
@@ -2556,7 +2609,19 @@ function setupLobby() {
     // Auto-save custom avatar as file when name is entered (with debouncing)
     nameInput.addEventListener('input', () => {
         const currentName = nameInput.value.trim();
-        if (currentName.length >= 2 && customAvatarData) {
+
+        // If name is cleared or very short, reset custom avatar state
+        if (currentName.length < 2) {
+            if (customAvatarData) {
+                console.log('🧹 Clearing custom avatar due to name change/clear');
+                resetAvatarState();
+                // Clear any pending save timeout
+                if (saveTimeout) {
+                    clearTimeout(saveTimeout);
+                    saveTimeout = null;
+                }
+            }
+        } else if (customAvatarData) {
             // console.log(`⌨️ [CLIENT] Auto-save triggered for: ${currentName}`);
             // Clear previous timeout
             if (saveTimeout) clearTimeout(saveTimeout);
@@ -2569,12 +2634,7 @@ function setupLobby() {
     });
 // Debug function to clear all avatar data (for testing)
 window.clearAllAvatarData = function() {
-    localStorage.removeItem('domino_player_avatar');
-    localStorage.removeItem('domino_custom_avatar');
-    selectedAvatar = null;
-    customAvatarData = null;
-    avatarOptions.forEach(opt => opt.classList.remove('selected'));
-    customAvatarPreview.style.display = 'none';
+    resetAvatarState();
     console.log('🗑️ Cleared all avatar data');
 };
 function setupSuggestionBox() {
