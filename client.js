@@ -2101,7 +2101,7 @@ function setupLobby() {
         customAvatarData = null;
         selectedAvatar = null;
         customAvatarPreview.style.display = 'none';
-        customAvatarPreview.innerHTML = '';
+        customAvatarPreview.src = '';
 
         // Reset file input
         if (avatarUpload) {
@@ -2127,41 +2127,23 @@ function setupLobby() {
     avatarOptions.forEach(opt => opt.classList.remove('selected'));
     customAvatarPreview.style.display = 'none';
     
-    // PRIORITY 0: Check for saved custom avatar (only if it matches current user)
+    // PRIORITY 0: Check for saved custom avatar
     if (savedCustomAvatar) {
         const currentName = nameInput.value.trim().toUpperCase();
-        // Only restore custom avatar if user has a name and it might be theirs
-        // OR if they don't have a name yet (let them see it as an option)
-        if (!currentName || currentName.length < 2) {
-            // For new/unnamed users, don't auto-restore - let them start fresh
-            resetAvatarState();
-            console.log('🧹 Cleared stale custom avatar for new user');
-        } else {
-            // Check if this custom avatar might belong to current user by looking for their avatar file
-            const testImg = new Image();
-            testImg.onload = () => {
-                // If user has their own avatar file, don't override with generic custom avatar
-                console.log('🎯 User has avatar file, not restoring generic custom avatar');
+        // Always restore custom avatar - it's the user's uploaded image
+        // Don't clear it just because they haven't entered a name yet
+        customAvatarData = savedCustomAvatar;
+        selectedAvatar = null;
+        customAvatarPreview.src = customAvatarData;
+        customAvatarPreview.style.display = 'block';
+        console.log('🎯 Restored custom avatar from localStorage');
+        
+        // Add click handler to clear custom avatar
+        customAvatarPreview.onclick = () => {
+            if (confirm('Clear custom avatar selection?')) {
                 resetAvatarState();
-            };
-            testImg.onerror = () => {
-                // No avatar file found, safe to restore custom avatar
-                customAvatarData = savedCustomAvatar;
-                selectedAvatar = null;
-                customAvatarPreview.innerHTML = `<img src="${customAvatarData}" alt="Custom Avatar">`;
-                customAvatarPreview.style.display = 'block';
-
-                // Add click handler to clear custom avatar
-                customAvatarPreview.onclick = () => {
-                    if (confirm('Clear custom avatar selection?')) {
-                        resetAvatarState();
-                    }
-                };
-
-                console.log('🎯 Restored custom avatar for user without avatar file');
-            };
-            testImg.src = `/assets/icons/${currentName}_avatar.jpg?v=${Date.now()}`;
-        }
+            }
+        };
     }
     
     // PRIORITY 1: Check if user has an avatar file with their name first (skip if we have persistent custom avatar)
@@ -2202,7 +2184,7 @@ function setupLobby() {
                     customAvatarData = avatarData.data;
                     selectedAvatar = null;
                     // Show preview
-                    customAvatarPreview.innerHTML = `<img src="${customAvatarData}" alt="Custom Avatar">`;
+                    customAvatarPreview.src = customAvatarData;
                     customAvatarPreview.style.display = 'block';
                     // console.log('Restored custom avatar from localStorage');
                 } else {
@@ -2231,7 +2213,7 @@ function setupLobby() {
                 if (avatarData.type === 'custom') {
                     customAvatarData = avatarData.data;
                     selectedAvatar = null;
-                    customAvatarPreview.innerHTML = `<img src="${customAvatarData}" alt="Custom Avatar">`;
+                    customAvatarPreview.src = customAvatarData;
                     customAvatarPreview.style.display = 'block';
                     // console.log('Restored custom avatar from localStorage');
                 } else {
@@ -2376,7 +2358,7 @@ function setupLobby() {
                     avatarOptions.forEach(opt => opt.classList.remove('selected'));
                     
                     // Show preview
-                    customAvatarPreview.innerHTML = `<img src="${customAvatarData}" alt="Custom Avatar">`;
+                    customAvatarPreview.src = customAvatarData;
                     customAvatarPreview.style.display = 'block';
                     console.log('📁 Preview displayed');
 
