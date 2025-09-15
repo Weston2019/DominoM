@@ -2027,6 +2027,9 @@ function setupLobby() {
     const avatarOptions = document.querySelectorAll('.avatar-option');
     const avatarUpload = document.getElementById('avatar-upload');
     const customAvatarPreview = document.getElementById('custom-avatar-preview');
+
+    console.log('🎯 Avatar upload element:', avatarUpload);
+    console.log('🎯 Custom avatar preview element:', customAvatarPreview);
     // Room selection input (add this to your HTML if not present)
     let roomInput = document.getElementById('room-input');
     if (!roomInput) {
@@ -2252,7 +2255,9 @@ function setupLobby() {
     setupStubbornBox();
     
     // Handle avatar selection from grid
-    avatarOptions.forEach(option => {
+    console.log('🎯 Setting up avatar options, found:', avatarOptions.length, 'options');
+    avatarOptions.forEach((option, index) => {
+        console.log(`🎯 Avatar option ${index}:`, option.dataset.avatar);
         option.addEventListener('click', () => {
             console.log('🎯 Emoji clicked:', option.dataset.avatar);
             // Remove selected class from all options
@@ -2278,8 +2283,13 @@ function setupLobby() {
     
     // Handle custom avatar upload
     avatarUpload.addEventListener('change', (event) => {
+        console.log('📁 File upload triggered, files:', event.target.files.length);
         const file = event.target.files[0];
+        if (file) {
+            console.log('📁 File selected:', file.name, 'size:', file.size, 'type:', file.type);
+        }
         if (file && file.type.startsWith('image/')) {
+            console.log('📁 Processing image file...');
             // Check file size (limit to 500KB)
             if (file.size > 500 * 1024) {
                 alert(window.lang.t('image_too_large'));
@@ -2287,10 +2297,27 @@ function setupLobby() {
             }
             
             const reader = new FileReader();
+            console.log('📁 Created FileReader');
+            reader.onerror = (e) => {
+                console.error('❌ FileReader error:', e);
+                alert('Error reading file. Please try again.');
+            };
+
             reader.onload = (e) => {
+                console.log('📁 FileReader onload triggered, result length:', e.target.result.length);
                 // Create an image element to compress the image
                 const img = new Image();
+                console.log('📁 Created Image element');
+
+                img.onerror = (e) => {
+                    console.error('❌ Image load error:', e);
+                    alert('Error loading image. Please try a different image file.');
+                };
+
                 img.onload = () => {
+                    console.log('📁 Image loaded, dimensions:', img.width, 'x', img.height);
+                    console.log('📁 Image loaded, dimensions:', img.width, 'x', img.height);
+                    console.log('📁 Image loaded, dimensions:', img.width, 'x', img.height);
                     // Create canvas for compression
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
@@ -2317,9 +2344,11 @@ function setupLobby() {
                     
                     // Draw and compress the image
                     ctx.drawImage(img, 0, 0, width, height);
+                    console.log('📁 Drew image to canvas');
                     
                     // Convert to compressed data URL (JPEG with 70% quality)
                     customAvatarData = canvas.toDataURL('image/jpeg', 0.7);
+                    console.log('📁 Compressed to data URL, length:', customAvatarData.length);
                     selectedAvatar = null; // Clear emoji selection
                     
                     // Clear any persistent custom avatar when uploading new one
@@ -2331,6 +2360,7 @@ function setupLobby() {
                     // Show preview
                     customAvatarPreview.innerHTML = `<img src="${customAvatarData}" alt="Custom Avatar">`;
                     customAvatarPreview.style.display = 'block';
+                    console.log('📁 Preview displayed');
 
                     // Add click handler to clear custom avatar
                     customAvatarPreview.onclick = () => {
@@ -2347,6 +2377,7 @@ function setupLobby() {
                         type: 'custom',
                         data: customAvatarData
                     }));
+                    console.log('📁 Saved to localStorage');
                     
                     // NEW: Save as file for permanent storage (with debouncing)
                     const currentPlayerName = nameInput.value.trim();
@@ -2376,6 +2407,12 @@ function setupLobby() {
                 img.src = e.target.result;
             };
             reader.readAsDataURL(file);
+            console.log('📁 Started reading file');
+        } else if (file) {
+            console.log('❌ File type not supported:', file.type);
+            alert('Please select an image file (JPEG, PNG, GIF, etc.)');
+        } else {
+            console.log('❌ No file selected');
         }
     });
     

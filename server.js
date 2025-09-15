@@ -101,9 +101,24 @@ app.get('/analytics', async (req, res) => {
     }
 });
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = socketIo(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"],
+        credentials: true
+    }
+});
 
 app.use(express.static(__dirname));
+
+// Health check endpoint for Render
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+    });
+});
 
 // Set MIME type for web app manifest
 app.get('*.webmanifest', (req, res) => {
