@@ -2366,7 +2366,7 @@ function setupLobby() {
                     if (customAvatarData) {
                         avatarData = { type: 'custom', data: customAvatarData };
                         // console.log('📤 PRIORITY 2: Using custom avatar:', avatarData);
-                    } else if (selectedAvatar) {
+                    } else if (selectedAvatar && selectedAvatar !== '🎯') {
                         avatarData = { type: 'emoji', data: selectedAvatar };
                         // console.log('📤 PRIORITY 2: Using selected emoji:', avatarData);
                     } else {
@@ -2415,7 +2415,7 @@ function setupLobby() {
                         console.log('📤 PRIORITY 3: Using custom avatar:', avatarData);
                     }
                     // PRIORITY 4: Use explicitly selected emoji only if no saved files exist
-                    else if (selectedAvatar && selectedAvatar !== '👤') {
+                    else if (selectedAvatar && selectedAvatar !== '🎯') {
                         avatarData = { type: 'emoji', data: selectedAvatar };
                         console.log('📤 PRIORITY 4: Using selected emoji (no saved files found):', avatarData);
                     }
