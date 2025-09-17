@@ -1,4 +1,3 @@
-
 // =============================================================================
 // == server.js          DominoM  -  August 27 by DAM Productions              ==
 // =============================================================================
@@ -872,6 +871,17 @@ function checkRoundEnd(room) {
     broadcastGameState(room);
 }
 
+// === Available Rooms Endpoint for Mobile Popup ===
+app.get('/available-rooms', (req, res) => {
+  // Return all rooms with less than 4 connected players
+  const rooms = Array.from(gameRooms.values())
+    .filter(room => room.jugadores.filter(p => p.isConnected).length < 4)
+    .map(room => ({
+      name: room.roomId,
+      players: room.jugadores.filter(p => p.isConnected).length
+    }));
+  res.json({ rooms });
+});
 
 // =============================================================================
 // == SOCKET.IO CONNECTION & EVENT LISTENERS (MODIFIED)                       ==

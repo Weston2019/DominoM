@@ -1191,7 +1191,7 @@ class LanguageManager {
                 'upload_own_image': 'O Suba Su Propia Imagen',
                 'select_file': 'Seleccionar Archivo',
                 'name_placeholder': 'Su Nombre o Iniciales',
-                'room_placeholder': 'Sala nombre(opcional)',
+                'room_placeholder': 'Crear Sala (opcional)',
                 'score_label': 'Puntaje:',
                 'enter_game': 'Entrar al Juego',
                 'clear_saved_profile': 'Borrar Perfil Guardado',
@@ -2169,6 +2169,230 @@ function draw() {
  * Sets up the initial name-entry lobby screen with avatar selection.
  */
 function setupLobby() {
+    // == MOBILE ROOMS POPUP SETUP ==
+    // Only visible on mobile (<=900px)
+    function isMobile() {
+        return window.innerWidth <= 900;
+    }
+
+    // Inject mobile-only CSS for button and modal
+    if (!document.getElementById('mobile-rooms-style')) {
+        const style = document.createElement('style');
+        style.id = 'mobile-rooms-style';
+        style.textContent = `
+        @media (max-width: 900px) {
+            #mobile-rooms-btn {
+                display: block !important;
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                z-index: 9999;
+                padding: 12px 18px;
+                font-size: 18px;
+                background: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            }
+            #mobile-rooms-modal {
+                display: flex;
+                position: fixed;
+                top: 0; left: 0; width: 100vw; height: 100vh;
+                background: rgba(0,0,0,0.55);
+                z-index: 10000;
+                align-items: center;
+                justify-content: center;
+            }
+            #mobile-rooms-content {
+                background: white;
+                max-width: 90vw;
+                width: 350px;
+                margin: auto;
+                padding: 24px 16px 16px 16px;
+                border-radius: 12px;
+                box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+                position: relative;
+            }
+        }
+        @media (min-width: 901px) {
+            #mobile-rooms-btn, #mobile-rooms-modal { display: none !important; }
+        }
+        #mobile-rooms-btn { display: none; }
+        #mobile-rooms-modal { display: none; }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // Create mobile rooms button and insert just before the name input in the lobby
+    let mobileRoomsBtn = document.getElementById('mobile-rooms-btn');
+    if (!mobileRoomsBtn) {
+        mobileRoomsBtn = document.createElement('button');
+        mobileRoomsBtn.id = 'mobile-rooms-btn';
+        mobileRoomsBtn.textContent = '🏠 Salas Disponibles';
+    }
+    // Insert before name input in lobby container
+    const lobbyContainer = document.getElementById('lobby-container');
+    const nameInput = document.getElementById('name-input');
+    if (lobbyContainer && nameInput && mobileRoomsBtn.parentNode !== lobbyContainer) {
+        lobbyContainer.insertBefore(mobileRoomsBtn, nameInput);
+    }
+
+    // Create mobile rooms popup/modal
+    let mobileRoomsModal = document.getElementById('mobile-rooms-modal');
+    if (!mobileRoomsModal) {
+        mobileRoomsModal = document.createElement('div');
+        mobileRoomsModal.id = 'mobile-rooms-modal';
+        mobileRoomsModal.innerHTML = `
+            <div id="mobile-rooms-content">
+                <button id="close-mobile-rooms" style="position:absolute;top:8px;right:8px;font-size:22px;background:none;border:none;color:#888;">&times;</button>
+                <h3 style="margin-top:0;margin-bottom:12px;font-size:20px;text-align:center;">Salas Disponibles</h3>
+                <div id="mobile-rooms-list" style="max-height:260px;overflow-y:auto;margin-bottom:16px;"></div>
+                <button id="auto-join-room" style="width:100%;padding:10px 0;background:#2196F3;color:white;border:none;border-radius:6px;font-size:17px;">Unirse a la próxima sala disponible</button>
+            </div>
+        `;
+        document.body.appendChild(mobileRoomsModal);
+    }
+
+    // Show/hide button based on screen size and game state
+    let modalShouldBeOpen = false;
+    let gameInProgress = false;
+    function showMobileRoomsBtnIfMobile() {
+        if (isMobile() && !gameInProgress) {
+            mobileRoomsBtn.style.display = 'block';
+            // Always hide modal on resize to mobile
+            mobileRoomsModal.style.display = 'none';
+            modalShouldBeOpen = false;
+            setTimeout(() => { mobileRoomsModal.style.display = 'none'; }, 0);
+        } else {
+            mobileRoomsBtn.style.display = 'none';
+            mobileRoomsModal.style.display = 'none';
+            modalShouldBeOpen = false;
+            setTimeout(() => { mobileRoomsModal.style.display = 'none'; }, 0);
+        }
+    }
+    window.addEventListener('resize', showMobileRoomsBtnIfMobile);
+    // Always start with modal hidden and never open automatically
+    mobileRoomsModal.style.display = 'none';
+    showMobileRoomsBtnIfMobile();
+
+    // Listen for game state changes to hide/show button
+    function handleGameStateUpdate(state) {
+        // If game is initialized, hide button and modal
+        gameInProgress = !!(state && state.gameInitialized);
+        showMobileRoomsBtnIfMobile();
+    }
+    // Listen for gameState events from server (Socket.IO)
+    if (typeof io !== 'undefined' && window.socket) {
+        window.socket.on('gameState', handleGameStateUpdate);
+    }
+
+    // Open popup on button click (fetch rooms every time)
+    mobileRoomsBtn.onclick = function() {
+        modalShouldBeOpen = true;
+        mobileRoomsModal.style.display = 'flex';
+        fetchAndShowRooms();
+    };
+
+    // Defensive: Hide modal if it is ever shown without user action
+    setInterval(() => {
+        if (!modalShouldBeOpen && mobileRoomsModal.style.display === 'flex') {
+            console.warn('[MobileRoomsModal] Modal forcibly hidden (unexpected show)');
+            mobileRoomsModal.style.display = 'none';
+        }
+    }, 200);
+    // Close popup (robust: add event every time in case of re-render)
+    function closeMobileRoomsModal() {
+    mobileRoomsModal.style.display = 'none';
+    modalShouldBeOpen = false;
+    }
+    const closeBtn = mobileRoomsModal.querySelector('#close-mobile-rooms');
+    if (closeBtn) closeBtn.onclick = closeMobileRoomsModal;
+    // Also close modal if user clicks outside the content
+    mobileRoomsModal.addEventListener('click', function(e) {
+        if (e.target === mobileRoomsModal) closeMobileRoomsModal();
+    });
+
+    // Fetch available rooms from server (replace with real endpoint if available)
+    function fetchAndShowRooms() {
+        const listDiv = document.getElementById('mobile-rooms-list');
+        listDiv.innerHTML = '<div style="text-align:center;color:#888;">Cargando salas...</div>';
+        let fetchCompleted = false;
+        fetch('/available-rooms')
+            .then(async r => {
+                if (!r.ok) {
+                    const text = await r.text();
+                    throw new Error('HTTP ' + r.status + ': ' + text);
+                }
+                return r.json();
+            })
+            .then(data => {
+                fetchCompleted = true;
+                if (Array.isArray(data.rooms) && data.rooms.length > 0) {
+                    listDiv.innerHTML = '';
+                    data.rooms.forEach(room => {
+                        const roomDiv = document.createElement('div');
+                        roomDiv.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;';
+                        roomDiv.innerHTML = `
+                            <span style="font-size:16px;">${room.name || 'Sala'} <span style="color:#888;font-size:13px;">(${room.players || 0} jugadores)</span></span>
+                            <button style="background:#4CAF50;color:white;border:none;border-radius:4px;padding:6px 12px;font-size:15px;" data-room="${room.name}">Unirse</button>
+                        `;
+                        roomDiv.querySelector('button').onclick = function() {
+                            joinRoom(room.name);
+                        };
+                        listDiv.appendChild(roomDiv);
+                    });
+                } else {
+                    listDiv.innerHTML = '<div style="text-align:center;color:#888;">No hay salas disponibles en este momento.</div>';
+                }
+            })
+            .catch((err) => {
+                fetchCompleted = true;
+                console.error('[MobileRoomsModal] Error fetching /available-rooms:', err);
+                listDiv.innerHTML = '<div style="text-align:center;color:#e53935;">Error al cargar las salas.<br><span style="font-size:12px;">' + (err && err.message ? err.message : err) + '</span></div>';
+            });
+        // Defensive: If fetch fails or is slow, always show a message after 3s
+        setTimeout(() => {
+            if (!fetchCompleted && (listDiv.innerHTML.includes('Cargando salas') || !listDiv.innerHTML)) {
+                listDiv.innerHTML = '<div style="text-align:center;color:#e53935;">No se pudieron cargar las salas.</div>';
+            }
+        }, 3000);
+    }
+
+    // Join selected room
+    function joinRoom(roomName) {
+        // Set room input and close modal
+        const roomInput = document.getElementById('room-input');
+        if (roomInput) roomInput.value = roomName;
+        mobileRoomsModal.style.display = 'none';
+        // Optionally, auto-submit name if already filled
+        const nameInput = document.getElementById('name-input');
+        if (nameInput && nameInput.value.trim().length > 0) {
+            const setNameBtn = document.getElementById('set-name-btn');
+            if (setNameBtn) setNameBtn.click();
+        } else if (roomInput) {
+            roomInput.focus();
+        }
+    }
+
+    // Auto-join next available room
+    mobileRoomsModal.querySelector('#auto-join-room').onclick = function() {
+        const listDiv = document.getElementById('mobile-rooms-list');
+        listDiv.innerHTML = '<div style="text-align:center;color:#888;">Buscando sala disponible...</div>';
+        fetch('/available-rooms')
+            .then(r => r.json())
+            .then(data => {
+                if (Array.isArray(data.rooms) && data.rooms.length > 0) {
+                    joinRoom(data.rooms[0].name);
+                } else {
+                    listDiv.innerHTML = '<div style="text-align:center;color:#e53935;">No hay salas disponibles.</div>';
+                }
+            })
+            .catch(() => {
+                listDiv.innerHTML = '<div style="text-align:center;color:#e53935;">Error al buscar sala.</div>';
+            });
+    };
+    // == END MOBILE ROOMS POPUP ==
     // IMMEDIATE INCOGNITO CHECK: Hide avatar elements before anything else
     if (isIncognitoMode()) {
         console.log('🔒 IMMEDIATE: Incognito mode detected - hiding all avatar elements');
@@ -2228,8 +2452,7 @@ function setupLobby() {
     // Hide the room-points-legend if present (so it doesn't overlap the lobby)
     const legendDiv = document.getElementById('room-points-legend');
     if (legendDiv) legendDiv.style.display = 'none';
-    const lobbyContainer = document.getElementById('lobby-container');
-    const nameInput = document.getElementById('name-input');
+    // (lobbyContainer and nameInput already declared above, do not redeclare)
 
     // Declare saveTimeout variable for avatar upload debouncing
     let saveTimeout;
@@ -2269,7 +2492,7 @@ function setupLobby() {
         roomInput = document.createElement('input');
         roomInput.type = 'text';
         roomInput.id = 'room-input';
-        roomInput.placeholder = 'Sala nombre (opcional)';
+        roomInput.placeholder = 'Crear Sala (opcional)';
         roomInput.style.marginTop = '10px';
         roomInput.style.width = '56%'; // 30% less than 80%
         roomInput.style.minWidth = '180px';
@@ -2280,7 +2503,7 @@ function setupLobby() {
             lobbyContainer.appendChild(roomInput);
         }
     } else {
-        roomInput.placeholder = 'Sala nombre (opcional)';
+        roomInput.placeholder = 'Crear Sala (opcional)';
         roomInput.style.width = '56%';
         roomInput.style.minWidth = '190px';
     }

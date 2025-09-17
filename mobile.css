@@ -1,3 +1,34 @@
+/*  Force mobile rooms button to be visible  */
+@media (max-width: 900px) {
+
+  #mobile-rooms-btn {
+    display: block !important;
+    background: #28a745 !important;
+    color: #fff !important;
+    border: 2px solid #218838 !important;
+    z-index: 99999 !important;
+    position: static !important;
+    font-size: 16px !important;
+    width: 70% !important;
+    min-width: 140px !important;
+    max-width: 260px !important;
+    margin: 80px auto 0 auto !important;
+    text-align: center !important;
+    padding: 8px 0 !important;
+    border-radius: 7px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.13) !important;
+    transition: background 0.2s, box-shadow 0.2s;
+  }
+  #name-input {
+    margin-top: 20px !important; /* Increased by 10px */
+  }
+  #room-input {
+    margin-top: 1px !important;
+  }
+  #game-ui #scoreboard {
+    margin-top: 1px !important;
+  }
+}
 /* ================= GLOBAL MOBILE STYLES ================= */
 
 /* ===== PWA FONT FIX FOR iOS ===== */
@@ -51,6 +82,20 @@
 
 /* Different positioning for portrait vs landscape */
 @media (max-width: 900px) and (orientation: portrait) {
+  #name-input,
+  #room-input {
+    margin-top: 2px !important;
+    margin-bottom: 2px !important;
+  }
+  #profile-actions {
+    margin-top: 0 !important;
+  }
+  .avatar-flex-row-wrapper,
+  #avatar-selection,
+  #lobby-container {
+    overflow: visible !important;
+    clip-path: none !important;
+  }
   #hand-separator {
     bottom: 100px !important;     /* ← TWEAK: Portrait position */
     height: 2px !important;
@@ -61,6 +106,38 @@
   #hand-separator {
     bottom: 1px !important;      /* ← TWEAK: Landscape position */
     height: 3px !important;
+  }
+}
+
+/* ===== PORTRAIT MODE BUTTONS ===== */
+@media (max-width: 900px) and (orientation: portrait) {
+  #profile-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 10px !important;
+    justify-content: center !important;
+    align-items: center !important;
+    margin-top: 0 !important;
+    background: #111 !important;
+    border-radius: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+  #profile-actions button {
+    width: 80% !important;
+    min-width: 120px !important;
+    margin: 0 auto 8px auto !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-sizing: border-box !important;
+    display: block !important;
+  }
+  #profile-actions {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 10px !important;
   }
 }
 
@@ -133,7 +210,7 @@
       justify-content: center;
       gap: 10px;
       max-width: 100%;
-      overflow: hidden;
+      overflow: visible !important;
     }
     
     #avatar-selection {
@@ -189,7 +266,6 @@
       text-align: center;
       margin: 10px 0;
     }
-    
     #player-name {
       width: 200px;
       padding: 8px;
@@ -215,7 +291,7 @@
     display: block !important;
     margin: 0 auto;
     max-width: 100%;
-    overflow: hidden;
+    overflow: visible !important;
   }
 
   .avatar-flex-row {
@@ -223,7 +299,7 @@
   }
 
   #avatar-selection {
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     max-width: 100%;
     padding: 0 10px;
     box-sizing: border-box;
@@ -240,7 +316,7 @@
     grid-template-columns: repeat(auto-fit, minmax(50px, 1fr)) !important;
     gap: 6px !important;
     max-width: 100% !important;
-    margin: 0 auto !important;
+    margin: 0 auto 32px auto !important;
     padding: 0 5px !important;
     box-sizing: border-box !important;
     justify-items: center !important;
@@ -284,7 +360,12 @@
   
   /* Compact custom avatar section */
   #custom-avatar-section {
-    margin-top: 15px;
+    margin-top: 16px !important;
+    margin-bottom: 32px !important;
+    display: block !important;
+  }
+  #avatar-selection {
+    margin-bottom: 18px !important;
   }
   
   #custom-avatar-section h4 {
@@ -315,6 +396,7 @@
     text-align: center;
     width: 100%;
     box-sizing: border-box;
+    margin-top: 18px !important;
   }
   
   /* Compact form inputs */
@@ -355,14 +437,14 @@
   
   /* Compact action buttons */
   #profile-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-top: 15px;
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 10px !important;
+    justify-content: center !important;
+    align-items: center !important;
   }
   
   #profile-actions button {
-    width: 100%;
     padding: 12px;
     font-size: 1rem;
     border-radius: 5px;
@@ -451,9 +533,16 @@
   
   /* More compact lobby for landscape */
   #lobby-container {
-    padding: 5px 10px;
+    padding: 8px 10px 5px 10px !important;
     max-height: 100vh;
     overflow-y: auto;
+    justify-content: flex-start !important;
+  }
+  #name-input,
+  #room-input,
+  #profile-actions,
+  #mobile-rooms-btn {
+    margin-top: 8px !important;
   }
   
   #lobby-container h2 {
@@ -539,8 +628,11 @@
   }
   
   /* Hide custom avatar section in landscape to save space */
-  #custom-avatar-section {
-    display: none;
+  /* Only hide custom avatar section in landscape for mobile */
+  @media (orientation: landscape) {
+    #custom-avatar-section {
+      display: none;
+    }
   }
 }
 
@@ -940,8 +1032,8 @@
 /* Force Install Banner Button */
 .force-install-btn {
   position: fixed;
-  top: 60px;
-  right: 10px;
+  top: 5px;
+  right: 5px;
   z-index: 9999;
   background: orange;
   color: white;
@@ -974,5 +1066,35 @@
   /* Better spacing for landscape */
   .avatar-flex-row-wrapper {
     gap: 15px;
+  }
+}
+
+/* ===== PORTRAIT-ONLY SIGN-IN PAGE TWEAKS ===== */
+@media (max-width: 900px) and (orientation: portrait) {
+  #lobby-container {
+    padding-top: 24px !important; /* Much less top padding for portrait */
+  }
+  #mobile-rooms-btn {
+    margin-top: 1px !important;   /* Move button closer to top */
+    width: 80% !important;
+    max-width: 220px !important;
+  }
+  #name-input {
+    margin-top: 12px !important;   /* Adjust spacing below button */
+  }
+  #avatar-selection {
+     margin-top: 0 !important;      /* Remove extra space above avatar area */
+     max-height: none !important;   /* Remove height restriction */
+     overflow-y: visible !important;
+  }
+  #custom-avatar-section {
+      margin-top: 10px !important;
+      margin-bottom: 18px !important;
+      max-height: 180px !important;
+      overflow-y: visible !important;
+      display: block !important;
+  }
+  #profile-actions {
+    margin-top: 12px !important;
   }
 }
