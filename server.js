@@ -406,7 +406,7 @@ if (!fs.existsSync(defaultsDir)) {
 // == GLOBAL VARIABLES & GAME STATE MANAGEMENT                                ==
 // =============================================================================
 
-const POINTS_TO_WIN_MATCH = 20;
+const POINTS_TO_WIN_MATCH = 70;
 
 // Room management system for multiple simultaneous games
 const gameRooms = new Map(); // roomId -> { jugadores, gameState, roomId }

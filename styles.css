@@ -791,7 +791,7 @@ html, body {
     bottom: 80px;
     right: 20px;
     z-index: 9999;
-    width: 180px;
+    width: 160px;
     height: 130px; /* You can tweak this value */
     padding: 4px 8px; /* Smaller padding for easier tweaking */
     font-size: 10px; /* Smaller font for easier tweaking */

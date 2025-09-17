@@ -2449,11 +2449,8 @@ function setupLobby() {
     
     // PRIORITY 0: Check for saved custom avatar
     console.log('🔍 PRIORITY 0: Checking savedCustomAvatar:', savedCustomAvatar);
-    if (savedCustomAvatar) {
+    if (savedCustomAvatar && nameInput.value.trim().length > 0) {
         console.log('🔍 Restoring custom avatar from localStorage in incognito mode:', isIncognito);
-        const currentName = nameInput.value.trim().toUpperCase();
-        // Always restore custom avatar - it's the user's uploaded image
-        // Don't clear it just because they haven't entered a name yet
         customAvatarData = savedCustomAvatar;
         selectedAvatar = null;
         customAvatarPreview.src = customAvatarData;
@@ -2461,7 +2458,6 @@ function setupLobby() {
         if (previewContainer) previewContainer.style.display = 'block';
         customAvatarPreview.style.display = 'block';
         console.log('🎯 Restored custom avatar from localStorage');
-        
         // Add click handler to clear custom avatar
         customAvatarPreview.onclick = () => {
             if (confirm('Clear custom avatar selection?')) {
@@ -2625,11 +2621,18 @@ function setupLobby() {
     // Handle custom avatar upload
     avatarUpload.addEventListener('change', (event) => {
         console.log('📁 File upload triggered, files:', event.target.files.length);
+        // Always clear previous preview and state before processing new file
+        const previewContainer = document.getElementById('custom-avatar-preview-container');
+        if (previewContainer) previewContainer.style.display = 'none';
+        if (customAvatarPreview) {
+            customAvatarPreview.style.display = 'none';
+        }
+        customAvatarData = null;
         const file = event.target.files[0];
         if (file) {
             console.log('📁 File selected:', file.name, 'size:', file.size, 'type:', file.type);
         }
-        if (file && file.type.startsWith('image/')) {
+    if (file && file.type.startsWith('image/')) {
             console.log('📁 Processing image file...');
             // Check file size (limit to 500KB)
             if (file.size > 500 * 1024) {
@@ -2698,21 +2701,21 @@ function setupLobby() {
                     // Remove selected class from all emoji options
                     avatarOptions.forEach(opt => opt.classList.remove('selected'));
                     
-                    // Show preview immediately when image is processed (but NOT in incognito mode)
-                    if (!isIncognitoMode()) {
-                        customAvatarPreview.src = customAvatarData;
-                        const previewContainer = document.getElementById('custom-avatar-preview-container');
-                        if (previewContainer) previewContainer.style.display = 'block';
-                        customAvatarPreview.style.display = 'block';
-                        customAvatarPreview.style.border = '2px solid #4CAF50';
-                        console.log('📁 Preview displayed with green border');
-                    } else {
+                    if (isIncognitoMode()) {
                         console.log('🔒 Incognito mode: Avatar preview blocked');
                         // Clear the file input to prevent showing preview
-                        avatarUpload.value = '';
+                        if (avatarUpload) avatarUpload.value = '';
                         alert('Avatar upload is disabled in incognito mode for privacy protection.');
                         return;
                     }
+                    // Always show preview after successful image load (not in incognito)
+                    customAvatarPreview.src = customAvatarData;
+                    if (previewContainer) previewContainer.style.display = 'block';
+                    customAvatarPreview.style.display = 'block';
+                    customAvatarPreview.style.border = '2px solid #4CAF50';
+                    console.log('📁 Preview displayed with green border');
+                    // Reset file input after processing so user can upload the same file again if needed
+                    if (avatarUpload) avatarUpload.value = '';
 
                     // Add click handler to clear custom avatar
                     customAvatarPreview.onclick = () => {
@@ -2866,28 +2869,22 @@ function setupLobby() {
                 // Keep language preference - don't remove 'domino_game_language'
             }
             
-            // console.log('🧹 Comprehensive profile clear - all cached data removed');
-            
+            // Reset all avatar state and file input
+            resetAvatarState();
             // Reset form
             nameInput.value = '';
-            customAvatarData = null;
             selectedAvatar = '🎯';
-            customAvatarPreview.style.display = 'none';
-            
             // Reset avatar selection to default
             avatarOptions.forEach(opt => opt.classList.remove('selected'));
             const defaultOption = document.querySelector('[data-avatar="🎯"]');
             if (defaultOption) {
                 defaultOption.classList.add('selected');
             }
-            
             // Hide status message
             const profileStatus = document.getElementById('profile-status');
             if (profileStatus) {
                 profileStatus.style.display = 'none';
             }
-            
-            // console.log('Profile cleared - large avatar data removed');
             nameInput.focus();
         });
     }
@@ -2991,21 +2988,16 @@ function setupLobby() {
             checkForExistingAvatar(currentName);
         }
 
-        // If name is cleared or very short, reset custom avatar state
-        if (currentName.length < 2) {
+        // Only clear avatar if name is fully empty
+        if (currentName.length === 0) {
             if (customAvatarData) {
-                console.log('🧹 Clearing custom avatar due to name change/clear');
+                console.log('🧹 Clearing custom avatar due to name being fully cleared');
                 resetAvatarState();
                 // Clear any pending save timeout
                 if (saveTimeout) {
                     clearTimeout(saveTimeout);
                     saveTimeout = null;
                 }
-            }
-            // Also clear the preview if name is cleared
-            if (customAvatarPreview) {
-                customAvatarPreview.style.display = 'none';
-                customAvatarPreview.src = '';
             }
         } else if (customAvatarData) {
             // console.log(`⌨️ [CLIENT] Auto-save triggered for: ${currentName}`);
