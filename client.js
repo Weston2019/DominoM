@@ -154,7 +154,6 @@ window.testIncognitoDetection = function() {
     const isIncognito = isIncognitoMode();
     console.log('🔒 Incognito mode test result:', isIncognito);
     console.log('🔒 localStorage available:', !isIncognito);
-    console.log('🔒 Current savedAvatar:', isIncognito ? 'DISABLED' : localStorage.getItem('domino_player_avatar'));
     console.log('🔒 Current savedCustomAvatar:', isIncognito ? 'DISABLED' : localStorage.getItem('domino_custom_avatar'));
     return isIncognito;
 };
@@ -2310,7 +2309,6 @@ function setupLobby() {
     // Load saved avatar from localStorage (but NOT the name - keep it empty)
     const isIncognito = isIncognitoMode();
     console.log('🔒 Incognito mode detected:', isIncognito);
-    console.log('🔒 Current savedAvatar:', isIncognito ? 'DISABLED' : localStorage.getItem('domino_player_avatar'));
     console.log('🔒 Current savedCustomAvatar:', isIncognito ? 'DISABLED' : localStorage.getItem('domino_custom_avatar'));
     
     if (isIncognito) {
@@ -2363,7 +2361,6 @@ function setupLobby() {
         }
     }
     
-    const savedAvatar = isIncognito ? null : localStorage.getItem('domino_player_avatar');
     const savedCustomAvatar = isIncognito ? null : localStorage.getItem('domino_custom_avatar');
     
     // Helper function to properly reset avatar state
@@ -2397,11 +2394,58 @@ function setupLobby() {
     //     nameInput.value = savedName;
     // }
     
-    // Reset all avatar selections first
-    avatarOptions.forEach(opt => opt.classList.remove('selected'));
-    const previewContainer = document.getElementById('custom-avatar-preview-container');
-    if (previewContainer) previewContainer.style.display = 'none';
-    customAvatarPreview.style.display = 'none';
+    // Initially show avatar selection (no longer hidden)
+    const avatarSelection = document.getElementById('avatar-selection');
+    if (avatarSelection) {
+        avatarSelection.style.display = 'block';
+    }
+    
+    // Function to check for existing avatar file
+    function checkForExistingAvatar(playerName) {
+        if (!playerName || playerName.length < 2) return;
+        
+        // Use server endpoint to check for existing avatar
+        fetch(`/check-avatar/${encodeURIComponent(playerName)}`)
+            .then(response => response.json())
+            .then(result => {
+                if (result.exists && result.filename) {
+                    console.log('✅ Found existing avatar file for', playerName, ':', result.filename);
+                    // Avatar file exists, no need to show selection UI prominently
+                    // User can still change it if they want
+                } else {
+                    console.log('📁 No existing avatar file found for', playerName, '- will use default');
+                }
+            })
+            .catch(error => {
+                console.warn('⚠️ Failed to check for existing avatar:', error);
+                // Fall back to old method
+                const upperName = playerName.toUpperCase();
+                const avatarPaths = [
+                    `/assets/icons/${upperName}_avatar.jpg?v=${Date.now()}`,
+                    `/assets/icons/${upperName}.jpg?v=${Date.now()}`,
+                    `/assets/icons/${playerName}_avatar.jpg?v=${Date.now()}`,
+                    `/assets/icons/${playerName}.jpg?v=${Date.now()}`
+                ];
+                
+                const checkAvatar = (paths, index = 0) => {
+                    if (index >= paths.length) {
+                        console.log('📁 No existing avatar file found for', playerName, '- will use default');
+                        return;
+                    }
+                    
+                    const testImg = new Image();
+                    testImg.onload = () => {
+                        console.log('✅ Found existing avatar file for', playerName, ':', paths[index]);
+                    };
+                    testImg.onerror = () => {
+                        checkAvatar(paths, index + 1);
+                    };
+                    testImg.src = paths[index];
+                };
+                
+                checkAvatar(avatarPaths);
+            });
+    }
     
     // PRIORITY 0: Check for saved custom avatar
     console.log('🔍 PRIORITY 0: Checking savedCustomAvatar:', savedCustomAvatar);
@@ -2456,69 +2500,72 @@ function setupLobby() {
         
         tryLoadExisting(avatarPaths);
         
+        // Avatar selection no longer restored from shared localStorage
         // PRIORITY 2: Restore saved avatar from localStorage
-        if (savedAvatar && !isIncognito) {
-            try {
-                const avatarData = JSON.parse(savedAvatar);
-                if (avatarData.type === 'custom') {
-                    customAvatarData = avatarData.data;
-                    selectedAvatar = null;
-                    // Show preview
-                    customAvatarPreview.src = customAvatarData;
-                    const previewContainer = document.getElementById('custom-avatar-preview-container');
-                    if (previewContainer) previewContainer.style.display = 'block';
-                    customAvatarPreview.style.display = 'block';
-                    // console.log('Restored custom avatar from localStorage');
-                } else {
-                    selectedAvatar = avatarData.data;
-                    customAvatarData = null;
-                    // Select the correct emoji option
-                    avatarOptions.forEach(opt => {
-                        if (opt.dataset.avatar === selectedAvatar) {
-                            opt.classList.add('selected');
-                        }
-                    });
-                    // console.log('Restored emoji avatar from localStorage:', selectedAvatar);
-                }
-            } catch (e) {
-                // console.log('Could not restore saved avatar, using default');
-                useDefaultAvatar();
-            }
-        } else {
-            useDefaultAvatar();
-        }
+        // if (savedAvatar && !isIncognito) {
+        //     try {
+        //         const avatarData = JSON.parse(savedAvatar);
+        //         if (avatarData.type === 'custom') {
+        //             customAvatarData = avatarData.data;
+        //             selectedAvatar = null;
+        //             // Show preview
+        //             customAvatarPreview.src = customAvatarData;
+        //             const previewContainer = document.getElementById('custom-avatar-preview-container');
+        //             if (previewContainer) previewContainer.style.display = 'block';
+        //             customAvatarPreview.style.display = 'block';
+        //             // console.log('Restored custom avatar from localStorage');
+        //         } else {
+        //             selectedAvatar = avatarData.data;
+        //             customAvatarData = null;
+        //             // Select the correct emoji option
+        //             avatarOptions.forEach(opt => {
+        //                 if (opt.dataset.avatar === selectedAvatar) {
+        //                     opt.classList.add('selected');
+        //                 }
+        //             });
+        //             // console.log('Restored emoji avatar from localStorage:', selectedAvatar);
+        //         }
+        //     } catch (e) {
+        //         // console.log('Could not restore saved avatar, using default');
+        //         useDefaultAvatar();
+        //     }
+        // } else {
+        //     useDefaultAvatar();
+        // }
     } else {
-        // No name entered yet, use localStorage or default (skip in incognito mode)
-        if (savedAvatar && !isIncognito) {
-            console.log('🎯 Branch 2: Restoring from localStorage');
-            console.log('🎯 Branch 2: Restoring from localStorage');
-            try {
-                const avatarData = JSON.parse(savedAvatar);
-                if (avatarData.type === 'custom') {
-                    customAvatarData = avatarData.data;
-                    selectedAvatar = null;
-                    customAvatarPreview.src = customAvatarData;
-                    const previewContainer = document.getElementById('custom-avatar-preview-container');
-                    if (previewContainer) previewContainer.style.display = 'block';
-                    customAvatarPreview.style.display = 'block';
-                    // console.log('Restored custom avatar from localStorage');
-                } else {
-                    selectedAvatar = avatarData.data;
-                    customAvatarData = null;
-                    avatarOptions.forEach(opt => {
-                        if (opt.dataset.avatar === selectedAvatar) {
-                            opt.classList.add('selected');
-                        }
-                    });
-                    // console.log('Restored emoji avatar from localStorage:', selectedAvatar);
-                }
-            } catch (e) {
-                // console.log('Could not restore saved avatar, using default');
-                useDefaultAvatar();
-            }
-        } else {
-            useDefaultAvatar();
-        }
+        // No name entered yet, use default (skip in incognito mode)
+        // Avatar selection no longer restored from shared localStorage
+        // if (savedAvatar && !isIncognito) {
+        //     console.log('🎯 Branch 2: Restoring from localStorage');
+        //     console.log('🎯 Branch 2: Restoring from localStorage');
+        //     try {
+        //         const avatarData = JSON.parse(savedAvatar);
+        //         if (avatarData.type === 'custom') {
+        //             customAvatarData = avatarData.data;
+        //             selectedAvatar = null;
+        //             customAvatarPreview.src = customAvatarData;
+        //             const previewContainer = document.getElementById('custom-avatar-preview-container');
+        //             if (previewContainer) previewContainer.style.display = 'block';
+        //             customAvatarPreview.style.display = 'block';
+        //             // console.log('Restored custom avatar from localStorage');
+        //         } else {
+        //             selectedAvatar = avatarData.data;
+        //             customAvatarData = null;
+        //             avatarOptions.forEach(opt => {
+        //                 if (opt.dataset.avatar === selectedAvatar) {
+        //                     opt.classList.add('selected');
+        //                 }
+        //             });
+        //             // console.log('Restored emoji avatar from localStorage:', selectedAvatar);
+        //         }
+        //     } catch (e) {
+        //         // console.log('Could not restore saved avatar, using default');
+        //         useDefaultAvatar();
+        //     }
+        // } else {
+        //     useDefaultAvatar();
+        // }
+        useDefaultAvatar();
     }
     
     function useDefaultAvatar() {
@@ -2565,13 +2612,13 @@ function setupLobby() {
                 localStorage.removeItem('domino_custom_avatar');
             }
             
-            // Save to localStorage
-            if (!isIncognitoMode()) {
-                localStorage.setItem('domino_player_avatar', JSON.stringify({
-                    type: 'emoji',
-                    data: selectedAvatar
-                }));
-            }
+            // Avatar selection no longer saved to prevent sharing across users
+            // if (!isIncognitoMode()) {
+            //     localStorage.setItem('domino_player_avatar', JSON.stringify({
+            //         type: 'emoji',
+            //         data: selectedAvatar
+            //     }));
+            // }
         });
     });
     
@@ -2680,10 +2727,11 @@ function setupLobby() {
                     // Save to localStorage with persistent key for custom avatars
                     if (!isIncognitoMode()) {
                         localStorage.setItem('domino_custom_avatar', customAvatarData);
-                        localStorage.setItem('domino_player_avatar', JSON.stringify({
-                            type: 'custom',
-                            data: customAvatarData
-                        }));
+                        // Removed saving to domino_player_avatar to prevent sharing
+                        // localStorage.setItem('domino_player_avatar', JSON.stringify({
+                        //     type: 'custom',
+                        //     data: customAvatarData
+                        // }));
                     }
                     console.log('📁 Saved to localStorage');
 
@@ -2711,65 +2759,87 @@ function setupLobby() {
     
     // Function to handle name submission
     const submitName = () => {
+        console.log('🚀 submitName called');
         const name = nameInput.value.trim();
         const roomId = roomInput.value.trim();
         const targetScoreSelect = document.getElementById('target-score');
         const targetScore = targetScoreSelect ? parseInt(targetScoreSelect.value, 10) : 70;
         
-        // console.log('🔍 ROOM DEBUG - submitName called');
-        // console.log('🔍 ROOM DEBUG - Room input value:', roomId);
-        // console.log('🔍 ROOM DEBUG - Player name:', name);
-        // console.log('🔍 ROOM DEBUG - Target score:', targetScore);
+        console.log('📝 Form data:', { name, roomId, targetScore });
         
         if (name) {
-            // Hide lobby and show game UI immediately
-            const lobby = document.getElementById('lobby-container');
-            const gameUI = document.getElementById('game-ui');
-            if (lobby) lobby.style.display = 'none';
-            if (gameUI) gameUI.style.display = 'block';
-
-            // Determine avatar data based on CURRENT UI state (not complex priority logic)
+            console.log('✅ Name validation passed, processing avatar...');
+            // Determine avatar data based on user selection
             let avatarData = null;
-
-            // Check current state: custom avatar takes priority if data exists
-            if (customAvatarData) {
-                // Clear any pending debounced save timeout to avoid duplicate saves
-                if (saveTimeout) {
-                    clearTimeout(saveTimeout);
-                    saveTimeout = null;
+            
+            // Priority 1: Check for existing avatar file using server endpoint
+            const upperName = name.toUpperCase();
+            
+            // TEMPORARILY USE FALLBACK METHOD ONLY
+            console.log('🔄 Using fallback avatar checking method...');
+            const avatarPaths = [
+                `/assets/icons/${upperName}_avatar.jpg`,
+                `/assets/icons/${upperName}.jpg`,
+                `/assets/icons/${name}_avatar.jpg`,
+                `/assets/icons/${name}.jpg`
+            ];
+            
+            for (const path of avatarPaths) {
+                try {
+                    const testImg = new Image();
+                    testImg.src = path + '?v=' + Date.now(); // Cache buster
+                    if (testImg.complete && testImg.naturalHeight > 0) {
+                        avatarData = { type: 'file', data: path };
+                        console.log('🎯 Using existing avatar file (fallback):', path);
+                        break;
+                    }
+                } catch (e) {
+                    // Continue checking
                 }
-
-                // Send the data URI directly - server will handle saving it
-                avatarData = { type: 'custom', data: customAvatarData };
-                console.log('🎯 Using current custom avatar data URI');
-            }
-            // Otherwise use selected emoji if one is selected AND it's not the default target
-            else if (selectedAvatar && selectedAvatar !== '🎯') {
-                avatarData = { type: 'emoji', data: selectedAvatar };
-                console.log('🎯 Using current selected emoji from UI state:', selectedAvatar);
-            }
-            // Default to null (server will use default avatar) - but only if no custom avatar was uploaded
-            else if (!customAvatarData) {
-                console.log('🎯 Using default avatar (no custom/emoji selected)');
-                avatarData = null;
-            }
-            // If we have custom avatar data but no emoji selected, still use custom
-            else {
-                avatarData = { type: 'custom', data: customAvatarData };
-                console.log('🎯 Using custom avatar data (fallback)');
             }
             
-            // Connect to server with the current avatar data
-            console.log('� Connecting to server with current avatar data:', avatarData);
+            // Priority 2: Custom uploaded avatar
+            if (!avatarData && customAvatarData) {
+                avatarData = { type: 'custom', data: customAvatarData };
+                console.log('🎯 Using custom uploaded avatar');
+            }
+            
+            // Priority 3: Selected emoji
+            if (!avatarData && selectedAvatar && selectedAvatar !== '🎯') {
+                avatarData = { type: 'emoji', data: selectedAvatar };
+                console.log('🎯 Using selected emoji:', selectedAvatar);
+            }
+            
+            // Priority 4: Default avatar (null means server will use default)
+            if (!avatarData) {
+                console.log('🎯 Using default avatar (no custom/emoji/file found)');
+                avatarData = null;
+            }
+            
+            // Connect to server with the determined avatar data
+            console.log('🚀 Connecting to server with avatar data:', avatarData);
             connectToServer(name, avatarData, roomId, targetScore);
+            console.log('✅ submitName completed successfully');
+        } else {
+            console.log('❌ Name validation failed - empty name');
         }
     };
     
 
     // Handle button click
     setNameBtn.addEventListener('click', () => {
-        // console.log('🔍 ROOM DEBUG - Button clicked, calling submitName()');
-        submitName();
+        console.log('🔍 Button clicked, calling submitName()');
+        // Add visual feedback
+        setNameBtn.textContent = 'Conectando...';
+        setNameBtn.disabled = true;
+        
+        try {
+            submitName();
+        } catch (error) {
+            console.error('❌ Error in submitName:', error);
+            setNameBtn.textContent = 'Entrar al Juego';
+            setNameBtn.disabled = false;
+        }
     });
 
     // (mobile fallback removed) - restoring original click-only behavior
@@ -2896,14 +2966,30 @@ function setupLobby() {
     // Handle Enter key press
     nameInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
-            // console.log('🔍 ROOM DEBUG - Enter key pressed, calling submitName()');
-            submitName();
+            console.log('🔍 Enter key pressed, calling submitName()');
+            // Add visual feedback
+            setNameBtn.textContent = 'Conectando...';
+            setNameBtn.disabled = true;
+            
+            try {
+                submitName();
+            } catch (error) {
+                console.error('❌ Error in submitName:', error);
+                setNameBtn.textContent = 'Entrar al Juego';
+                setNameBtn.disabled = false;
+            }
         }
     });
     
-    // Auto-save custom avatar as file when name is entered (with debouncing)
+    // Handle name input to show avatar selection
     nameInput.addEventListener('input', () => {
         const currentName = nameInput.value.trim();
+
+        // Keep avatar selection always visible, but check for existing avatars when name is long enough
+        if (currentName.length >= 2) {
+            // Check for existing avatar file
+            checkForExistingAvatar(currentName);
+        }
 
         // If name is cleared or very short, reset custom avatar state
         if (currentName.length < 2) {
@@ -3661,6 +3747,12 @@ socket.on("reconnect", (attempt) => {
 // Handle reconnection errors
 socket.on("reconnect_error", (err) => {
   console.warn("⚠️ Reconnect error:", err);
+  // Reset button state on connection error
+  const setNameBtn = document.getElementById('set-name-btn');
+  if (setNameBtn) {
+    setNameBtn.textContent = 'Entrar al Juego';
+    setNameBtn.disabled = false;
+  }
 });
 
     socket.on('connect', () => {
@@ -4797,7 +4889,7 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
 
     const isMobileDevice = window.innerWidth <= 900 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     // Remove automatic cache-buster to avoid service-worker/cache issues on mobile
-    const cacheBuster = '';
+    const cacheBuster = isMobileDevice ? '' : '?v=' + Date.now();
     const defaultAvatarSrc = `/assets/defaults/jugador${playerNumber}_avatar.jpg${cacheBuster}`;
 
     // Inline SVG fallback generator — use when external defaults are unavailable/blocked
@@ -4810,7 +4902,7 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
             const bar = `<rect x="15" y="65" width="70" height="18" rx="9" fill="${mid}" />`;
             const label = `<text x="50" y="54" font-size="22" fill="#ddd" text-anchor="middle" font-family="Arial,Helvetica,sans-serif">J${num}</text>`;
             const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>${rect}${circ}${bar}${label}</svg>`;
-            return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+            return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
         } catch (e) { return ''; }
     };
 
@@ -4862,7 +4954,7 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
             srcHint = `/assets/icons/${srcHintToUse}`;
         }
         // Show neutral placeholder while verifying the srcHint to avoid displaying HTML fallbacks
-        const svgPlaceholder = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#222" /><circle cx="50" cy="40" r="20" fill="#444" /></svg>');
+        const svgPlaceholder = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#f0f0f0" /><circle cx="50" cy="40" r="20" fill="#cccccc" /><text x="50" y="78" font-size="12" fill="#666" text-anchor="middle" font-family="Arial,Helvetica,sans-serif">Loading...</text></svg>');
         try {
             const parent = imgElement.parentElement;
             if (parent) {
@@ -4895,7 +4987,8 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
         try {
             const isSameOriginPath = srcHint.startsWith('/') || srcHint.indexOf(window.location.hostname) !== -1 || srcHint.startsWith(window.location.origin);
             const isIconsPath = srcHint.indexOf('/assets/icons/') !== -1;
-            if (isSameOriginPath && isIconsPath) {
+            const isDefaultsPath = srcHint.indexOf('/assets/defaults/') !== -1;
+            if (isSameOriginPath && (isIconsPath || isDefaultsPath)) {
                 try {
                     const parent = imgElement.parentElement;
                     if (parent) {
@@ -4921,14 +5014,14 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
                     // Provide proper SVG fallback when same-origin avatar fails to load
                     const inlineDefaultAvatar = (num) => {
                         try {
-                            const bg = '#222';
-                            const mid = '#444';
+                            const bg = '#f0f0f0';
+                            const mid = '#cccccc';
                             const rect = `<rect width="100" height="100" fill="${bg}" />`;
                             const circ = `<circle cx="50" cy="40" r="20" fill="${mid}" />`;
                             const bar = `<rect x="15" y="65" width="70" height="18" rx="9" fill="${mid}" />`;
-                            const label = `<text x="50" y="54" font-size="22" fill="#ddd" text-anchor="middle" font-family="Arial,Helvetica,sans-serif">J${num}</text>`;
+                            const label = `<text x="50" y="54" font-size="22" fill="#666" text-anchor="middle" font-family="Arial,Helvetica,sans-serif">J${num}</text>`;
                             const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>${rect}${circ}${bar}${label}</svg>`;
-                            return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+                            return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
                         } catch (e) { return ''; }
                     };
                     try {
@@ -5035,14 +5128,14 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
                 // Provide proper SVG fallback when default avatar fails to load
                 const inlineDefaultAvatar = (num) => {
                     try {
-                        const bg = '#222';
-                        const mid = '#444';
+                        const bg = '#f0f0f0';
+                        const mid = '#cccccc';
                         const rect = `<rect width="100" height="100" fill="${bg}" />`;
                         const circ = `<circle cx="50" cy="40" r="20" fill="${mid}" />`;
                         const bar = `<rect x="15" y="65" width="70" height="18" rx="9" fill="${mid}" />`;
-                        const label = `<text x="50" y="54" font-size="22" fill="#ddd" text-anchor="middle" font-family="Arial,Helvetica,sans-serif">J${num}</text>`;
+                        const label = `<text x="50" y="54" font-size="22" fill="#666" text-anchor="middle" font-family="Arial,Helvetica,sans-serif">J${num}</text>`;
                         const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>${rect}${circ}${bar}${label}</svg>`;
-                        return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+                        return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
                     } catch (e) { return ''; }
                 };
                 try {
@@ -5086,6 +5179,8 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
             if (m && m.byLower) {
                 const candidates = [];
                 const pushIf = (fname) => { if (fname && !candidates.includes(fname)) candidates.push(fname); };
+                // Add player's default avatar first
+                pushIf(`/assets/defaults/jugador${playerNumber}_avatar.jpg` + cacheBuster);
                 // common variants to check in order
                 const variants = [ 
                     `${name.toUpperCase()}_avatar.jpg`, 
@@ -5114,6 +5209,7 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
 
         // Fallback: build likely paths (existing behavior) if manifest absent
         return [
+            `/assets/defaults/jugador${playerNumber}_avatar.jpg`,
             `/assets/icons/${name.toUpperCase()}_avatar.jpg`, // Primary: normalized uppercase
             `/assets/icons/${name.toUpperCase()}.jpg`, // Backward compatibility: uppercase without suffix
             `/assets/icons/${spacelessLower}_avatar.jpg`,
@@ -5122,7 +5218,6 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
             `/assets/icons/${pascal}_avatar.jpg`,
             `/assets/icons/${name}.jpg`, // Backward compatibility: original case without suffix
             `/assets/icons/${lower}.jpg`, // Backward compatibility: lowercase without suffix
-            `/assets/defaults/jugador${playerNumber}_avatar.jpg`
         ].map(u => u + cacheBuster);
     })();
 
@@ -5150,7 +5245,7 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
         const testSrc = list[idx];
         try { console.debug('[AVATAR PROBE] trying', testSrc, 'for', displayName, internalPlayerName); } catch (e) {}
         // Use neutral SVG placeholder while probing so we don't display server HTML fallbacks
-        const svgPlaceholder = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#222" /><circle cx="50" cy="40" r="20" fill="#444" /></svg>');
+        const svgPlaceholder = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#f0f0f0" /><circle cx="50" cy="40" r="20" fill="#cccccc" /><text x="50" y="78" font-size="12" fill="#666" text-anchor="middle" font-family="Arial,Helvetica,sans-serif">Loading...</text></svg>');
         try {
             const parent = imgElement.parentElement;
             if (parent) {
@@ -5192,14 +5287,14 @@ async function getPlayerIcon(imgElement, displayName, internalPlayerName, allowN
                         // Provide proper SVG fallback when probed avatar fails to load
                         const inlineDefaultAvatar = (num) => {
                             try {
-                                const bg = '#222';
-                                const mid = '#444';
+                                const bg = '#f0f0f0';
+                                const mid = '#cccccc';
                                 const rect = `<rect width="100" height="100" fill="${bg}" />`;
                                 const circ = `<circle cx="50" cy="40" r="20" fill="${mid}" />`;
                                 const bar = `<rect x="15" y="65" width="70" height="18" rx="9" fill="${mid}" />`;
-                                const label = `<text x="50" y="54" font-size="22" fill="#ddd" text-anchor="middle" font-family="Arial,Helvetica,sans-serif">J${num}</text>`;
+                                const label = `<text x="50" y="54" font-size="22" fill="#666" text-anchor="middle" font-family="Arial,Helvetica,sans-serif">J${num}</text>`;
                                 const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>${rect}${circ}${bar}${label}</svg>`;
-                                return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+                                return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
                             } catch (e) { return ''; }
                         };
                         try {
@@ -5341,7 +5436,7 @@ function updatePlayersUI() {
             // If we previously assigned a specific avatar for this player, use it
             const assigned = window.avatarAssigned && (window.avatarAssigned[playerData.name] || window.avatarAssigned[playerData.displayName] || window.avatarAssigned[(playerData.displayName || '').toLowerCase()]);
             // Small inline SVG placeholder (background fallback) - visible if image fails
-            const svgPlaceholder = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+            const svgPlaceholder = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
                 '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
                 '<rect width="100" height="100" fill="#222" />' +
                 '<circle cx="50" cy="40" r="20" fill="#444" />' +
@@ -5366,7 +5461,7 @@ function updatePlayersUI() {
                     quickNum = slotMatch[1];
                 }
 
-                const quickDefault = `/assets/defaults/jugador${quickNum}_avatar.jpg`;
+                const quickDefault = `/assets/defaults/jugador${quickNum}_avatar.jpg?v=${Date.now()}`;
                 avatarDiv.style.backgroundImage = `url(${quickDefault}), url(${svgPlaceholder})`;
                 try { avatarDiv.style.setProperty('background-image', `url(${quickDefault}), url(${svgPlaceholder})`, 'important'); } catch (e) {}
                 avatarDiv.style.backgroundSize = 'cover';
@@ -5473,7 +5568,7 @@ function updatePlayersUI() {
 
             try {
                 // Ensure parent shows something immediately (svg placeholder behind data URI)
-                const svgPlaceholder = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+                const svgPlaceholder = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
                     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
                     '<rect width="100" height="100" fill="#222" />' +
                     '<circle cx="50" cy="40" r="20" fill="#444" />' +
@@ -5555,7 +5650,7 @@ function updatePlayersUI() {
             const defaultAvatarUrl = `/assets/defaults/jugador${playerNum}_avatar.jpg?v=${Date.now()}`;
 
             // Set background to default avatar immediately with fallback
-            const svgFallback = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+            const svgFallback = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
                 '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
                 '<rect width="100" height="100" fill="#222" />' +
                 '<circle cx="50" cy="40" r="20" fill="#444" />' +
@@ -5565,6 +5660,7 @@ function updatePlayersUI() {
             );
 
             avatarDiv.style.backgroundImage = `url(${defaultAvatarUrl}), url(${svgFallback})`;
+            try { avatarDiv.style.setProperty('background-image', `url(${defaultAvatarUrl}), url(${svgFallback})`, 'important'); } catch (e) {}
             avatarDiv.style.backgroundSize = 'cover';
             avatarDiv.style.backgroundPosition = 'center';
             avatarDiv.style.backgroundRepeat = 'no-repeat';

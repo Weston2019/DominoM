@@ -1694,6 +1694,45 @@ app.post('/save-avatar', (req, res) => {
     }
 });
 
+// Check if avatar exists for a player
+app.get('/check-avatar/:playerName', (req, res) => {
+    try {
+        const playerName = req.params.playerName;
+        if (!playerName || playerName.length < 2) {
+            return res.json({ exists: false, filename: null });
+        }
+        
+        const upperName = playerName.toUpperCase();
+        const possibleFilenames = [
+            `${upperName}_AVATAR.JPG`,
+            `${upperName}.JPG`,
+            `${playerName}_AVATAR.JPG`,
+            `${playerName}.JPG`
+        ];
+        
+        let foundFilename = null;
+        for (const filename of possibleFilenames) {
+            if (getAvatar(filename)) {
+                foundFilename = filename;
+                break;
+            }
+        }
+        
+        res.json({ 
+            exists: !!foundFilename, 
+            filename: foundFilename 
+        });
+        
+    } catch (error) {
+        console.error('❌ [AVATAR-CHECK] Error checking avatar:', error);
+        res.status(500).json({ 
+            exists: false, 
+            filename: null,
+            error: 'Internal server error' 
+        });
+    }
+});
+
 // Debug endpoint to check avatar storage status
 app.get('/debug/avatars', (req, res) => {
     try {
