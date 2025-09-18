@@ -1040,8 +1040,8 @@ if (window.innerWidth < 900) {
         handStartY = window.innerHeight - tileHeight - 10;
     }
     let handStartX = (width - handWidth) / 2;
-    // Move hand 2 tiles to the right on mobile
-    if (window.innerWidth < 900) {
+    // Move hand 2 tiles to the right ONLY in mobile portrait mode
+    if (window.innerWidth < 900 && window.matchMedia && window.matchMedia('(orientation: portrait)').matches) {
         handStartX += 2 * (tileWidth + gap);
     }
     myPlayerHand.forEach((tile, i) => {
@@ -4008,6 +4008,11 @@ savePlayerData( playerName.toUpperCase(),  avatarData,  roomId,  targetScore);
         const gameUI = document.getElementById('game-ui');
         if (lobby) lobby.style.display = 'none';
         if (gameUI) gameUI.style.display = 'block';
+        // Force canvas resize and redraw to fix hand placement bug on mobile after sign-in
+        setTimeout(() => {
+            if (typeof resizeCanvas === 'function') resizeCanvas(windowWidth, windowHeight);
+            if (typeof redraw === 'function') redraw();
+        }, 50);
         
         // Show initial waiting message only if room is not already full
         setTimeout(() => {
